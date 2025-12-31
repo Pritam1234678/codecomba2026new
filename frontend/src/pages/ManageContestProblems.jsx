@@ -183,17 +183,17 @@ export default function ManageContestProblems() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
-        <div className="flex items-center justify-between">
+      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">Manage Problems</h1>
-            <p className="text-sm text-gray-500">{contest?.name}</p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">Manage Problems</h1>
+            <p className="text-xs sm:text-sm text-gray-500">{contest?.name}</p>
           </div>
           <button
             onClick={() => navigate('/admin/contests')}
-            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 rounded-lg transition-all text-gray-300"
+            className="w-full sm:w-auto px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 rounded-lg transition-all text-gray-300 text-center"
           >
             ← Back to Contests
           </button>
@@ -204,9 +204,9 @@ export default function ManageContestProblems() {
       <div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className={`px-6 py-3 font-semibold rounded-xl shadow-lg transition-all transform hover:scale-105 ${showAddForm
-              ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-red-500/30'
-              : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-green-500/30'
+          className={`w-full sm:w-auto px-6 py-3 font-semibold rounded-xl shadow-lg transition-all transform hover:scale-105 ${showAddForm
+            ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-red-500/30'
+            : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-green-500/30'
             }`}
         >
           {showAddForm ? '✕ Cancel' : '+ Add New Problem'}
@@ -215,8 +215,8 @@ export default function ManageContestProblems() {
 
       {/* Add Problem Form */}
       {showAddForm && (
-        <form onSubmit={handleAddProblem} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 space-y-4 shadow-xl">
-          <h3 className="text-xl font-semibold text-green-400 mb-4">New Problem</h3>
+        <form onSubmit={handleAddProblem} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 shadow-xl">
+          <h3 className="text-lg sm:text-xl font-semibold text-green-400 mb-4">New Problem</h3>
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Title *</label>
@@ -243,7 +243,7 @@ export default function ManageContestProblems() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Input Format</label>
               <textarea

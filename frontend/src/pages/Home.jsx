@@ -47,16 +47,16 @@ const Home = () => {
         <div className="relative w-full">
             {/* Hero Section - Full Screen */}
             <section className="relative min-h-screen flex items-center justify-center px-4">
-                <div className="max-w-6xl mx-auto text-center">
+                <div className="max-w-6xl mx-auto text-center px-4 sm:px-6">
                     {/* Animated Headline */}
                     <motion.h1
                         initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, ease: "easeOut" }}
-                        className="text-6xl md:text-8xl font-bold mb-8 leading-tight"
+                        className="text-4xl sm:text-6xl md:text-8xl font-bold mb-8 leading-tight"
                     >
-                        <span className="inline-block mr-4" style={{ color: '#e5e5e5', textShadow: '0 0 10px rgba(255,255,255,0.2)' }}>&lt;</span>
-                        <span className="inline-block mr-4 text-green-400" style={{ textShadow: '0 0 15px rgba(74,222,128,0.3)' }}>
+                        <span className="inline-block mr-2 md:mr-4" style={{ color: '#e5e5e5', textShadow: '0 0 10px rgba(255,255,255,0.2)' }}>&lt;</span>
+                        <span className="inline-block mr-2 md:mr-4 text-green-400" style={{ textShadow: '0 0 15px rgba(74,222,128,0.3)' }}>
                             CodeCombat
                         </span>
                         <span className="inline-block" style={{ color: '#e5e5e5', textShadow: '0 0 10px rgba(255,255,255,0.2)' }}>/&gt;</span>
@@ -169,9 +169,9 @@ const Home = () => {
                 <div className="max-w-6xl mx-auto">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
                         {[
-                            { value: "500+", label: "Problems" },
-                            { value: "10K+", label: "Users" },
-                            { value: "100+", label: "Contests" },
+                            { value: "50+", label: "Problems" },
+                            { value: "100+", label: "Users" },
+                            { value: "5+", label: "Contests" },
                             { value: "99.9%", label: "Uptime" }
                         ].map((stat, index) => (
                             <motion.div
@@ -182,7 +182,7 @@ const Home = () => {
                                 transition={{ duration: 0.5, delay: index * 0.1 }}
                                 className="text-center"
                             >
-                                <div className="text-5xl md:text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-500 mb-3">
+                                <div className="text-4xl sm:text-5xl md:text-7xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-500 mb-3">
                                     {stat.value}
                                 </div>
                                 <div className="text-gray-400 text-lg uppercase tracking-widest">
@@ -203,7 +203,7 @@ const Home = () => {
                     transition={{ duration: 0.8 }}
                     className="max-w-4xl mx-auto text-center"
                 >
-                    <h2 className="text-5xl md:text-7xl font-bold mb-8 text-white">
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold mb-6 sm:mb-8 text-white">
                         Ready to <span className="bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-500">dominate</span>?
                     </h2>
                     <p className="text-2xl text-gray-300 mb-12 font-light">

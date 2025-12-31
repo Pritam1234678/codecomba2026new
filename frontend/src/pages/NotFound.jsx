@@ -134,18 +134,18 @@ export default function NotFound() {
             </div>
 
             {/* Content Overlay */}
-            <div className="relative z-10 text-center px-4 max-w-2xl">
+            <div className="relative z-10 text-center px-4 sm:px-6 max-w-2xl">
                 {/* Glassmorphism Card */}
-                <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-green-500/20 rounded-3xl p-12 shadow-2xl">
+                <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-green-500/20 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 shadow-2xl">
                     <h1
-                        className="text-8xl font-bold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-6 fade-in"
+                        className="text-5xl sm:text-6xl lg:text-8xl font-bold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4 sm:mb-6 fade-in"
                         style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.8s ease-out' }}
                     >
                         Oops!
                     </h1>
 
                     <h2
-                        className="text-3xl font-semibold text-gray-100 mb-4 fade-in"
+                        className="text-xl sm:text-2xl lg:text-3xl font-semibold text-gray-100 mb-3 sm:mb-4 fade-in"
                         style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.8s ease-out' }}
                     >
                         Page Not Found
@@ -191,7 +191,7 @@ export default function NotFound() {
                 </div>
 
                 {/* Floating Hints */}
-                <div className="mt-8 flex justify-center gap-4 text-sm text-gray-500 fade-in" style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.8s ease-out' }}>
+                <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500 fade-in" style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.8s ease-out' }}>
                     <span> Tip: Check the URL</span>
                     <span>•</span>
                     <span> Or use navigation</span>

@@ -165,26 +165,26 @@ const ContestDetail = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
-        <div className="flex justify-between items-start mb-3">
-          <h1 className="text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">{contest.name}</h1>
+      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-3 mb-3">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">{contest.name}</h1>
           {/* Countdown Timer - Right side of heading */}
           {contest.status === 'LIVE' && contest.endTime && (
             <CountdownTimer endTime={contest.endTime} />
           )}
         </div>
-        <p className="text-sm text-gray-400 mb-6">{contest.description}</p>
-        <div className="flex gap-4 text-xs text-gray-500">
+        <p className="text-xs sm:text-sm text-gray-400 mb-4 sm:mb-6">{contest.description}</p>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-xs text-gray-500">
           <div className="bg-white/10 px-3 py-1.5 rounded">Start: {new Date(contest.startTime).toLocaleString()}</div>
           <div className="bg-white/10 px-3 py-1.5 rounded">End: {new Date(contest.endTime).toLocaleString()}</div>
         </div>
       </div>
 
       {/* Problems */}
-      <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-        <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-6">Problems</h2>
+      <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
+        <h2 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4 sm:mb-6">Problems</h2>
         <div className="space-y-4">
           {problems.length === 0 ? (
             <div className="text-center py-8 text-gray-500">No problems released yet</div>
@@ -198,33 +198,35 @@ const ContestDetail = () => {
                   key={problem.id}
                   whileHover={{ y: -2 }}
                   transition={{ duration: 0.2, ease: 'easeOut' }}
-                  className="bg-white/5 border border-white/10 p-6 rounded-xl hover:border-green-500/30 transition-all flex justify-between items-center"
+                  className="bg-white/5 border border-white/10 p-4 sm:p-6 rounded-xl hover:border-green-500/30 transition-all"
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-200">
-                        {String.fromCharCode(65 + index)}. {problem.title}
-                      </h3>
-                      {hasSubmission && (
-                        <span className={`text-xs font-medium px-2.5 py-1 rounded border ${getStatusColor(submission.status)}`}>
-                          {submission.status}
-                        </span>
-                      )}
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-200">
+                          {String.fromCharCode(65 + index)}. {problem.title}
+                        </h3>
+                        {hasSubmission && (
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded border ${getStatusColor(submission.status)}`}>
+                            {submission.status}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2 sm:gap-4 text-xs text-gray-500">
+                        <span>Time: {problem.timeLimit}s</span>
+                        <span>Memory: {problem.memoryLimit}MB</span>
+                      </div>
                     </div>
-                    <div className="flex gap-4 text-xs text-gray-500">
-                      <span>Time: {problem.timeLimit}s</span>
-                      <span>Memory: {problem.memoryLimit}MB</span>
-                    </div>
+                    <Link
+                      to={`/problems/${problem.id}`}
+                      className={`w-full sm:w-auto text-center font-medium px-6 py-2.5 sm:py-2 rounded-xl transition-all ${hasSubmission
+                        ? 'bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-500/50 text-blue-400'
+                        : 'bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 hover:border-green-500/50 text-green-400'
+                        }`}
+                    >
+                      {hasSubmission ? 'View →' : 'Solve →'}
+                    </Link>
                   </div>
-                  <Link
-                    to={`/problems/${problem.id}`}
-                    className={`font-medium px-6 py-2 rounded transition-all ${hasSubmission
-                      ? 'bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-500/50 text-blue-400'
-                      : 'bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 hover:border-green-500/50 text-green-400'
-                      }`}
-                  >
-                    {hasSubmission ? 'View →' : 'Solve →'}
-                  </Link>
                 </motion.div>
               );
             })

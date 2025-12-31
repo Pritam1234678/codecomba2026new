@@ -47,7 +47,7 @@ function App() {
         <Route path="/admin/problems/:id/testcases" element={<div className="container mx-auto px-4 py-8 flex-1"><AdminRoute><ManageTestCases /></AdminRoute></div>} />
         <Route path="/admin/leaderboard" element={<div className="container mx-auto px-4 py-8 flex-1"><AdminRoute><Leaderboard /></AdminRoute></div>} />
         <Route path="/admin/leaderboard/:contestId" element={<div className="container mx-auto px-4 py-8 flex-1"><AdminRoute><ContestLeaderboard /></AdminRoute></div>} />
-        <Route path="/admin/platform-details" element={<div className="container mx-auto px-4 py-8 flex-1"><AdminRoute><PlatformDetails /></AdminRoute></div>} />
+
 
         {/* User Routes */}
         <Route path="/dashboard" element={<div className="container mx-auto px-4 py-8 flex-1"><UserRoute><UserDashboard /></UserRoute></div>} />
@@ -55,6 +55,7 @@ function App() {
         <Route path="/contests" element={<div className="container mx-auto px-4 py-8 flex-1"><UserRoute><ContestList /></UserRoute></div>} />
         <Route path="/contests/:id" element={<div className="container mx-auto px-4 py-8 flex-1"><UserRoute><ContestDetail /></UserRoute></div>} />
         <Route path="/problems/:id" element={<div className="flex-1  px-14 py-8    "><UserRoute><ProblemSolve /></UserRoute></div>} />
+        <Route path="/platform-details" element={<div className="container mx-auto px-4 py-8 flex-1"><UserRoute><PlatformDetails /></UserRoute></div>} />
 
         {/* 404 Not Found - Catch all unknown routes */}
         <Route path="*" element={<NotFound />} />

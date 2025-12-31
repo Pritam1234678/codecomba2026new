@@ -19,7 +19,7 @@ const PlatformDetails = () => {
         techStack: {
             frontend: ['React', 'Vite', 'TailwindCSS', 'Framer Motion', 'GSAP'],
             backend: ['Spring Boot', 'Java', 'MySQL', 'Spring Security', 'JWT'],
-            deployment: ['Docker', 'Nginx']
+            deployment: ['Docker', 'Nginx', 'AWS']
         },
         statistics: {
             totalProblems: '50+',
@@ -30,19 +30,19 @@ const PlatformDetails = () => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
             {/* Header */}
-            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
-                <div className="flex items-center justify-between">
+            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-2">
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-2">
                             Platform Details
                         </h1>
-                        <p className="text-gray-500 text-sm">Complete information about the platform</p>
+                        <p className="text-gray-500 text-xs sm:text-sm">Complete information about the platform</p>
                     </div>
                     <button
                         onClick={() => navigate('/admin/dashboard')}
-                        className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-gray-300 rounded-xl transition-all"
+                        className="w-full sm:w-auto px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-gray-300 rounded-xl transition-all text-center"
                     >
                         ← Back to Dashboard
                     </button>
@@ -50,8 +50,8 @@ const PlatformDetails = () => {
             </div>
 
             {/* Platform Overview */}
-            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-                <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Platform Overview</h2>
+            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
+                <h2 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Platform Overview</h2>
                 <div className="space-y-4">
                     <div>
                         <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Platform Name</div>
@@ -69,7 +69,7 @@ const PlatformDetails = () => {
             </div>
 
             {/* Features */}
-            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
+            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
                 <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Key Features</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {platformInfo.features.map((feature, index) => (
@@ -91,7 +91,7 @@ const PlatformDetails = () => {
                         <div className="text-sm font-semibold text-gray-400 mb-3">Frontend</div>
                         <div className="space-y-2">
                             {platformInfo.techStack.frontend.map((tech, index) => (
-                                <div key={index} className="px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400 text-sm">
+                                <div key={index} className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-300 text-sm">
                                     {tech}
                                 </div>
                             ))}
@@ -101,7 +101,7 @@ const PlatformDetails = () => {
                         <div className="text-sm font-semibold text-gray-400 mb-3">Backend</div>
                         <div className="space-y-2">
                             {platformInfo.techStack.backend.map((tech, index) => (
-                                <div key={index} className="px-3 py-2 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-sm">
+                                <div key={index} className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-300 text-sm">
                                     {tech}
                                 </div>
                             ))}
@@ -111,7 +111,7 @@ const PlatformDetails = () => {
                         <div className="text-sm font-semibold text-gray-400 mb-3">Deployment</div>
                         <div className="space-y-2">
                             {platformInfo.techStack.deployment.map((tech, index) => (
-                                <div key={index} className="px-3 py-2 bg-purple-500/10 border border-purple-500/20 rounded-lg text-purple-400 text-sm">
+                                <div key={index} className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-300 text-sm">
                                     {tech}
                                 </div>
                             ))}
@@ -163,7 +163,7 @@ const PlatformDetails = () => {
                             </svg>
                             <div className="text-sm font-semibold text-gray-400">Database</div>
                         </div>
-                        <div className="text-blue-400 font-medium">MySQL 8.0</div>
+                        <div className="text-gray-300 font-medium">MySQL 8.0</div>
                     </div>
                     <div className="p-4 bg-white/5 rounded-xl border border-white/10">
                         <div className="flex items-center gap-3 mb-2">
@@ -172,7 +172,7 @@ const PlatformDetails = () => {
                             </svg>
                             <div className="text-sm font-semibold text-gray-400">Security</div>
                         </div>
-                        <div className="text-purple-400 font-medium">JWT + Spring Security</div>
+                        <div className="text-gray-300 font-medium">JWT + Spring Security</div>
                     </div>
                     <div className="p-4 bg-white/5 rounded-xl border border-white/10">
                         <div className="flex items-center gap-3 mb-2">
@@ -181,7 +181,7 @@ const PlatformDetails = () => {
                             </svg>
                             <div className="text-sm font-semibold text-gray-400">Performance</div>
                         </div>
-                        <div className="text-yellow-400 font-medium">Optimized</div>
+                        <div className="text-gray-300 font-medium">Optimized</div>
                     </div>
                 </div>
             </div>

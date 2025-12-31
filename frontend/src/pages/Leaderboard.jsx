@@ -48,12 +48,12 @@ const Leaderboard = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
-        <h1 className="text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
+      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">
           Leaderboard
         </h1>
-        <p className="text-sm text-gray-500">Select a contest to view rankings</p>
+        <p className="text-xs sm:text-sm text-gray-500">Select a contest to view rankings</p>
       </div>
 
       {error && (
@@ -64,7 +64,7 @@ const Leaderboard = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {contests.length === 0 ? (
-          <div className="col-span-full bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-12 text-center shadow-xl">
+          <div className="col-span-full bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 text-center shadow-xl">
             <p className="text-gray-500">No contests available</p>
           </div>
         ) : (
@@ -76,7 +76,7 @@ const Leaderboard = () => {
               className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 hover:border-white/30 transition-all shadow-xl hover:shadow-2xl flex flex-col"
             >
               <div className="flex-1">
-                <h3 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-3">{contest.name}</h3>
+                <h3 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-3">{contest.name}</h3>
                 <p className="text-sm text-gray-400 mb-4 min-h-[40px]">{contest.description || 'No description'}</p>
 
                 <div className="space-y-1 text-xs text-gray-500 mb-6">

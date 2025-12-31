@@ -64,11 +64,11 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
       {/* Header Section */}
-      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm border border-white/20 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
+      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm border border-white/20 rounded-xl flex items-center justify-center shadow-lg overflow-hidden shrink-0">
             {adminProfile?.photoUrl ? (
               <img
                 src={adminProfile.photoUrl}
@@ -82,28 +82,28 @@ const AdminDashboard = () => {
             )}
           </div>
           <div className="flex-1">
-            <h1 className="text-3xl font-semibold mb-1 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold mb-1 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">
               Admin Dashboard
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-xs sm:text-sm text-gray-500">
               Logged in as <span className="text-gray-300 font-medium">{adminProfile?.username}</span>
             </p>
           </div>
-          <div className="text-right flex items-center gap-4">
+          <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
             <Link
               to="/profile/edit"
-              className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg shadow-green-500/30 transition-all transform hover:scale-105 flex items-center gap-2"
+              className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-sm sm:text-base font-semibold rounded-xl shadow-lg shadow-green-500/30 transition-all transform hover:scale-105 flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               Edit Profile
             </Link>
-            <div>
+            <div className="sm:text-right">
               <div className="text-xs font-medium bg-linear-to-r from-white/10 to-red-900 bg-clip-text text-transparent uppercase tracking-wide mb-1">Role</div>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-                <span className="text-sm bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent font-medium">Administrator</span>
+                <span className="text-xs sm:text-sm bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent font-medium">Administrator</span>
               </div>
             </div>
           </div>
@@ -111,9 +111,9 @@ const AdminDashboard = () => {
       </div>
 
       {/* Profile Card */}
-      <div ref={profileRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-        <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Profile Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div ref={profileRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
+        <h2 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-3 sm:mb-4">Profile Information</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Email</div>
             <div className="text-sm text-gray-300 font-mono">{adminProfile?.email || '—'}</div>
@@ -134,10 +134,10 @@ const AdminDashboard = () => {
       </div>
 
       {/* Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl hover:border-white/30 transition-all">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl hover:border-white/30 transition-all">
           <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Total Users</div>
-          <div className="text-3xl font-bold text-gray-100">{userStats.total}</div>
+          <div className="text-2xl sm:text-3xl font-bold text-gray-100">{userStats.total}</div>
         </div>
         <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl hover:border-white/30 transition-all">
           <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Enabled Users</div>
@@ -154,9 +154,9 @@ const AdminDashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <div ref={actionsRef} className="bg-linear-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-        <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 ">
+      <div ref={actionsRef} className="bg-linear-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
+        <h2 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-3 sm:mb-4">Quick Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Link
             to="/admin/users"
             className="bg-white/5 backdrop-blur-sm border border-white/20 hover:border-white/30 rounded-xl p-4 transition-all hover:shadow-lg hover:scale-105 hover:shadow-green-500/30"
@@ -179,7 +179,7 @@ const AdminDashboard = () => {
             <div className="text-xs text-gray-500">View rankings</div>
           </Link>
           <Link
-            to="/admin/platform-details"
+            to="/platform-details"
             className="bg-white/5 backdrop-blur-sm border border-white/20 hover:border-white/30 rounded-xl p-4 transition-all hover:shadow-lg hover:scale-105 hover:shadow-green-500/30 "
           >
             <div className="text-gray-100 font-medium mb-1">Platform Details</div>

@@ -461,7 +461,7 @@ const ProblemSolve = () => {
     }
 
     return (
-        <div className="h-[calc(100vh-5rem)] flex flex-col md:flex-row gap-4 overflow-hidden relative">
+        <div className="flex flex-col md:flex-row gap-4 relative md:h-[calc(100vh-5rem)] md:overflow-hidden">
             {/* Contest Status Banner */}
             {showStatusBanner && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -623,8 +623,8 @@ const ProblemSolve = () => {
             {/* Right Pane: Editor */}
             <div className={`transition-all duration-300 ease-in-out flex flex-col gap-4 ${isProblemCollapsed ? 'w-full md:w-[calc(100%-4rem)]' : 'w-full md:w-2/3'
                 }`}>
-                <div className="bg-code-black border border-code-gray rounded-lg flex-1 flex flex-col overflow-hidden">
-                    <div className="bg-code-dark border-b border-code-gray p-3 flex justify-between items-center">
+                <div className="bg-code-black border border-code-gray rounded-lg flex-1 flex flex-col overflow-hidden min-h-[500px] md:min-h-0">
+                    <div className="bg-code-dark border-b border-code-gray p-3 flex flex-wrap gap-3 justify-between items-center">
                         <select
                             className="bg-code-gray text-white border-none rounded px-3 py-1 text-sm focus:ring-1 focus:ring-code-green"
                             value={language}
@@ -637,7 +637,7 @@ const ProblemSolve = () => {
                             <option value="JAVASCRIPT">JavaScript</option>
                         </select>
 
-                        <div className="flex gap-3 items-center">
+                        <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-end flex-1">
                             {/* Countdown Timer - Next to language selector */}
                             {timeRemaining && contestStatus.endTime && (
                                 <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-1.5">
@@ -651,8 +651,8 @@ const ProblemSolve = () => {
                             )}
 
                             {hasExistingSubmission && (
-                                <div className="bg-linear-to-r from-emerald-500 to-teal-600 text-white text-[10px] font-bold px-3 py-1 rounded shadow-sm cursor-default flex items-center gap-1 uppercase tracking-wider">
-                                    <span>✓ Already Submitted</span>
+                                <div className="hidden sm:flex bg-linear-to-r from-emerald-500 to-teal-600 text-white text-[10px] font-bold px-3 py-1 rounded shadow-sm cursor-default items-center gap-1 uppercase tracking-wider">
+                                    <span>✓ Submitted</span>
                                 </div>
                             )}
 
@@ -661,18 +661,20 @@ const ProblemSolve = () => {
                                 <button
                                     onClick={handlePreviousProblem}
                                     disabled={currentIndex < 0 || currentIndex === 0 || allProblems.length === 0}
-                                    className="relative bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 hover:border-white/30 text-white font-bold px-6 py-1.5 rounded text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
+                                    className="relative bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 hover:border-white/30 text-white font-bold px-4 sm:px-6 py-1.5 rounded text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
                                     title="Previous Problem"
                                 >
-                                    <span>← Previous</span>
+                                    <span className="hidden sm:inline">← Previous</span>
+                                    <span className="sm:hidden">←</span>
                                 </button>
                                 <button
                                     onClick={handleNextProblem}
                                     disabled={currentIndex < 0 || currentIndex >= allProblems.length - 1 || allProblems.length === 0}
-                                    className="relative bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 hover:border-white/30 text-white font-bold px-6 py-1.5 rounded text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
+                                    className="relative bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 hover:border-white/30 text-white font-bold px-4 sm:px-6 py-1.5 rounded text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
                                     title="Next Problem"
                                 >
-                                    <span>Next →</span>
+                                    <span className="hidden sm:inline">Next →</span>
+                                    <span className="sm:hidden">→</span>
                                 </button>
                             </div>
 
@@ -680,16 +682,36 @@ const ProblemSolve = () => {
                                 <button
                                     onClick={handleRun}
                                     disabled={running || submitting}
-                                    className="relative bg-gradient-to-br from-blue-500 to-blue-700 text-white font-bold px-6 py-1.5 rounded text-sm hover:from-blue-400 hover:to-blue-600 transition-all disabled:opacity-50 shadow-lg overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/20 before:to-transparent before:opacity-0 hover:before:opacity-100 before:transition-opacity"
+                                    className="relative bg-gradient-to-br from-blue-500 to-blue-700 text-white font-bold px-4 sm:px-6 py-1.5 rounded text-sm hover:from-blue-400 hover:to-blue-600 transition-all disabled:opacity-50 shadow-lg overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/20 before:to-transparent before:opacity-0 hover:before:opacity-100 before:transition-opacity"
                                 >
-                                    {running ? 'Running...' : '▶ Run'}
+                                    {running ? (
+                                        <>
+                                            <span className="hidden sm:inline">Running...</span>
+                                            <span className="sm:hidden">...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="hidden sm:inline">▶ Run</span>
+                                            <span className="sm:hidden">▶</span>
+                                        </>
+                                    )}
                                 </button>
                                 <button
                                     onClick={handleSubmit}
                                     disabled={submitting || running}
-                                    className="relative bg-gradient-to-br from-green-500 to-green-700 text-white font-bold px-6 py-1.5 rounded text-sm hover:from-green-400 hover:to-green-600 transition-all disabled:opacity-50 shadow-lg overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/20 before:to-transparent before:opacity-0 hover:before:opacity-100 before:transition-opacity"
+                                    className="relative bg-gradient-to-br from-green-500 to-green-700 text-white font-bold px-4 sm:px-6 py-1.5 rounded text-sm hover:from-green-400 hover:to-green-600 transition-all disabled:opacity-50 shadow-lg overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/20 before:to-transparent before:opacity-0 hover:before:opacity-100 before:transition-opacity"
                                 >
-                                    {submitting ? 'Submitting...' : '✓ Submit'}
+                                    {submitting ? (
+                                        <>
+                                            <span className="hidden sm:inline">Submitting...</span>
+                                            <span className="sm:hidden">...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="hidden sm:inline">✓ Submit</span>
+                                            <span className="sm:hidden">✓</span>
+                                        </>
+                                    )}
                                 </button>
                             </div>
 

@@ -188,16 +188,16 @@ export default function EditProblem() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
-        <div className="flex items-center justify-between">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
+      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">Edit Problem</h1>
-            <p className="text-sm text-gray-500">Update problem details</p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">Edit Problem</h1>
+            <p className="text-xs sm:text-sm text-gray-500">Update problem details</p>
           </div>
           <button
             onClick={() => contestId ? navigate(`/admin/contests/${contestId}/problems`) : navigate('/admin/contests')}
-            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 rounded-lg transition-all text-gray-300"
+            className="w-full sm:w-auto px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 rounded-lg transition-all text-gray-300 text-center"
           >
             ← Back
           </button>
@@ -210,7 +210,7 @@ export default function EditProblem() {
         </div>
       )}
 
-      <form ref={formRef} onSubmit={handleSubmit} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-8 space-y-6 shadow-xl">
+      <form ref={formRef} onSubmit={handleSubmit} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 shadow-xl">
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">Title *</label>
           <input
@@ -237,7 +237,7 @@ export default function EditProblem() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Input Format</label>
             <textarea
@@ -273,7 +273,7 @@ export default function EditProblem() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Time Limit (ms)</label>
             <input
@@ -424,7 +424,7 @@ export default function EditProblem() {
           </div>
         </div>
 
-        <div className="flex gap-4 pt-4 border-t border-white/10">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-white/10">
           <button
             type="submit"
             disabled={saving}

@@ -101,20 +101,20 @@ const EditProfile = () => {
     }
 
     return (
-        <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl"
+                className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl"
             >
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                     <div>
-                        <h1 className="text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">
                             Edit Profile
                         </h1>
-                        <p className="text-gray-400 text-sm mt-1">Update your personal information</p>
+                        <p className="text-gray-400 text-xs sm:text-sm mt-1">Update your personal information</p>
                     </div>
                     <button
                         onClick={() => navigate('/dashboard')}
@@ -147,7 +147,7 @@ const EditProfile = () => {
                         <label className="block text-sm font-medium text-gray-300 mb-4">
                             Profile Photo
                         </label>
-                        <div className="flex items-center gap-6">
+                        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
                             {/* Photo Preview */}
                             <div className="w-24 h-24 rounded-xl overflow-hidden bg-gradient-to-br from-white/15 to-white/10 border border-white/30 flex items-center justify-center">
                                 {photoPreview || currentPhotoUrl ? (
@@ -263,7 +263,7 @@ const EditProfile = () => {
                     </div>
 
                     {/* Buttons */}
-                    <div className="flex gap-4 pt-4 border-t border-white/10">
+                    <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-white/10">
                         <button
                             type="submit"
                             disabled={saving}
@@ -274,7 +274,7 @@ const EditProfile = () => {
                         <button
                             type="button"
                             onClick={() => navigate('/dashboard')}
-                            className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-gray-300 hover:text-red-400 rounded-xl transition-all"
+                            className="w-full sm:w-auto px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-gray-300 hover:text-red-400 rounded-xl transition-all text-center"
                         >
                             Cancel
                         </button>

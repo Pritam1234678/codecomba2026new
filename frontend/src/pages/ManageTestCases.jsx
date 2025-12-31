@@ -108,17 +108,17 @@ export default function ManageTestCases() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
-        <div className="flex items-center justify-between">
+      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">Manage Test Cases</h1>
-            <p className="text-sm text-gray-500">Add and manage test cases for this problem</p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">Manage Test Cases</h1>
+            <p className="text-xs sm:text-sm text-gray-500">Add and manage test cases for this problem</p>
           </div>
           <button
             onClick={() => navigate(`/admin/problems/${id}/edit`)}
-            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 rounded-lg transition-all text-gray-300"
+            className="w-full sm:w-auto px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 rounded-lg transition-all text-gray-300 text-center"
           >
             ← Back to Problem
           </button>
@@ -127,8 +127,8 @@ export default function ManageTestCases() {
 
       {/* Add/Edit Form */}
       {showForm && (
-        <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl">
-          <h2 className="text-xl font-semibold text-green-400 mb-4">
+        <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl">
+          <h2 className="text-lg sm:text-xl font-semibold text-green-400 mb-4">
             {editingId ? 'Edit Test Case' : 'Add New Test Case'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -168,7 +168,7 @@ export default function ManageTestCases() {
               </label>
             </div>
 
-            <div className="flex gap-4 pt-4 border-t border-white/10">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-white/10">
               <button
                 type="submit"
                 className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-green-500/30 transition-all transform hover:scale-105"
@@ -191,7 +191,7 @@ export default function ManageTestCases() {
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg shadow-green-500/30 transition-all transform hover:scale-105"
+          className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg shadow-green-500/30 transition-all transform hover:scale-105"
         >
           + Add New Test Case
         </button>
@@ -205,7 +205,7 @@ export default function ManageTestCases() {
 
         <div className="space-y-4">
           {testCases.length === 0 ? (
-            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-12 text-center shadow-xl">
+            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 text-center shadow-xl">
               <p className="text-gray-500">No test cases added yet</p>
             </div>
           ) : (
@@ -216,7 +216,7 @@ export default function ManageTestCases() {
                 transition={{ duration: 0.2, ease: 'easeOut' }}
                 className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 hover:border-white/30 transition-all shadow-xl hover:shadow-2xl"
               >
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-4">
                       <h3 className="text-lg font-semibold text-green-400">Test Case #{index + 1}</h3>
@@ -231,7 +231,7 @@ export default function ManageTestCases() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <h4 className="text-xs font-medium text-gray-500 mb-2">Input:</h4>
                         <pre className="bg-[#2a2a2a] p-3 rounded border border-[#3a3a3a] text-sm text-gray-300 overflow-x-auto font-mono">
@@ -247,7 +247,7 @@ export default function ManageTestCases() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-2 ml-4">
+                  <div className="flex flex-col sm:flex-col gap-2 w-full sm:w-auto sm:ml-4">
                     <button
                       onClick={() => handleEdit(testCase)}
                       className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-gray-300 hover:text-green-400 rounded-lg transition-all font-medium"

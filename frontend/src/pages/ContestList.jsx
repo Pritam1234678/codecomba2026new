@@ -100,19 +100,19 @@ const ContestList = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
-        <h1 className="text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">
+      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">
           Contest Arena
         </h1>
-        <p className="text-sm text-gray-500">Choose a contest and start solving problems</p>
+        <p className="text-xs sm:text-sm text-gray-500">Choose a contest and start solving problems</p>
       </div>
 
       {/* Contests Grid */}
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {contests.length === 0 ? (
-          <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-12 text-center shadow-xl">
+          <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 text-center shadow-xl">
             <p className="text-gray-500">No active contests found</p>
           </div>
         ) : (
@@ -121,12 +121,12 @@ const ContestList = () => {
               key={contest.id}
               whileHover={{ y: -2, scale: 1.01 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 hover:border-white/30 transition-all shadow-xl hover:shadow-2xl"
+              className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 hover:border-white/30 transition-all shadow-xl hover:shadow-2xl"
             >
-              <div className="flex justify-between items-start mb-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h2 className="text-2xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">{contest.name}</h2>
+                    <h2 className="text-lg sm:text-xl lg:text-2xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">{contest.name}</h2>
                     <span className={`px-2.5 py-1 rounded text-xs font-medium ${contest.status === 'LIVE' ? 'bg-green-500/20 text-green-400 animate-pulse' :
                       contest.status === 'UPCOMING' ? 'bg-yellow-500/20 text-yellow-400' :
                         'bg-gray-500/20 text-gray-400'
@@ -134,7 +134,7 @@ const ContestList = () => {
                       {contest.status}
                     </span>
                   </div>
-                  <div className="flex gap-4 text-xs text-gray-500 mb-3">
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 text-xs text-gray-500 mb-3">
                     <span>Start: {new Date(contest.startTime).toLocaleString()}</span>
                     <span>End: {new Date(contest.endTime).toLocaleString()}</span>
                   </div>
@@ -142,7 +142,7 @@ const ContestList = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end items-center gap-3 pt-4 border-t border-white/10">
+              <div className="flex flex-col sm:flex-row justify-end items-stretch sm:items-center gap-3 pt-4 border-t border-white/10">
                 {/* Countdown Timer - Right side, button-sized */}
                 {contest.status === 'LIVE' && contest.endTime && (
                   <CountdownTimer endTime={contest.endTime} />
@@ -150,7 +150,7 @@ const ContestList = () => {
 
                 <Link
                   to={`/contests/${contest.id}`}
-                  className="px-6 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-500/30 transition-all transform hover:scale-105"
+                  className="w-full sm:w-auto px-6 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg shadow-green-500/30 transition-all transform hover:scale-105 text-center"
                 >
                   Enter Arena →
                 </Link>

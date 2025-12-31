@@ -73,16 +73,16 @@ const UserDashboard = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
       {/* Header Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl"
+        className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl"
       >
-        <div className="flex items-center gap-6">
-          <div className="w-16 h-16 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm border border-white/20 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm border border-white/20 rounded-xl flex items-center justify-center shadow-lg overflow-hidden shrink-0">
             {user?.photoUrl ? (
               <img
                 src={user.photoUrl}
@@ -96,16 +96,16 @@ const UserDashboard = () => {
             )}
           </div>
           <div className="flex-1">
-            <h1 className="text-3xl font-semibold mb-1 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold mb-1 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">
               {user?.fullName || user?.username}
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-xs sm:text-sm text-gray-500">
               Welcome back, <span className="text-gray-300 font-medium">{user?.username}</span>
             </p>
           </div>
           <Link
             to="/profile/edit"
-            className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg shadow-green-500/30 transition-all transform hover:scale-105 flex items-center gap-2"
+            className="w-full sm:w-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-sm sm:text-base font-semibold rounded-xl shadow-lg shadow-green-500/30 transition-all transform hover:scale-105 flex items-center justify-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -120,12 +120,12 @@ const UserDashboard = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5, delay: 0.2 }}
-        className="grid grid-cols-1 md:grid-cols-4 gap-4"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
       >
         <motion.div
           whileHover={{ scale: 1.02, y: -4 }}
           transition={{ duration: 0.2 }}
-          className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 hover:border-white/30 transition-all shadow-xl hover:shadow-2xl group"
+          className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 hover:border-white/30 transition-all shadow-xl hover:shadow-2xl group"
         >
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Submissions</div>
@@ -135,7 +135,7 @@ const UserDashboard = () => {
               </svg>
             </div>
           </div>
-          <div className="text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">{stats.total}</div>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">{stats.total}</div>
         </motion.div>
 
         <motion.div
@@ -151,7 +151,7 @@ const UserDashboard = () => {
               </svg>
             </div>
           </div>
-          <div className="text-4xl font-bold text-green-400">{stats.accepted}</div>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-green-400">{stats.accepted}</div>
         </motion.div>
 
         <motion.div
@@ -167,7 +167,7 @@ const UserDashboard = () => {
               </svg>
             </div>
           </div>
-          <div className="text-4xl font-bold text-emerald-400">{stats.successRate}%</div>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold text-emerald-400">{stats.successRate}%</div>
         </motion.div>
 
         <motion.div
@@ -183,7 +183,7 @@ const UserDashboard = () => {
               </svg>
             </div>
           </div>
-          <div className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">{stats.problemsSolved}</div>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">{stats.problemsSolved}</div>
         </motion.div>
       </motion.div>
 
@@ -192,10 +192,10 @@ const UserDashboard = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.4 }}
-        className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl"
+        className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl"
       >
-        <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Profile Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <h2 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-3 sm:mb-4">Profile Information</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Email</div>
             <div className="text-sm text-gray-300 font-mono">{user?.email || '—'}</div>
@@ -220,10 +220,10 @@ const UserDashboard = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.6 }}
-        className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl overflow-hidden shadow-2xl"
+        className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl"
       >
-        <div className="p-6 border-b border-white/10">
-          <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">Recent Submissions</h2>
+        <div className="p-4 sm:p-6 border-b border-white/10">
+          <h2 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">Recent Submissions</h2>
         </div>
 
         {submissions.length === 0 ? (
@@ -241,9 +241,7 @@ const UserDashboard = () => {
             <table className="w-full">
               <thead className="bg-[#151515] border-b border-[#2a2a2a]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Problem
-                  </th>
+
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Language
                   </th>
@@ -271,14 +269,7 @@ const UserDashboard = () => {
                     whileHover={{ x: 3, backgroundColor: '#1f1f1f' }}
                     className="transition-colors"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Link
-                        to={`/problems/${submission.problemId}`}
-                        className="text-sm font-mono text-green-400 hover:text-green-300 transition-colors"
-                      >
-                        #{submission.problemId}
-                      </Link>
-                    </td>
+
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-gray-400 font-mono">
                         {submission.language}
