@@ -1,0 +1,27 @@
+# Application properties with secrets
+src/main/resources/application.properties
+
+# Build files
+target/
+bin/
+build/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# Node modules
+node_modules/
+frontend/node_modules/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Keys
+*.pem
+codecombat-key.pem
