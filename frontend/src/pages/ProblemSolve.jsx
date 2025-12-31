@@ -846,55 +846,10 @@ const ProblemSolve = () => {
                             cursorStyle: 'line',
                             cursorWidth: 2,
 
-                            // Minimap Enhancements
-                            minimap: {
-                                enabled: true,
-                                scale: 1,
-                                showSlider: 'mouseover',
-                                renderCharacters: true,
-                                maxColumn: 120,
-                                side: 'right'
-                            },
-
                             // Inline Suggestions (Copilot-like)
                             inlineSuggest: {
                                 enabled: true,
                                 mode: 'prefix'
-                            },
-
-                            // Advanced Suggestions (merged with existing)
-                            suggest: {
-                                showKeywords: true,
-                                showSnippets: true,
-                                showClasses: true,
-                                showFunctions: true,
-                                showVariables: true,
-                                showModules: true,
-                                showProperties: true,
-                                showMethods: true,
-                                showConstructors: true,
-                                showFields: true,
-                                showInterfaces: true,
-                                showEnums: true,
-                                showConstants: true,
-                                showStructs: true,
-                                showEvents: true,
-                                showOperators: true,
-                                showTypeParameters: true,
-                                insertMode: 'replace',
-                                snippetsPreventQuickSuggestions: false,
-                                showWords: true,
-                                showColors: true,
-                                showFiles: true,
-                                showReferences: true,
-                                showFolders: true,
-                                showUnits: true,
-                                showValues: true,
-                                filterGraceful: true,
-                                localityBonus: true,
-                                shareSuggestSelections: true,
-                                showInlineDetails: true,
-                                showStatusBar: true
                             },
 
                             // Word-based Suggestions
@@ -904,15 +859,6 @@ const ProblemSolve = () => {
                             // Folding Enhancements
                             foldingHighlight: true,
                             unfoldOnClickAfterEndOfLine: true,
-
-                            // Bracket Guides (merged with existing)
-                            guides: {
-                                bracketPairs: true,
-                                indentation: true,
-                                highlightActiveIndentation: true,
-                                bracketPairsHorizontal: 'active',
-                                highlightActiveBracketPair: true
-                            },
 
                             // Selection & Highlighting
                             multiCursorMergeOverlapping: true,
@@ -941,40 +887,8 @@ const ProblemSolve = () => {
                             // Auto-closing
                             autoClosingDelete: "always",
 
-                            // Find Enhancements (merged with existing)
-                            find: {
-                                addExtraSpaceOnTop: true,
-                                autoFindInSelection: 'multiline',
-                                seedSearchStringFromSelection: 'selection',
-                                globalFindClipboard: false,
-                                loop: true
-                            },
-
-                            // Scrollbar Enhancements (merged with existing)
-                            scrollbar: {
-                                vertical: 'visible',
-                                horizontal: 'visible',
-                                useShadows: true,
-                                verticalHasArrows: false,
-                                horizontalHasArrows: false,
-                                verticalScrollbarSize: 14,
-                                horizontalScrollbarSize: 14,
-                                arrowSize: 11,
-                                handleMouseWheel: true,
-                                alwaysConsumeMouseWheel: true,
-                                scrollByPage: false
-                            },
-
                             // Gutter
                             lineDecorationsWidth: 10,
-
-                            // Hover Enhancements (merged with existing)
-                            hover: {
-                                enabled: true,
-                                delay: 300,
-                                sticky: true,
-                                above: true
-                            },
 
                             // Semantic Features
                             'semanticHighlighting.enabled': true,
