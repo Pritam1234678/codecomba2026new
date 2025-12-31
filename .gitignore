@@ -1,5 +1,3 @@
-# Application properties with secrets
-src/main/resources/application.properties
 
 # Build files
 target/
