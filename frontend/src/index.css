@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+body {
+    @apply bg-code-black text-gray-200 font-sans antialiased;
+}
+
+.code-font {
+    @apply font-mono;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    @apply bg-code-black;
+}
+::-webkit-scrollbar-thumb {
+    @apply bg-code-gray rounded-full hover:bg-gray-700;
+}
+
