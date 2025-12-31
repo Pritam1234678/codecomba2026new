@@ -57,7 +57,7 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/", "/api", "/api/health", "/api/auth/**", "/api/test/**").permitAll()
+                        .requestMatchers("/", "/api", "/api/health", "/api/auth/**", "/api/test/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll() // Allow public access to uploaded files
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/contests").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
@@ -74,13 +74,16 @@ public class SecurityConfig {
     @Bean
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
-        // Allow localhost dev origins and wildcard patterns for Vercel/ngrok HTTPS origins
+        // Allow localhost dev origins and wildcard patterns for Vercel/ngrok HTTPS
+        // origins
         configuration.setAllowedOriginPatterns(java.util.List.of(
-            "http://localhost:5173",
-            "http://localhost:3000",
-            "https://*.vercel.app",
-            "https://*.ngrok.io"
-        ));
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "https://*.vercel.app",
+                "https://*.ngrok.io",
+                "https://codecombat.live",
+                "https://www.codecombat.live",
+                "http://13.201.181.96"));
         configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(java.util.List.of("*"));
         configuration.setAllowCredentials(true);
