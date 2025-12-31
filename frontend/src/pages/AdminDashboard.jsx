@@ -71,7 +71,7 @@ const AdminDashboard = () => {
           <div className="w-16 h-16 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm border border-white/20 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
             {adminProfile?.photoUrl ? (
               <img
-                src={`http://localhost:8080${adminProfile.photoUrl}`}
+                src={adminProfile.photoUrl}
                 alt={adminProfile?.fullName || adminProfile?.username}
                 className="w-full h-full object-cover"
               />

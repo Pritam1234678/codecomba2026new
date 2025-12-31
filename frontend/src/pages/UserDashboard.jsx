@@ -85,7 +85,7 @@ const UserDashboard = () => {
           <div className="w-16 h-16 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm border border-white/20 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
             {user?.photoUrl ? (
               <img
-                src={`http://localhost:8080${user.photoUrl}`}
+                src={user.photoUrl}
                 alt={user?.fullName || user?.username}
                 className="w-full h-full object-cover"
               />

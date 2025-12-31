@@ -152,7 +152,7 @@ const EditProfile = () => {
                             <div className="w-24 h-24 rounded-xl overflow-hidden bg-gradient-to-br from-white/15 to-white/10 border border-white/30 flex items-center justify-center">
                                 {photoPreview || currentPhotoUrl ? (
                                     <img
-                                        src={photoPreview || `http://localhost:8080${currentPhotoUrl}`}
+                                        src={photoPreview || currentPhotoUrl}
                                         alt="Profile"
                                         className="w-full h-full object-cover"
                                     />
