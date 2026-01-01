@@ -221,10 +221,10 @@ const Support = () => {
                             Having trouble with registration, team formation, or need to update your information?
                         </p>
                         <a
-                            href="mailto:mandalpritam756@gmail.com"
+                            href="mailto:support@codecombat.live"
                             className="block text-center text-green-400 hover:text-green-300 font-medium transition-colors"
                         >
-                            mandalpritam756@gmail.com
+                            support@codecombat.live
                         </a>
                     </motion.div>
 
@@ -247,10 +247,10 @@ const Support = () => {
                             Questions about rules, prizes, event schedule, or anything else about CodeCombat?
                         </p>
                         <a
-                            href="mailto:mandalpritam756@gmail.com"
+                            href="mailto:support@codecombat.live"
                             className="block text-center text-green-400 hover:text-green-300 font-medium transition-colors"
                         >
-                            mandalpritam756@gmail.com
+                            support@codecombat.live
                         </a>
                     </motion.div>
                 </div>

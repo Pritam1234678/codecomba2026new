@@ -62,7 +62,7 @@ public class EmailService {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
 
-            helper.setTo("mandalpritam756@gmail.com");
+            helper.setTo("support@codecombat.live");
             helper.setSubject("CodeCombat Support Request from " + name);
             helper.setReplyTo(fromEmail);
 
