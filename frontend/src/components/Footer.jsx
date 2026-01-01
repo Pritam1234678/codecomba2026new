@@ -15,7 +15,7 @@ const Footer = () => {
     const isAdmin = currentUser && currentUser.roles && currentUser.roles.includes('ROLE_ADMIN');
 
     return (
-        <footer className="bg-[#0a0a0a] border-t border-[#1a1a1a] mt-auto">
+        <footer className="bg-gradient-to-b from-black/50 to-black border-t border-[#1a1a1a] mt-auto w-full">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Brand Section */}

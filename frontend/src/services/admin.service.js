@@ -17,6 +17,10 @@ const disableUser = (id) => {
   return api.put(`/admin/users/${id}/disable`);
 };
 
+const deleteUser = (id) => {
+  return api.delete(`/admin/users/${id}`);
+};
+
 // Contest Management
 const getAllContestsAdmin = () => {
   return api.get('/admin/contests');
@@ -64,6 +68,7 @@ const AdminService = {
   getUserStats,
   enableUser,
   disableUser,
+  deleteUser,
   getAllContestsAdmin,
   getContestStats,
   createContest,

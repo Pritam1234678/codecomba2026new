@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import AdminRoute from './components/AdminRoute';
@@ -22,11 +23,40 @@ import ContestLeaderboard from './pages/ContestLeaderboard';
 import UserDashboard from './pages/UserDashboard';
 import EditProfile from './pages/EditProfile';
 import PlatformDetails from './pages/PlatformDetails';
+import Support from './pages/Support';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
 import React from 'react';
+import api from './services/api';
 
 function App() {
+  const location = useLocation();
+
+  // Check account status on every route change (except Support page)
+  useEffect(() => {
+    const checkAccountStatus = async () => {
+      // Skip check for Support page and public pages
+      if (location.pathname === '/support' ||
+        location.pathname === '/login' ||
+        location.pathname === '/register' ||
+        location.pathname === '/') {
+        return;
+      }
+
+      const user = JSON.parse(localStorage.getItem('user'));
+      if (!user || !user.token) return;
+
+      try {
+        // Make a lightweight API call to trigger interceptor
+        await api.get('/user/profile');
+      } catch (error) {
+        // Interceptor will handle account disabled error
+      }
+    };
+
+    checkAccountStatus();
+  }, [location.pathname]);
+
   return (
     <div className="min-h-screen bg-linear-to-br from-black via-green-950/30 to-black text-gray-100 font-sans selection:bg-code-green selection:text-black flex flex-col">
       <Navbar />
@@ -58,6 +88,7 @@ function App() {
         <Route path="/contests/:id" element={<div className="container mx-auto px-4 py-8 flex-1"><UserRoute><ContestDetail /></UserRoute></div>} />
         <Route path="/problems/:id" element={<div className="flex-1  px-14 py-8    "><UserRoute><ProblemSolve /></UserRoute></div>} />
         <Route path="/platform-details" element={<div className="container mx-auto px-4 py-8 flex-1"><UserRoute><PlatformDetails /></UserRoute></div>} />
+        <Route path="/support" element={<div className="flex-1"><Support /></div>} />
 
         {/* 404 Not Found - Catch all unknown routes */}
         <Route path="*" element={<NotFound />} />

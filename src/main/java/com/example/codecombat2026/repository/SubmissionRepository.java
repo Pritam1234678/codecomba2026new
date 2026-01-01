@@ -21,4 +21,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     // Find existing submission for a user on a specific problem
     Submission findByUser_IdAndProblem_Id(Long userId, Long problemId);
+
+    // Delete all submissions by a specific user
+    void deleteByUser_Id(Long userId);
 }

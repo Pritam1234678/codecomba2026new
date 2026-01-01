@@ -37,6 +37,13 @@ public class UserController {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
+        // Check if user account is disabled
+        if (!user.getEnabled()) {
+            return ResponseEntity.status(403)
+                    .body(java.util.Collections.singletonMap("message",
+                            "ACCOUNT_DISABLED: Your account has been disabled. Please contact support@codecombat.live"));
+        }
+
         // Get photo URL if exists
         String photoUrl = userPhotoRepository.findByUserId(user.getId())
                 .map(UserPhoto::getPhotoUrl)

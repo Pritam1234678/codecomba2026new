@@ -44,6 +44,9 @@ public class AuthController {
     @Autowired
     JwtUtils jwtUtils;
 
+    @Autowired
+    com.example.codecombat2026.service.EmailService emailService;
+
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
 
@@ -51,6 +54,17 @@ public class AuthController {
                 new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // Check if user account is enabled
+        User user = userRepository.findByUsername(loginRequest.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!user.getEnabled()) {
+            return ResponseEntity.status(403)
+                    .body(new MessageResponse(
+                            "ACCOUNT_DISABLED: Your account has been disabled. Please contact support@codecombat.live for assistance."));
+        }
+
         String jwt = jwtUtils.generateJwtToken(authentication);
 
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
@@ -114,6 +128,14 @@ public class AuthController {
 
         user.setRoles(roles);
         userRepository.save(user);
+
+        // Send welcome email to new user
+        try {
+            emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
+        } catch (Exception e) {
+            // Log error but don't fail registration
+            System.err.println("Failed to send welcome email: " + e.getMessage());
+        }
 
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }

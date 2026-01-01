@@ -23,6 +23,9 @@ public class AdminUserController {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private com.example.codecombat2026.repository.SubmissionRepository submissionRepository;
+
     @GetMapping
     public List<User> getAllUsers() {
         return userRepository.findAll();
@@ -60,5 +63,26 @@ public class AdminUserController {
         user.setEnabled(false);
         userRepository.save(user);
         return ResponseEntity.ok(new MessageResponse("User disabled successfully"));
+    }
+
+    @DeleteMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> deleteUser(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl currentUser) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Prevent admin from deleting themselves
+        if (currentUser.getId().equals(id)) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("You cannot delete your own account"));
+        }
+
+        // Delete all submissions by this user first
+        submissionRepository.deleteByUser_Id(id);
+
+        // Then delete the user
+        userRepository.delete(user);
+
+        return ResponseEntity.ok(new MessageResponse("User and all their submissions deleted successfully"));
     }
 }

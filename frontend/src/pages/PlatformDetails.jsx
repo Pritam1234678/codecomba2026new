@@ -1,8 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { gsap } from 'gsap';
 
 const PlatformDetails = () => {
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(true);
+    const headerRef = useRef(null);
+    const overviewRef = useRef(null);
+    const featuresRef = useRef(null);
+    const techStackRef = useRef(null);
+    const statsRef = useRef(null);
+    const systemRef = useRef(null);
 
     const platformInfo = {
         name: 'CodeCombat 2026',
@@ -29,10 +38,78 @@ const PlatformDetails = () => {
         }
     };
 
+    useEffect(() => {
+        // Simulate loading
+        const timer = setTimeout(() => {
+            setLoading(false);
+        }, 800);
+        return () => clearTimeout(timer);
+    }, []);
+
+    useEffect(() => {
+        if (!loading) {
+            // GSAP animations - slide from left to center
+            const elements = [
+                headerRef.current,
+                overviewRef.current,
+                featuresRef.current,
+                techStackRef.current,
+                statsRef.current,
+                systemRef.current
+            ].filter(Boolean);
+
+            gsap.fromTo(
+                elements,
+                {
+                    x: -100,
+                    opacity: 0
+                },
+                {
+                    x: 0,
+                    opacity: 1,
+                    duration: 0.8,
+                    stagger: 0.15,
+                    ease: 'power3.out'
+                }
+            );
+        }
+    }, [loading]);
+
+    if (loading) {
+        return (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
+                {/* Header Skeleton */}
+                <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl animate-pulse">
+                    <div className="h-8 bg-white/10 rounded-lg w-1/3 mb-2"></div>
+                    <div className="h-4 bg-white/5 rounded w-1/2"></div>
+                </div>
+
+                {/* Content Skeleton */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                    {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl p-4 sm:p-6 animate-pulse">
+                            <div className="h-6 bg-white/10 rounded w-1/2 mb-4"></div>
+                            <div className="space-y-2">
+                                <div className="h-4 bg-white/5 rounded"></div>
+                                <div className="h-4 bg-white/5 rounded w-5/6"></div>
+                                <div className="h-4 bg-white/5 rounded w-4/6"></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6"
+        >
             {/* Header */}
-            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
+            <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-2">
@@ -50,7 +127,7 @@ const PlatformDetails = () => {
             </div>
 
             {/* Platform Overview */}
-            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
+            <div ref={overviewRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
                 <h2 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Platform Overview</h2>
                 <div className="space-y-4">
                     <div>
@@ -69,7 +146,7 @@ const PlatformDetails = () => {
             </div>
 
             {/* Features */}
-            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
+            <div ref={featuresRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
                 <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Key Features</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {platformInfo.features.map((feature, index) => (
@@ -84,7 +161,7 @@ const PlatformDetails = () => {
             </div>
 
             {/* Tech Stack */}
-            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
+            <div ref={techStackRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
                 <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Technology Stack</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
@@ -121,7 +198,7 @@ const PlatformDetails = () => {
             </div>
 
             {/* Platform Statistics */}
-            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
+            <div ref={statsRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
                 <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Platform Statistics</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="p-4 bg-white/5 rounded-xl border border-white/10">
@@ -144,7 +221,7 @@ const PlatformDetails = () => {
             </div>
 
             {/* System Information */}
-            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
+            <div ref={systemRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
                 <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">System Information</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 bg-white/5 rounded-xl border border-white/10">
@@ -185,7 +262,7 @@ const PlatformDetails = () => {
                     </div>
                 </div>
             </div>
-        </div>
+        </motion.div>
     );
 };
 
