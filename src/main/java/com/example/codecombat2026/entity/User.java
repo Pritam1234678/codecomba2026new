@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.List;
 
 @Entity
 @Table(name = "users", uniqueConstraints = {
@@ -48,6 +49,10 @@ public class User {
 
     @Column(nullable = false)
     private Boolean enabled = true;
+
+    // Cascade delete password reset tokens when user is deleted
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PasswordResetToken> passwordResetTokens;
 
     public User(String username, String email, String password) {
         this.username = username;
