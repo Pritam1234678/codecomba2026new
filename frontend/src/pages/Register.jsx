@@ -13,18 +13,127 @@ const Register = () => {
     branch: "",
     phoneNumber: ""
   });
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
+  const validateField = (name, value, currentFormData) => {
+    let error = "";
+
+    // Combining current value with other form data for cross-field checks
+    const data = { ...currentFormData, [name]: value };
+    const { username, email, rollNumber, phoneNumber, password } = data;
+
+    switch (name) {
+      case "username":
+        if (value && /\s/.test(value)) {
+          error = "Username must not contain spaces";
+        }
+        break;
+
+      case "password":
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%&*!]).{8,}$/;
+        if (value && !passwordRegex.test(value)) {
+          error = "Password must contain uppercase, lowercase, and a special character";
+        }
+        // Cross-field checks for password
+        else if (value && (value === username || value === email || value === rollNumber)) {
+          error = "Password cannot be the same as Username, Email, or Roll Number";
+        }
+        break;
+
+      case "phoneNumber":
+        if (value) {
+          // Check if contains non-digits
+          if (!/^\d*$/.test(value)) {
+            error = "Must contain digits only";
+          }
+          // Check if starts with invalid digit (0-5)
+          else if (value.length > 0 && /^[0-5]/.test(value)) {
+            error = "Must start with 9, 8, 7, or 6";
+          }
+          // Check if more than 10 digits
+          else if (value.length > 10) {
+            error = "Must be exactly 10 digits";
+          }
+          // Check if less than 10 digits (but starts with valid digit 6-9)
+          else if (value.length > 0 && value.length < 10) {
+            error = "Must be exactly 10 digits";
+          }
+        }
+        break;
+
+      case "email":
+        // Email format validation
+        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = "Please enter a valid email address";
+        }
+        break;
+
+      default:
+        break;
+    }
+
+    // General Cross-Field Uniqueness (checking if current field matches others)
+    // Only check if value is present and valid string
+    if (value) {
+      if (name === 'username' && (value === email || value === rollNumber || value === phoneNumber)) error = "Username cannot be the same as Email, Roll Number, or Phone";
+      if (name === 'email' && (value === username || value === rollNumber || value === phoneNumber)) error = "Email cannot be the same as Username, Roll Number, or Phone";
+      if (name === 'rollNumber' && (value === username || value === email || value === phoneNumber)) error = "Roll Number cannot be the same as Username, Email, or Phone";
+      if (name === 'phoneNumber' && (value === username || value === email || value === rollNumber)) error = "Phone Number cannot be the same as Username, Email, or Roll Number";
+    }
+
+    return error;
+  };
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    // Update form data
+    const updatedFormData = { ...formData, [name]: value };
+    setFormData(updatedFormData);
+
+    // Validate the changed field
+    const error = validateField(name, value, formData); // Pass current formData because state update is async
+
+    setErrors(prevErrors => ({
+      ...prevErrors,
+      [name]: error
+    }));
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+
+    // Only validate email on blur
+    if (name === 'email') {
+      const error = validateField(name, value, formData);
+      setErrors(prevErrors => ({
+        ...prevErrors,
+        [name]: error
+      }));
+    }
   };
 
   const handleRegister = (e) => {
     e.preventDefault();
     setMessage("");
+
+    // Final check before submit (though button should be disabled)
+    // Validate all fields
+    const formErrors = {};
+    Object.keys(formData).forEach(key => {
+      const err = validateField(key, formData[key], formData);
+      if (err) formErrors[key] = err;
+    });
+
+    if (Object.keys(formErrors).length > 0) {
+      setErrors(formErrors);
+      return;
+    }
+
     setLoading(true);
 
     AuthService.register(
@@ -53,6 +162,16 @@ const Register = () => {
         setMessage(resMessage);
       }
     );
+  };
+
+  const isFormValid = () => {
+    // Check if there are any errors
+    const hasErrors = Object.values(errors).some(error => error !== "");
+    // Check if required fields are filled (basic check)
+    const requiredFields = ['username', 'email', 'password', 'phoneNumber'];
+    const hasEmptyRequired = requiredFields.some(field => !formData[field]);
+
+    return !hasErrors && !hasEmptyRequired;
   };
 
   return (
@@ -111,9 +230,10 @@ const Register = () => {
                 type="text"
                 onChange={handleChange}
                 required
-                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
+                className={`w-full bg-white/5 text-white border rounded-xl py-3 px-4 focus:outline-none transition-all placeholder-gray-500 ${errors.username ? "border-red-500 focus:border-red-500" : "border-white/10 focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20"}`}
                 placeholder="Choose a username"
               />
+              {errors.username && <p className="text-red-400 text-xs mt-1">{errors.username}</p>}
             </div>
 
             {/* Email */}
@@ -125,10 +245,12 @@ const Register = () => {
                 name="email"
                 type="email"
                 onChange={handleChange}
+                onBlur={handleBlur}
                 required
-                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
+                className={`w-full bg-white/5 text-white border rounded-xl py-3 px-4 focus:outline-none transition-all placeholder-gray-500 ${errors.email ? "border-red-500 focus:border-red-500" : "border-white/10 focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20"}`}
                 placeholder="your.email@example.com"
               />
+              {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email}</p>}
             </div>
           </div>
 
@@ -143,13 +265,14 @@ const Register = () => {
                 type={showPassword ? "text" : "password"}
                 onChange={handleChange}
                 required
-                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 pr-12 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
+                className={`w-full bg-white/5 text-white border rounded-xl py-3 px-4 pr-12 focus:outline-none transition-all placeholder-gray-500 ${errors.password ? "border-red-500 focus:border-red-500" : "border-white/10 focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20"}`}
                 placeholder="Create a strong password"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-green-400 transition-colors"
+                style={{ top: '50%' }} // Ensure vertical alignment is correct
               >
                 {showPassword ? (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,6 +286,7 @@ const Register = () => {
                 )}
               </button>
             </div>
+            {errors.password && <p className="text-red-400 text-xs mt-1">{errors.password}</p>}
           </div>
 
           {/* Full Name */}
@@ -182,15 +306,17 @@ const Register = () => {
           {/* Phone Number */}
           <div>
             <label className="block text-gray-400 text-sm font-medium mb-2">
-              Phone Number
+              Phone Number *
             </label>
             <input
               name="phoneNumber"
               type="text"
               onChange={handleChange}
-              className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-              placeholder="+91 1234567890"
+              required
+              className={`w-full bg-white/5 text-white border rounded-xl py-3 px-4 focus:outline-none transition-all placeholder-gray-500 ${errors.phoneNumber ? "border-red-500 focus:border-red-500" : "border-white/10 focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20"}`}
+              placeholder="1234567890"
             />
+            {errors.phoneNumber && <p className="text-red-400 text-xs mt-1">{errors.phoneNumber}</p>}
           </div>
 
           {/* Roll Number & Branch Row */}
@@ -204,9 +330,10 @@ const Register = () => {
                 name="rollNumber"
                 type="text"
                 onChange={handleChange}
-                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
+                className={`w-full bg-white/5 text-white border rounded-xl py-3 px-4 focus:outline-none transition-all placeholder-gray-500 ${errors.rollNumber ? "border-red-500 focus:border-red-500" : "border-white/10 focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20"}`}
                 placeholder="Your roll number"
               />
+              {errors.rollNumber && <p className="text-red-400 text-xs mt-1">{errors.rollNumber}</p>}
             </div>
 
             {/* Branch */}
@@ -230,7 +357,7 @@ const Register = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
-              disabled={loading}
+              disabled={loading || !isFormValid()}
               className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-green-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (

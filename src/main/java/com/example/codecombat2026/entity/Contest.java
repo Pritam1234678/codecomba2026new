@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import com.example.codecombat2026.util.TimeUtil;
 
 @Entity
 @Table(name = "contests")
@@ -45,7 +46,7 @@ public class Contest {
     @PrePersist
     @PreUpdate
     public void calculateStatus() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = TimeUtil.now();
 
         if (startTime != null && endTime != null) {
             if (now.isBefore(startTime)) {

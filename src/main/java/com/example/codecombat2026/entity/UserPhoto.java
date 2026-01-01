@@ -2,6 +2,7 @@ package com.example.codecombat2026.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import com.example.codecombat2026.util.TimeUtil;
 
 @Entity
 @Table(name = "user_photos")
@@ -21,13 +22,13 @@ public class UserPhoto {
     private LocalDateTime uploadedAt;
 
     public UserPhoto() {
-        this.uploadedAt = LocalDateTime.now();
+        this.uploadedAt = TimeUtil.now();
     }
 
     public UserPhoto(Long userId, String photoUrl) {
         this.userId = userId;
         this.photoUrl = photoUrl;
-        this.uploadedAt = LocalDateTime.now();
+        this.uploadedAt = TimeUtil.now();
     }
 
     // Getters and Setters

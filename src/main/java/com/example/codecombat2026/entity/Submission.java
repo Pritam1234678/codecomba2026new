@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import com.example.codecombat2026.util.TimeUtil;
 
 @Entity
 @Table(name = "submissions")
@@ -84,7 +85,7 @@ public class Submission {
 
     @PrePersist
     protected void onCreate() {
-        submittedAt = LocalDateTime.now();
+        submittedAt = TimeUtil.now();
     }
 
     public enum ProgrammingLanguage {

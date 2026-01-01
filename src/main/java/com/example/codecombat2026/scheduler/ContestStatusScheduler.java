@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import com.example.codecombat2026.util.TimeUtil;
 import java.util.List;
 
 /**
@@ -25,7 +26,7 @@ public class ContestStatusScheduler {
      */
     @Scheduled(fixedRate = 300000) // 5 minutes = 300,000 milliseconds
     public void updateContestStatuses() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = TimeUtil.now();
         List<Contest> contests = contestRepository.findAll();
 
         for (Contest contest : contests) {

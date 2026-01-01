@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import com.example.codecombat2026.util.TimeUtil;
 
 @Entity
 @Table(name = "code_snippets", uniqueConstraints = @UniqueConstraint(columnNames = { "problem_id", "language" }))
@@ -50,12 +51,12 @@ public class CodeSnippet {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        createdAt = TimeUtil.now();
+        updatedAt = TimeUtil.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = TimeUtil.now();
     }
 }

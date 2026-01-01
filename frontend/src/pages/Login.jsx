@@ -104,6 +104,12 @@ const Login = () => {
               onChange={(e) => setUsername(e.target.value)}
               required
             />
+            <Link
+              to="/forgot-username"
+              className="text-green-400 hover:text-green-300 text-xs mt-1 inline-block transition-colors"
+            >
+              Forgot username?
+            </Link>
           </div>
 
           {/* Password Field */}
@@ -138,6 +144,12 @@ const Login = () => {
                 )}
               </button>
             </div>
+            <Link
+              to="/forgot-password"
+              className="text-green-400 hover:text-green-300 text-xs mt-1 inline-block transition-colors"
+            >
+              Forgot Password?
+            </Link>
           </div>
 
           {/* Login Button */}

@@ -7,6 +7,9 @@ import UserRoute from './components/UserRoute';
 import GuestRoute from './components/GuestRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import ForgotUsername from './pages/ForgotUsername';
 import ContestList from './pages/ContestList';
 import ContestDetail from './pages/ContestDetail';
 import ProblemSolve from './pages/ProblemSolve';
@@ -64,6 +67,9 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
         <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/forgot-username" element={<ForgotUsername />} />
 
         {/* Admin Routes - Protected */}
         <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
