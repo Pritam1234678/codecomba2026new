@@ -23,3 +23,10 @@ Thumbs.db
 # Keys
 *.pem
 codecombat-key.pem
+
+# Sensitive configuration files
+src/main/resources/application.properties
+src/main/resources/application-*.properties
+frontend/.env
+frontend/.env.local
+frontend/.env.production
