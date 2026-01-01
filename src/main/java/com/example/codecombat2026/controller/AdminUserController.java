@@ -3,11 +3,13 @@ package com.example.codecombat2026.controller;
 import com.example.codecombat2026.dto.MessageResponse;
 import com.example.codecombat2026.entity.User;
 import com.example.codecombat2026.repository.UserRepository;
+import com.example.codecombat2026.repository.PasswordResetTokenRepository;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -22,6 +24,9 @@ public class AdminUserController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PasswordResetTokenRepository passwordResetTokenRepository;
 
     @Autowired
     private com.example.codecombat2026.repository.SubmissionRepository submissionRepository;
@@ -66,7 +71,7 @@ public class AdminUserController {
     }
 
     @DeleteMapping("/{id}")
-    @org.springframework.transaction.annotation.Transactional
+    @Transactional
     public ResponseEntity<?> deleteUser(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl currentUser) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -77,12 +82,15 @@ public class AdminUserController {
                     .body(new MessageResponse("You cannot delete your own account"));
         }
 
-        // Delete all submissions by this user first
+        // Delete password reset tokens first (foreign key constraint)
+        passwordResetTokenRepository.deleteByUser(user);
+
+        // Delete all submissions by this user
         submissionRepository.deleteByUser_Id(id);
 
-        // Then delete the user
+        // Finally delete the user
         userRepository.delete(user);
 
-        return ResponseEntity.ok(new MessageResponse("User and all their submissions deleted successfully"));
+        return ResponseEntity.ok(new MessageResponse("User and all their data deleted successfully"));
     }
 }
