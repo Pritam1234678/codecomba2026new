@@ -31,7 +31,7 @@ public class DockerJudgeService {
                     .withDockerHost(dockerHost)
                     .build();
 
-            com.github.dockerjava.transport.DockerHttpClient httpClient = new com.github.dockerjava.httpclient5.ApacheDockerHttpClient.Builder()
+            com.github.dockerjava.transport.DockerHttpClient httpClient = new com.github.dockerjava.zerodep.ZerodepDockerHttpClient.Builder()
                     .dockerHost(config.getDockerHost())
                     .sslConfig(config.getSSLConfig())
                     .maxConnections(100)
