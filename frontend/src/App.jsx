@@ -47,6 +47,8 @@ function App() {
         <Route path="/admin/problems/:id/testcases" element={<div className="container mx-auto px-4 py-8 flex-1"><AdminRoute><ManageTestCases /></AdminRoute></div>} />
         <Route path="/admin/leaderboard" element={<div className="container mx-auto px-4 py-8 flex-1"><AdminRoute><Leaderboard /></AdminRoute></div>} />
         <Route path="/admin/leaderboard/:contestId" element={<div className="container mx-auto px-4 py-8 flex-1"><AdminRoute><ContestLeaderboard /></AdminRoute></div>} />
+        <Route path="/admin/platform-details" element={<div className="container mx-auto px-4 py-8 flex-1"><AdminRoute><PlatformDetails /></AdminRoute></div>} />
+
 
 
         {/* User Routes */}

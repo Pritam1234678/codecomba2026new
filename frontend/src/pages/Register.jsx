@@ -82,8 +82,8 @@ const Register = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className={`border px-4 py-3 rounded-xl mb-6 text-sm backdrop-blur-sm ${message.includes("success")
-                ? "bg-green-500/10 border-green-500/50 text-green-300"
-                : "bg-red-500/10 border-red-500/50 text-red-300"
+              ? "bg-green-500/10 border-green-500/50 text-green-300"
+              : "bg-red-500/10 border-red-500/50 text-red-300"
               }`}
           >
             {message}
@@ -96,40 +96,43 @@ const Register = () => {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.3 }}
           onSubmit={handleRegister}
-          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          className="space-y-5"
         >
-          {/* Username */}
-          <div className="col-span-1">
-            <label className="block text-gray-400 text-sm font-medium mb-2">
-              Username *
-            </label>
-            <input
-              name="username"
-              type="text"
-              onChange={handleChange}
-              required
-              className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-              placeholder="Choose a username"
-            />
-          </div>
+          {/* Username & Email Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Username */}
+            <div>
+              <label className="block text-gray-400 text-sm font-medium mb-2">
+                Username *
+              </label>
+              <input
+                name="username"
+                type="text"
+                onChange={handleChange}
+                required
+                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
+                placeholder="Choose a username"
+              />
+            </div>
 
-          {/* Email */}
-          <div className="col-span-1">
-            <label className="block text-gray-400 text-sm font-medium mb-2">
-              Email *
-            </label>
-            <input
-              name="email"
-              type="email"
-              onChange={handleChange}
-              required
-              className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-              placeholder="your.email@example.com"
-            />
+            {/* Email */}
+            <div>
+              <label className="block text-gray-400 text-sm font-medium mb-2">
+                Email *
+              </label>
+              <input
+                name="email"
+                type="email"
+                onChange={handleChange}
+                required
+                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
+                placeholder="your.email@example.com"
+              />
+            </div>
           </div>
 
           {/* Password */}
-          <div className="col-span-2">
+          <div>
             <label className="block text-gray-400 text-sm font-medium mb-2">
               Password *
             </label>
@@ -144,7 +147,7 @@ const Register = () => {
           </div>
 
           {/* Full Name */}
-          <div className="col-span-2 md:col-span-1">
+          <div>
             <label className="block text-gray-400 text-sm font-medium mb-2">
               Full Name
             </label>
@@ -158,7 +161,7 @@ const Register = () => {
           </div>
 
           {/* Phone Number */}
-          <div className="col-span-2 md:col-span-1">
+          <div>
             <label className="block text-gray-400 text-sm font-medium mb-2">
               Phone Number
             </label>
@@ -171,36 +174,39 @@ const Register = () => {
             />
           </div>
 
-          {/* Roll Number */}
-          <div className="col-span-1">
-            <label className="block text-gray-400 text-sm font-medium mb-2">
-              Roll Number
-            </label>
-            <input
-              name="rollNumber"
-              type="text"
-              onChange={handleChange}
-              className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-              placeholder="Your roll number"
-            />
-          </div>
+          {/* Roll Number & Branch Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Roll Number */}
+            <div>
+              <label className="block text-gray-400 text-sm font-medium mb-2">
+                Roll Number
+              </label>
+              <input
+                name="rollNumber"
+                type="text"
+                onChange={handleChange}
+                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
+                placeholder="Your roll number"
+              />
+            </div>
 
-          {/* Branch */}
-          <div className="col-span-1">
-            <label className="block text-gray-400 text-sm font-medium mb-2">
-              Branch
-            </label>
-            <input
-              name="branch"
-              type="text"
-              onChange={handleChange}
-              className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-              placeholder="e.g., Computer Science"
-            />
+            {/* Branch */}
+            <div>
+              <label className="block text-gray-400 text-sm font-medium mb-2">
+                Branch
+              </label>
+              <input
+                name="branch"
+                type="text"
+                onChange={handleChange}
+                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
+                placeholder="e.g., Computer Science"
+              />
+            </div>
           </div>
 
           {/* Register Button */}
-          <div className="col-span-2 mt-4">
+          <div className="pt-2">
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

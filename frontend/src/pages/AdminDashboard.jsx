@@ -179,7 +179,7 @@ const AdminDashboard = () => {
             <div className="text-xs text-gray-500">View rankings</div>
           </Link>
           <Link
-            to="/platform-details"
+            to="/admin/platform-details"
             className="bg-white/5 backdrop-blur-sm border border-white/20 hover:border-white/30 rounded-xl p-4 transition-all hover:shadow-lg hover:scale-105 hover:shadow-green-500/30 "
           >
             <div className="text-gray-100 font-medium mb-1">Platform Details</div>
