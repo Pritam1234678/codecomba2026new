@@ -4,6 +4,7 @@ import { gsap } from 'gsap';
 import AdminService from '../services/admin.service';
 import AuthService from '../services/auth.service';
 import api from '../services/api';
+import cache from '../services/cache';
 
 const AdminDashboard = () => {
   const [userStats, setUserStats] = useState({ total: 0, enabled: 0, disabled: 0 });
@@ -16,21 +17,27 @@ const AdminDashboard = () => {
   const actionsRef = useRef(null);
 
   useEffect(() => {
-    Promise.all([
-      AdminService.getUserStats(),
-      AdminService.getContestStats(),
-      api.get('/user/profile')
-    ]).then(([userRes, contestRes, profileRes]) => {
-      setUserStats(userRes.data);
-      setContestStats(contestRes.data);
-      setAdminProfile(profileRes.data);
-      setLoading(false);
-    }).catch(err => {
-      console.error(err);
-      const currentUser = AuthService.getCurrentUser();
-      setAdminProfile(currentUser);
-      setLoading(false);
-    });
+    // Profile from localStorage — instant, no API call needed
+    const localUser = AuthService.getCurrentUser();
+    if (localUser) {
+      setAdminProfile(localUser);
+      setLoading(false); // Show dashboard immediately with local data
+    }
+
+    // Fetch stats in background — updates numbers when ready
+    api.get('/admin/dashboard')
+      .then(res => {
+        const { userStats, contestStats, profile } = res.data;
+        setUserStats(userStats);
+        setContestStats(contestStats);
+        // Refresh profile with server data (photo URL, latest info)
+        if (profile) setAdminProfile(profile);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
   }, []);
 
   useEffect(() => {

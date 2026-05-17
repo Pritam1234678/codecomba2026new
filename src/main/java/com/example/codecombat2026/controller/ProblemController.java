@@ -2,9 +2,7 @@ package com.example.codecombat2026.controller;
 
 import com.example.codecombat2026.dto.ContestStatusDTO;
 import com.example.codecombat2026.dto.ProblemDTO;
-import com.example.codecombat2026.entity.Contest;
 import com.example.codecombat2026.entity.Problem;
-import com.example.codecombat2026.repository.ContestRepository;
 import com.example.codecombat2026.service.ProblemService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +19,7 @@ public class ProblemController {
     private ProblemService problemService;
 
     @Autowired
-    private ContestRepository contestRepository;
+    private com.example.codecombat2026.service.ContestService contestService;
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -104,27 +102,21 @@ public class ProblemController {
             Problem problem = problemService.getProblemById(problemId);
             Long contestId = problem.getContestId();
 
-            // If problem has no contest, return inactive
             if (contestId == null) {
                 return ResponseEntity.ok(new ContestStatusDTO(false, false, null, null, null));
             }
 
-            // Fetch contest separately to avoid lazy loading issues
-            Contest contest = contestRepository.findById(contestId).orElse(null);
-
-            if (contest == null) {
-                // Contest was deleted
+            // Use ContestService — hits Valkey cache instead of direct DB call
+            try {
+                com.example.codecombat2026.entity.Contest contest = contestService.getContestById(contestId);
+                return ResponseEntity.ok(new ContestStatusDTO(
+                        contest.getActive(), true,
+                        contest.getName(), contest.getStartTime(), contest.getEndTime()));
+            } catch (Exception e) {
+                // Contest deleted
                 return ResponseEntity.ok(new ContestStatusDTO(false, false, null, null, null));
             }
-
-            return ResponseEntity.ok(new ContestStatusDTO(
-                    contest.getActive(),
-                    true,
-                    contest.getName(),
-                    contest.getStartTime(),
-                    contest.getEndTime()));
         } catch (Exception e) {
-            // Problem not found or deleted
             return ResponseEntity.ok(new ContestStatusDTO(false, false, null, null, null));
         }
     }

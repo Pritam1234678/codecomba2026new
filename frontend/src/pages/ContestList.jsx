@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import api from '../services/api';
+import cache from '../services/cache';
 
 // Countdown Timer Component
 const CountdownTimer = ({ endTime }) => {
@@ -61,9 +62,9 @@ const ContestList = () => {
   const headerRef = useRef(null);
 
   useEffect(() => {
-    api.get('/contests')
-      .then(response => {
-        setContests(response.data);
+    cache.get('contests', () => api.get('/contests').then(r => r.data))
+      .then(data => {
+        setContests(data);
         setLoading(false);
       })
       .catch(err => {

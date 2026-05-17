@@ -1,5 +1,6 @@
 package com.example.codecombat2026.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -52,7 +53,7 @@ public class Problem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contest_id")
-    @com.fasterxml.jackson.annotation.JsonIgnore
+    @JsonIgnore
     private Contest contest;
 
     @Column(name = "contest_id", insertable = false, updatable = false)
@@ -61,9 +62,13 @@ public class Problem {
     @Column(nullable = false)
     private Boolean active = true;
 
+    /**
+     * Code snippets for each language.
+     * Each snippet contains:
+     *   - starterCode: shown to the user in the editor
+     *   - solutionTemplate: the full harness with embedded test cases (never sent to users)
+     */
     @OneToMany(mappedBy = "problem", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<TestCase> testCases;
-
-    @OneToMany(mappedBy = "problem", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<CodeSnippet> codeSnippets;
 }

@@ -2,193 +2,196 @@ package com.example.codecombat2026.service.judge;
 
 import com.example.codecombat2026.dto.ExecutionResult;
 import com.example.codecombat2026.entity.Submission;
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.model.HostConfig;
-import com.github.dockerjava.core.DefaultDockerClientConfig;
-import com.github.dockerjava.core.DockerClientBuilder;
-import com.github.dockerjava.core.DockerClientConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
-import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Executes user code in isolated OS processes (not Docker containers despite the name).
+ *
+ * Each execution:
+ *   1. Writes source to a temp directory
+ *   2. Compiles (Java/C/C++) or skips (Python/JS)
+ *   3. Runs with a time limit
+ *   4. Reads stdout/stderr via a shared thread pool (not per-job threads)
+ *   5. Cleans up temp directory
+ *
+ * Thread safety: stateless — safe to call from multiple workers concurrently.
+ */
 @Service
 public class DockerJudgeService {
 
-    @Value("${codecombat.docker.host}")
+    private static final Logger log = LoggerFactory.getLogger(DockerJudgeService.class);
+
+    @Value("${codecombat.docker.host:unix:///var/run/docker.sock}")
     private String dockerHost;
 
-    private DockerClient dockerClient;
+    // Shared thread pool for stdout/stderr readers — avoids spawning 2 threads per job
+    // Size = 2 × max workers (8) = 16 reader threads max
+    private static final ExecutorService IO_POOL = Executors.newFixedThreadPool(16, r -> {
+        Thread t = new Thread(r, "io-reader-" + System.nanoTime());
+        t.setDaemon(true);
+        return t;
+    });
+
+    private final boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
 
     @PostConstruct
     public void init() {
-        try {
-            DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
-                    .withDockerHost(dockerHost)
-                    .build();
-
-            com.github.dockerjava.transport.DockerHttpClient httpClient = new com.github.dockerjava.zerodep.ZerodepDockerHttpClient.Builder()
-                    .dockerHost(config.getDockerHost())
-                    .sslConfig(config.getSSLConfig())
-                    .maxConnections(100)
-                    .build();
-
-            this.dockerClient = DockerClientBuilder.getInstance(config).withDockerHttpClient(httpClient).build();
-
-            // Test connection
-            this.dockerClient.pingCmd().exec();
-            System.out.println("Docker connected successfully!");
-        } catch (Throwable e) {
-            System.err.println("Failed to initialize Docker Client: " + e.getMessage());
-            this.dockerClient = null;
-        }
+        log.info("DockerJudgeService initialized (host: {}, OS: {})",
+            dockerHost, isWindows ? "Windows" : "Unix");
     }
 
-    public ExecutionResult execute(String code, Submission.ProgrammingLanguage language, String input,
-            double timeLimit) {
-
+    public ExecutionResult execute(String code, Submission.ProgrammingLanguage language, double timeLimit) {
         String fileName;
-        String[] compileArgs, runArgs;
-
-        // Determine language-specific settings
-        String os = System.getProperty("os.name").toLowerCase();
-        boolean isWindows = os.contains("win");
+        String[] compileArgs;
+        String[] runArgs;
 
         switch (language) {
             case JAVA:
                 fileName = "Main.java";
-                compileArgs = new String[] { "javac", fileName };
-                runArgs = new String[] { "java", "Main" };
+                compileArgs = new String[]{"javac", fileName};
+                runArgs = new String[]{"java", "-Xmx256m", "Main"};
                 break;
             case CPP:
                 fileName = "main.cpp";
-                compileArgs = new String[] { "g++", "-o", "main", fileName };
-                runArgs = new String[] { isWindows ? "main.exe" : "./main" };
+                compileArgs = new String[]{"g++", "-O2", "-o", "main", fileName};
+                runArgs = new String[]{isWindows ? "main.exe" : "./main"};
                 break;
             case PYTHON:
                 fileName = "main.py";
-                compileArgs = null; // Python doesn't need compilation
-                runArgs = new String[] { "python", fileName };
+                compileArgs = null;
+                runArgs = new String[]{isWindows ? "python" : "python3", "-u", fileName};
                 break;
             case C:
                 fileName = "main.c";
-                compileArgs = new String[] { "gcc", "-o", "main", fileName };
-                runArgs = new String[] { isWindows ? "main.exe" : "./main" };
+                compileArgs = new String[]{"gcc", "-O2", "-o", "main", fileName};
+                runArgs = new String[]{isWindows ? "main.exe" : "./main"};
                 break;
             case JAVASCRIPT:
                 fileName = "main.js";
-                compileArgs = null; // JavaScript doesn't need compilation
-                runArgs = new String[] { "node", fileName };
+                compileArgs = null;
+                runArgs = new String[]{"node", "--max-old-space-size=256", fileName};
                 break;
             default:
-                return new ExecutionResult("", "Unsupported language: " + language, 0, 0, 1, false, false, true);
+                return error("Unsupported language: " + language);
         }
 
+        Path tempDir = null;
         try {
-            // Create temp directory for this execution
-            java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory("judge_");
-            java.nio.file.Path sourceFile = tempDir.resolve(fileName);
+            tempDir = Files.createTempDirectory("judge_");
+            Path sourceFile = tempDir.resolve(fileName);
+            Files.write(sourceFile, code.getBytes(StandardCharsets.UTF_8));
 
-            // Write code to file
-            java.nio.file.Files.write(sourceFile, code.getBytes(StandardCharsets.UTF_8));
-
-            // Compile (only for compiled languages)
+            // ── Compile ──────────────────────────────────────────────────────
             if (compileArgs != null) {
-                ProcessBuilder compileBuilder = new ProcessBuilder(compileArgs);
-                compileBuilder.directory(tempDir.toFile());
-                compileBuilder.redirectErrorStream(true);
+                ProcessBuilder pb = new ProcessBuilder(compileArgs);
+                pb.directory(tempDir.toFile());
+                pb.redirectErrorStream(true);
 
-                Process compileProcess = compileBuilder.start();
-                boolean compiledInTime = compileProcess.waitFor(10, TimeUnit.SECONDS);
+                Process proc = pb.start();
+                String compileOut = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+                boolean ok = proc.waitFor(30, TimeUnit.SECONDS);
 
-                if (!compiledInTime) {
-                    compileProcess.destroyForcibly();
-                    cleanup(tempDir);
-                    return new ExecutionResult("", "Compilation timeout", 0, 0, 1, false, false, true);
+                if (!ok) {
+                    proc.destroyForcibly();
+                    return compilationError("Compilation timeout");
+                }
+                if (proc.exitValue() != 0) {
+                    return compilationError(compileOut);
                 }
 
-                if (compileProcess.exitValue() != 0) {
-                    String compileError = new String(compileProcess.getInputStream().readAllBytes(),
-                            StandardCharsets.UTF_8);
-                    cleanup(tempDir);
-                    return new ExecutionResult("", compileError, 0, 0, 1, false, false, true);
-                }
-
-                // For C++ and C, verify the executable was created
-                if (language == Submission.ProgrammingLanguage.CPP || language == Submission.ProgrammingLanguage.C) {
-                    String exeName = isWindows ? "main.exe" : "main";
-                    java.nio.file.Path exePath = tempDir.resolve(exeName);
-                    if (!java.nio.file.Files.exists(exePath)) {
-                        cleanup(tempDir);
-                        return new ExecutionResult("", "Compilation succeeded but executable not found: " + exeName,
-                                0, 0, 1, false, false, true);
+                // Resolve absolute path for C/C++ executable
+                if (language == Submission.ProgrammingLanguage.CPP
+                        || language == Submission.ProgrammingLanguage.C) {
+                    Path exePath = tempDir.resolve(isWindows ? "main.exe" : "main");
+                    if (!Files.exists(exePath)) {
+                        return compilationError("Executable not found after compilation");
                     }
-                    // Update runArgs to use absolute path
-                    runArgs = new String[] { exePath.toAbsolutePath().toString() };
+                    runArgs = new String[]{exePath.toAbsolutePath().toString()};
                 }
             }
 
-            // Execute
+            // ── Execute ──────────────────────────────────────────────────────
             long execStart = System.currentTimeMillis();
-            ProcessBuilder execBuilder = new ProcessBuilder(runArgs);
-            execBuilder.directory(tempDir.toFile());
+            ProcessBuilder execPb = new ProcessBuilder(runArgs);
+            execPb.directory(tempDir.toFile());
 
-            Process execProcess = execBuilder.start();
+            Process proc = execPb.start();
+            proc.getOutputStream().close(); // no stdin needed
 
-            // Provide input
-            if (input != null && !input.isEmpty()) {
-                execProcess.getOutputStream().write(input.getBytes(StandardCharsets.UTF_8));
-                execProcess.getOutputStream().flush();
-                execProcess.getOutputStream().close();
-            }
+            // Use shared IO pool — avoids spawning 2 new threads per job
+            final StringBuilder stdoutBuf = new StringBuilder();
+            final StringBuilder stderrBuf = new StringBuilder();
 
-            // Wait with timeout
+            Future<?> stdoutFuture = IO_POOL.submit(() -> {
+                try {
+                    stdoutBuf.append(new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
+                } catch (Exception ignored) {}
+            });
+            Future<?> stderrFuture = IO_POOL.submit(() -> {
+                try {
+                    stderrBuf.append(new String(proc.getErrorStream().readAllBytes(), StandardCharsets.UTF_8));
+                } catch (Exception ignored) {}
+            });
+
             long timeLimitMs = (long) (timeLimit * 1000);
-            boolean finishedInTime = execProcess.waitFor(timeLimitMs, TimeUnit.MILLISECONDS);
-
+            boolean finished = proc.waitFor(timeLimitMs, TimeUnit.MILLISECONDS);
             long execTime = System.currentTimeMillis() - execStart;
 
-            if (!finishedInTime) {
-                execProcess.destroyForcibly();
-                cleanup(tempDir);
+            if (!finished) {
+                proc.destroyForcibly();
+                stdoutFuture.cancel(true);
+                stderrFuture.cancel(true);
                 return new ExecutionResult("", "Time Limit Exceeded", execTime, 0, 124, true, false, false);
             }
 
-            // Capture output
-            String stdout = new String(execProcess.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            String stderr = new String(execProcess.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = execProcess.exitValue();
+            // Wait for IO readers to drain (max 2s)
+            try { stdoutFuture.get(2, TimeUnit.SECONDS); } catch (Exception ignored) {}
+            try { stderrFuture.get(2, TimeUnit.SECONDS); } catch (Exception ignored) {}
 
-            // Estimate memory usage (approximate)
-            Runtime runtime = Runtime.getRuntime();
-            long memoryUsed = (runtime.totalMemory() - runtime.freeMemory()) / 1024; // Convert to KB
-
-            cleanup(tempDir);
-
-            return new ExecutionResult(stdout, stderr, execTime, memoryUsed, exitCode, false, false, false);
+            return new ExecutionResult(
+                stdoutBuf.toString(),
+                stderrBuf.toString(),
+                execTime,
+                0, // memory tracking not reliable per-process
+                proc.exitValue(),
+                false, false, false
+            );
 
         } catch (Exception e) {
-            return new ExecutionResult("", "Execution error: " + e.getMessage(), 0, 0, 1, false, false, false);
+            log.error("Execution error for language {}: {}", language, e.getMessage());
+            return error("Execution error: " + e.getMessage());
+        } finally {
+            // Always clean up temp directory
+            if (tempDir != null) cleanup(tempDir);
         }
     }
 
-    private void cleanup(java.nio.file.Path dir) {
+    private void cleanup(Path dir) {
         try {
-            java.nio.file.Files.walk(dir)
-                    .sorted(java.util.Comparator.reverseOrder())
-                    .forEach(path -> {
-                        try {
-                            java.nio.file.Files.delete(path);
-                        } catch (Exception e) {
-                            // Ignore cleanup errors
-                        }
-                    });
-        } catch (Exception e) {
-            // Ignore cleanup errors
-        }
+            Files.walk(dir)
+                .sorted(Comparator.reverseOrder())
+                .forEach(p -> { try { Files.delete(p); } catch (Exception ignored) {} });
+        } catch (Exception ignored) {}
+    }
+
+    private ExecutionResult error(String msg) {
+        return new ExecutionResult("", msg, 0, 0, 1, false, false, false);
+    }
+
+    private ExecutionResult compilationError(String msg) {
+        return new ExecutionResult("", msg, 0, 0, 1, false, false, true);
     }
 }

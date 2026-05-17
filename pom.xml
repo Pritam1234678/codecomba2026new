@@ -124,6 +124,16 @@
                         <artifactId>docker-java-transport-zerodep</artifactId>
                         <version>3.3.4</version>
                 </dependency>
+
+                <!-- Valkey / Redis — Lettuce client with connection pooling -->
+                <dependency>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-starter-data-redis</artifactId>
+                </dependency>
+                <dependency>
+                        <groupId>org.apache.commons</groupId>
+                        <artifactId>commons-pool2</artifactId>
+                </dependency>
         </dependencies>
 
         <build>

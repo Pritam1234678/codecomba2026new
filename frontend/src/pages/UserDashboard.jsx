@@ -16,37 +16,26 @@ const UserDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchUserProfile();
-    fetchSubmissions();
+    // Single combined request — replaces 2 sequential calls (profile + submissions)
+    api.get('/user/dashboard')
+      .then(res => {
+        const { profile, submissions: subs, totalSubmissions } = res.data;
+        setUser(profile);
+        setSubmissions(subs);
+        calculateStats(subs, totalSubmissions);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Dashboard fetch error:', err);
+        // Fallback: load profile from localStorage
+        const currentUser = AuthService.getCurrentUser();
+        setUser(currentUser);
+        setLoading(false);
+      });
   }, []);
 
-
-
-  const fetchUserProfile = async () => {
-    try {
-      const res = await api.get('/user/profile');
-      setUser(res.data);
-    } catch (err) {
-      console.error('Error fetching user profile:', err);
-      const currentUser = AuthService.getCurrentUser();
-      setUser(currentUser);
-    }
-  };
-
-  const fetchSubmissions = async () => {
-    try {
-      const res = await api.get('/submissions/user');
-      setSubmissions(res.data);
-      calculateStats(res.data);
-      setLoading(false);
-    } catch (err) {
-      console.error('Error fetching submissions:', err);
-      setLoading(false);
-    }
-  };
-
-  const calculateStats = (submissions) => {
-    const total = submissions.length;
+  const calculateStats = (submissions, totalCount) => {
+    const total = totalCount !== undefined ? totalCount : submissions.length;
     const accepted = submissions.filter(s => s.status === 'AC').length;
     const problemsSolved = new Set(submissions.filter(s => s.status === 'AC').map(s => s.problemId)).size;
     const successRate = total > 0 ? ((accepted / total) * 100).toFixed(1) : 0;

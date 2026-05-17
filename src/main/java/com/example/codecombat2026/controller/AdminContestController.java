@@ -21,6 +21,12 @@ public class AdminContestController {
     @Autowired
     private ContestRepository contestRepository;
 
+    @Autowired
+    private AdminDashboardController adminDashboardController;
+
+    @Autowired
+    private com.example.codecombat2026.service.ContestService contestService;
+
     @GetMapping
     public List<Contest> getAllContests() {
         return contestRepository.findAll();
@@ -40,7 +46,9 @@ public class AdminContestController {
         if (contest.getActive() == null) {
             contest.setActive(false);
         }
-        return contestRepository.save(contest);
+        Contest saved = contestRepository.save(contest);
+        adminDashboardController.invalidateStatsCache();
+        return saved;
     }
 
     @PutMapping("/{id}")
@@ -52,10 +60,13 @@ public class AdminContestController {
         contest.setDescription(contestDetails.getDescription());
         contest.setStartTime(contestDetails.getStartTime());
         contest.setEndTime(contestDetails.getEndTime());
-        // Don't set status manually - let @PreUpdate calculate it automatically
         contest.setActive(contestDetails.getActive());
 
-        return contestRepository.save(contest);
+        Contest saved = contestRepository.save(contest);
+        // Evict both individual contest cache and active list cache
+        contestService.evictContest(id);
+        adminDashboardController.invalidateStatsCache();
+        return saved;
     }
 
     @PutMapping("/{id}/activate")
@@ -64,6 +75,8 @@ public class AdminContestController {
                 .orElseThrow(() -> new RuntimeException("Contest not found"));
         contest.setActive(true);
         contestRepository.save(contest);
+        contestService.evictContest(id);
+        adminDashboardController.invalidateStatsCache();
         return ResponseEntity.ok(new MessageResponse("Contest activated successfully"));
     }
 
@@ -73,12 +86,16 @@ public class AdminContestController {
                 .orElseThrow(() -> new RuntimeException("Contest not found"));
         contest.setActive(false);
         contestRepository.save(contest);
+        contestService.evictContest(id);
+        adminDashboardController.invalidateStatsCache();
         return ResponseEntity.ok(new MessageResponse("Contest deactivated successfully"));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteContest(@PathVariable Long id) {
         contestRepository.deleteById(id);
+        contestService.evictContest(id);
+        adminDashboardController.invalidateStatsCache();
         return ResponseEntity.ok(new MessageResponse("Contest deleted successfully"));
     }
 }

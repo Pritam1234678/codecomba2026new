@@ -36,6 +36,7 @@ public class User {
 
     @NotBlank
     @Size(max = 120)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String password;
 
     @ManyToMany(fetch = FetchType.EAGER)
@@ -52,6 +53,7 @@ public class User {
 
     // Cascade delete password reset tokens when user is deleted
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private List<PasswordResetToken> passwordResetTokens;
 
     public User(String username, String email, String password) {

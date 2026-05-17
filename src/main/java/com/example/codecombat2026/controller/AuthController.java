@@ -303,10 +303,8 @@ public class AuthController {
         String email = request.get("email");
         String phoneNumber = request.get("phoneNumber");
 
-        // Find user by email and phone number
-        java.util.Optional<User> userOpt = userRepository.findAll().stream()
-                .filter(u -> u.getEmail().equals(email) && u.getPhoneNumber().equals(phoneNumber))
-                .findFirst();
+        // Use indexed query — email and phoneNumber are indexed columns
+        java.util.Optional<User> userOpt = userRepository.findByEmailAndPhoneNumber(email, phoneNumber);
 
         if (userOpt.isEmpty()) {
             return ResponseEntity.badRequest()
@@ -315,7 +313,6 @@ public class AuthController {
 
         User user = userOpt.get();
 
-        // Send username recovery email
         try {
             emailService.sendUsernameRecoveryEmail(user.getEmail(), user.getUsername());
         } catch (Exception e) {

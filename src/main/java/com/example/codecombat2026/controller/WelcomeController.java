@@ -1,5 +1,7 @@
 package com.example.codecombat2026.controller;
 
+import com.example.codecombat2026.service.SubmissionWorkerPool;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -8,6 +10,9 @@ import java.util.Map;
 
 @RestController
 public class WelcomeController {
+
+    @Autowired
+    private SubmissionWorkerPool workerPool;
 
     @GetMapping("/")
     public Map<String, Object> welcome() {
@@ -30,5 +35,22 @@ public class WelcomeController {
         response.put("message", "Code Combat API v1.0");
         response.put("documentation", "Visit / for endpoint information");
         return response;
+    }
+
+    /**
+     * Queue status — useful during a live contest to monitor load.
+     * GET /api/queue-status
+     */
+    @GetMapping("/api/queue-status")
+    public Map<String, Object> queueStatus() {
+        Map<String, Object> status = new HashMap<>();
+        status.put("queueDepth", workerPool.getQueueDepth());
+        status.put("activeJobs", workerPool.getActiveJobs());
+        status.put("totalProcessed", workerPool.getTotalProcessed());
+        status.put("estimatedWaitSeconds",
+            workerPool.getQueueDepth() != null
+                ? (workerPool.getQueueDepth() * 5) // ~5s avg per job
+                : 0);
+        return status;
     }
 }

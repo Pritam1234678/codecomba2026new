@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import axios from 'axios';
+import Editor from '@monaco-editor/react';
 import ProblemService from '../services/problem.service';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api';
@@ -34,11 +35,11 @@ export default function ManageContestProblems() {
   });
 
   const [snippets, setSnippets] = useState({
-    JAVA: { starterCode: '', solutionTemplate: '' },
-    CPP: { starterCode: '', solutionTemplate: '' },
-    PYTHON: { starterCode: '', solutionTemplate: '' },
-    JAVASCRIPT: { starterCode: '', solutionTemplate: '' },
-    C: { starterCode: '', solutionTemplate: '' }
+    JAVA: { solutionTemplate: '' },
+    CPP: { solutionTemplate: '' },
+    PYTHON: { solutionTemplate: '' },
+    JAVASCRIPT: { solutionTemplate: '' },
+    C: { solutionTemplate: '' }
   });
 
   const [activeSnippetTab, setActiveSnippetTab] = useState('JAVA');
@@ -112,10 +113,9 @@ export default function ManageContestProblems() {
       const problemRes = await axios.post(`${API_URL}/admin/problems/contest/${id}`, problemData, { headers });
       const problemId = problemRes.data.id;
 
-      // 2. Save snippets for the new problem
+      // 2. Save snippets for the new problem (only solutionTemplate)
       const snippetsArray = Object.entries(snippets).map(([lang, data]) => ({
         language: lang,
-        starterCode: data.starterCode,
         solutionTemplate: data.solutionTemplate
       }));
 
@@ -138,11 +138,11 @@ export default function ManageContestProblems() {
       });
 
       setSnippets({
-        JAVA: { starterCode: '', solutionTemplate: '' },
-        CPP: { starterCode: '', solutionTemplate: '' },
-        PYTHON: { starterCode: '', solutionTemplate: '' },
-        JAVASCRIPT: { starterCode: '', solutionTemplate: '' },
-        C: { starterCode: '', solutionTemplate: '' }
+        JAVA: { solutionTemplate: '' },
+        CPP: { solutionTemplate: '' },
+        PYTHON: { solutionTemplate: '' },
+        JAVASCRIPT: { solutionTemplate: '' },
+        C: { solutionTemplate: '' }
       });
 
       setShowAddForm(false);
@@ -375,18 +375,29 @@ export default function ManageContestProblems() {
             <label className="ml-2 text-sm text-gray-300">Active</label>
           </div>
 
-          {/* Code Snippets Section */}
+          {/* Code Harness Section */}
           <div className="mt-6 border-t border-[#3a3a3a] pt-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Code Snippets (Required for all languages)</h3>
+            <h3 className="text-lg font-semibold text-white mb-1">Code Harness (Required for all languages)</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              Write the <strong className="text-gray-300">complete runnable file</strong> for each language.
+              Mark the user-editable zone with{' '}
+              <code className="text-green-400">// USER_CODE_START</code> and{' '}
+              <code className="text-green-400">// USER_CODE_END</code>{' '}
+              (use <code className="text-green-400"># USER_CODE_START/END</code> for Python).
+              Embed all test cases — print{' '}
+              <code className="text-green-400">TC:N:PASS</code> or{' '}
+              <code className="text-green-400">TC:N:FAIL</code> for each.
+              Append <code className="text-green-400">:hidden</code> for hidden tests.
+            </p>
 
             {/* Language Tabs */}
-            <div className="flex gap-2 mb-4 overflow-x-auto">
+            <div className="flex gap-2 mb-3 overflow-x-auto">
               {['JAVA', 'CPP', 'PYTHON', 'JAVASCRIPT', 'C'].map(lang => (
                 <button
                   key={lang}
                   type="button"
                   onClick={() => setActiveSnippetTab(lang)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeSnippetTab === lang
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${activeSnippetTab === lang
                     ? 'bg-green-500 text-white'
                     : 'bg-[#2a2a2a] text-gray-400 hover:bg-[#3a3a3a]'
                     }`}
@@ -396,36 +407,50 @@ export default function ManageContestProblems() {
               ))}
             </div>
 
-            {/* Snippet Fields for Active Tab */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Starter Code (shown to user) *
-                </label>
-                <textarea
-                  value={snippets[activeSnippetTab].starterCode}
-                  onChange={(e) => handleSnippetChange(activeSnippetTab, 'starterCode', e.target.value)}
-                  rows={8}
-                  placeholder="class Solution {\n    // Write your code here\n}"
-                  className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white font-mono text-sm focus:ring-2 focus:ring-green-500/50 resize-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">Function signature that users will see and edit</p>
+            {/* Monaco Editor for harness */}
+            <div className="border border-[#3a3a3a] rounded-lg overflow-hidden">
+              <div className="bg-[#1e1e1e] px-4 py-2 border-b border-[#3a3a3a] flex items-center justify-between">
+                <span className="text-xs text-gray-400 font-mono">
+                  {activeSnippetTab === 'CPP' ? 'C++' : activeSnippetTab === 'JAVASCRIPT' ? 'JavaScript' : activeSnippetTab} — Solution Harness
+                </span>
+                <span className="text-xs text-gray-600">
+                  USER_CODE_START / USER_CODE_END marks the editable zone
+                </span>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Solution Template (for execution) *
-                </label>
-                <textarea
-                  value={snippets[activeSnippetTab].solutionTemplate}
-                  onChange={(e) => handleSnippetChange(activeSnippetTab, 'solutionTemplate', e.target.value)}
-                  rows={12}
-                  placeholder="import java.util.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        // Input parsing\n    }\n}\n\n// USER_CODE_PLACEHOLDER"
-                  className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white font-mono text-sm focus:ring-2 focus:ring-green-500/50 resize-none"
-                />
-                <p className="text-xs text-gray-500 mt-1">Complete executable code with USER_CODE_PLACEHOLDER where user code will be inserted</p>
-              </div>
+              <Editor
+                height="500px"
+                theme="vs-dark"
+                language={
+                  activeSnippetTab === 'JAVA' ? 'java' :
+                  activeSnippetTab === 'CPP' ? 'cpp' :
+                  activeSnippetTab === 'C' ? 'c' :
+                  activeSnippetTab === 'PYTHON' ? 'python' : 'javascript'
+                }
+                value={snippets[activeSnippetTab].solutionTemplate}
+                onChange={(value) => handleSnippetChange(activeSnippetTab, 'solutionTemplate', value || '')}
+                options={{
+                  fontSize: 13,
+                  fontFamily: "'Fira Code', 'Cascadia Code', monospace",
+                  fontLigatures: true,
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  lineNumbers: 'on',
+                  folding: true,
+                  bracketPairColorization: { enabled: true },
+                  autoClosingBrackets: 'always',
+                  autoClosingQuotes: 'always',
+                  formatOnPaste: true,
+                  tabSize: 4,
+                  insertSpaces: true,
+                  wordWrap: 'off',
+                  padding: { top: 12, bottom: 12 },
+                }}
+              />
             </div>
+            <p className="text-xs text-gray-600 mt-2">
+              The code between <code className="text-green-400/70">USER_CODE_START</code> and <code className="text-green-400/70">USER_CODE_END</code> is what users see and edit. Everything else runs hidden.
+            </p>
           </div>
 
           <button
@@ -478,12 +503,6 @@ export default function ManageContestProblems() {
                       className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-gray-300 hover:text-blue-400 rounded-lg transition-all font-medium"
                     >
                       Edit
-                    </button>
-                    <button
-                      onClick={() => navigate(`/admin/problems/${problem.id}/testcases`)}
-                      className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-gray-300 hover:text-green-400 rounded-lg transition-all font-medium"
-                    >
-                      Test Cases
                     </button>
                     <button
                       onClick={() => showDeleteConfirmation(problem.id, problem.title)}

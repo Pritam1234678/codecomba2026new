@@ -57,7 +57,7 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/api", "/api/health", "/api/auth/**", "/api/test/**", "/api/support/**")
+                        .requestMatchers("/", "/api", "/api/health", "/api/auth/**", "/api/test/**", "/api/support/**", "/api/queue-status")
                         .permitAll()
                         .requestMatchers("/uploads/**").permitAll() // Allow public access to uploaded files
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/contests").permitAll()

@@ -1,4 +1,5 @@
 import api from './api';
+import cache from './cache';
 
 const register = (username, email, password, fullName, rollNumber, branch, phoneNumber) => {
   return api.post('/auth/signup', {
@@ -20,7 +21,7 @@ const login = (username, password) => {
   .then((response) => {
     if (response.data.token) {
       localStorage.setItem('user', JSON.stringify(response.data));
-      localStorage.setItem('token', response.data.token); // Store token separately
+      localStorage.setItem('token', response.data.token);
     }
     return response.data;
   });
@@ -29,6 +30,7 @@ const login = (username, password) => {
 const logout = () => {
   localStorage.removeItem('user');
   localStorage.removeItem('token');
+  cache.clear(); // clear all cached data on logout
 };
 
 const getCurrentUser = () => {

@@ -9,7 +9,13 @@ import java.time.LocalDateTime;
 import com.example.codecombat2026.util.TimeUtil;
 
 @Entity
-@Table(name = "submissions")
+@Table(name = "submissions",
+       indexes = {
+           @Index(name = "idx_submission_user_id",    columnList = "user_id"),
+           @Index(name = "idx_submission_problem_id", columnList = "problem_id"),
+           @Index(name = "idx_submission_contest_id", columnList = "contest_id"),
+           @Index(name = "idx_submission_user_problem", columnList = "user_id, problem_id")
+       })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -85,7 +91,10 @@ public class Submission {
 
     @PrePersist
     protected void onCreate() {
-        submittedAt = TimeUtil.now();
+        // Only set submittedAt on first insert if not already set by the service
+        if (submittedAt == null) {
+            submittedAt = TimeUtil.now();
+        }
     }
 
     public enum ProgrammingLanguage {

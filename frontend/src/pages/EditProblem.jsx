@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { gsap } from 'gsap';
 import axios from 'axios';
+import Editor from '@monaco-editor/react';
 import ProblemService from '../services/problem.service';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api';
@@ -33,11 +34,11 @@ export default function EditProblem() {
   });
 
   const [snippets, setSnippets] = useState({
-    JAVA: { starterCode: '', solutionTemplate: '' },
-    CPP: { starterCode: '', solutionTemplate: '' },
-    PYTHON: { starterCode: '', solutionTemplate: '' },
-    JAVASCRIPT: { starterCode: '', solutionTemplate: '' },
-    C: { starterCode: '', solutionTemplate: '' }
+    JAVA: { solutionTemplate: '' },
+    CPP: { solutionTemplate: '' },
+    PYTHON: { solutionTemplate: '' },
+    JAVASCRIPT: { solutionTemplate: '' },
+    C: { solutionTemplate: '' }
   });
 
   const [activeSnippetTab, setActiveSnippetTab] = useState('JAVA');
@@ -90,21 +91,20 @@ export default function EditProblem() {
         setContestId(problem.contestId);
       }
 
-      // Fetch code snippets
+      // Fetch code snippets (admin endpoint — includes full harness)
       try {
-        const snippetsRes = await ProblemService.getSnippets(id);
+        const snippetsRes = await ProblemService.getSnippetsAdmin(id);
         const snippetMap = {
-          JAVA: { starterCode: '', solutionTemplate: '' },
-          CPP: { starterCode: '', solutionTemplate: '' },
-          PYTHON: { starterCode: '', solutionTemplate: '' },
-          JAVASCRIPT: { starterCode: '', solutionTemplate: '' },
-          C: { starterCode: '', solutionTemplate: '' }
+          JAVA: { solutionTemplate: '' },
+          CPP: { solutionTemplate: '' },
+          PYTHON: { solutionTemplate: '' },
+          JAVASCRIPT: { solutionTemplate: '' },
+          C: { solutionTemplate: '' }
         };
 
         snippetsRes.data.forEach(snippet => {
           snippetMap[snippet.language] = {
-            starterCode: snippet.starterCode,
-            solutionTemplate: snippet.solutionTemplate
+            solutionTemplate: snippet.solutionTemplate || ''
           };
         });
 
@@ -159,10 +159,9 @@ export default function EditProblem() {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      // Save snippets
+      // Save snippets (only solutionTemplate stored)
       const snippetsArray = Object.entries(snippets).map(([lang, data]) => ({
         language: lang,
-        starterCode: data.starterCode,
         solutionTemplate: data.solutionTemplate
       }));
 
@@ -374,18 +373,29 @@ export default function EditProblem() {
           <label className="ml-3 text-sm font-medium text-gray-300">Active (visible to users)</label>
         </div>
 
-        {/* Code Snippets Section */}
+        {/* Code Harness Section */}
         <div className="mt-6 border-t border-[#3a3a3a] pt-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Code Snippets</h3>
+          <h3 className="text-lg font-semibold text-white mb-1">Code Harness</h3>
+          <p className="text-xs text-gray-500 mb-4">
+            Write the <strong className="text-gray-300">complete runnable file</strong> for each language.
+            Mark the user-editable zone with{' '}
+            <code className="text-green-400">// USER_CODE_START</code> and{' '}
+            <code className="text-green-400">// USER_CODE_END</code>{' '}
+            (use <code className="text-green-400"># USER_CODE_START/END</code> for Python).
+            Embed all test cases in the harness — print{' '}
+            <code className="text-green-400">TC:N:PASS</code> or{' '}
+            <code className="text-green-400">TC:N:FAIL</code> for each test.
+            Append <code className="text-green-400">:hidden</code> for hidden tests.
+          </p>
 
           {/* Language Tabs */}
-          <div className="flex gap-2 mb-4 overflow-x-auto">
+          <div className="flex gap-2 mb-3 overflow-x-auto">
             {['JAVA', 'CPP', 'PYTHON', 'JAVASCRIPT', 'C'].map(lang => (
               <button
                 key={lang}
                 type="button"
                 onClick={() => setActiveSnippetTab(lang)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeSnippetTab === lang
+                className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${activeSnippetTab === lang
                   ? 'bg-green-500 text-white'
                   : 'bg-[#2a2a2a] text-gray-400 hover:bg-[#3a3a3a]'
                   }`}
@@ -395,33 +405,50 @@ export default function EditProblem() {
             ))}
           </div>
 
-          {/* Snippet Fields */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Starter Code (shown to user)
-              </label>
-              <textarea
-                value={snippets[activeSnippetTab].starterCode}
-                onChange={(e) => handleSnippetChange(activeSnippetTab, 'starterCode', e.target.value)}
-                rows={8}
-                className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white font-mono text-sm focus:ring-2 focus:ring-green-500/50 resize-none"
-              />
+          {/* Monaco Editor for harness */}
+          <div className="border border-[#3a3a3a] rounded-lg overflow-hidden">
+            <div className="bg-[#1e1e1e] px-4 py-2 border-b border-[#3a3a3a] flex items-center justify-between">
+              <span className="text-xs text-gray-400 font-mono">
+                {activeSnippetTab === 'CPP' ? 'C++' : activeSnippetTab === 'JAVASCRIPT' ? 'JavaScript' : activeSnippetTab} — Solution Harness
+              </span>
+              <span className="text-xs text-gray-600">
+                Mark editable zone with USER_CODE_START / USER_CODE_END
+              </span>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Solution Template (for execution)
-              </label>
-              <textarea
-                value={snippets[activeSnippetTab].solutionTemplate}
-                onChange={(e) => handleSnippetChange(activeSnippetTab, 'solutionTemplate', e.target.value)}
-                rows={12}
-                className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white font-mono text-sm focus:ring-2 focus:ring-green-500/50 resize-none"
-              />
-              <p className="text-xs text-gray-500 mt-1">Use USER_CODE_PLACEHOLDER where user code will be inserted</p>
-            </div>
+            <Editor
+              height="500px"
+              theme="vs-dark"
+              language={
+                activeSnippetTab === 'JAVA' ? 'java' :
+                activeSnippetTab === 'CPP' ? 'cpp' :
+                activeSnippetTab === 'C' ? 'c' :
+                activeSnippetTab === 'PYTHON' ? 'python' : 'javascript'
+              }
+              value={snippets[activeSnippetTab].solutionTemplate}
+              onChange={(value) => handleSnippetChange(activeSnippetTab, 'solutionTemplate', value || '')}
+              options={{
+                fontSize: 13,
+                fontFamily: "'Fira Code', 'Cascadia Code', monospace",
+                fontLigatures: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                lineNumbers: 'on',
+                folding: true,
+                bracketPairColorization: { enabled: true },
+                autoClosingBrackets: 'always',
+                autoClosingQuotes: 'always',
+                formatOnPaste: true,
+                tabSize: 4,
+                insertSpaces: true,
+                wordWrap: 'off',
+                padding: { top: 12, bottom: 12 },
+              }}
+            />
           </div>
+          <p className="text-xs text-gray-600 mt-2">
+            The code between <code className="text-green-400/70">USER_CODE_START</code> and <code className="text-green-400/70">USER_CODE_END</code> is what users see and edit. Everything else runs hidden.
+          </p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-white/10">
@@ -431,13 +458,6 @@ export default function EditProblem() {
             className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-green-500/30 transition-all transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
           >
             {saving ? 'Saving...' : 'Save Changes'}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate(`/admin/problems/${id}/testcases`)}
-            className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-gray-300 hover:text-blue-400 rounded-lg transition-all"
-          >
-            Manage Test Cases →
           </button>
           <button
             type="button"

@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../services/api';
 import ProblemService from '../services/problem.service';
+import SubmissionService from '../services/submission.service';
+import AuthService from '../services/auth.service';
 
 const ProblemSolve = () => {
     const { id } = useParams();
@@ -32,6 +34,132 @@ const ProblemSolve = () => {
     });
     const [showStatusBanner, setShowStatusBanner] = useState(false);
     const [timeRemaining, setTimeRemaining] = useState('');
+
+    // ── SSE connection for real-time verdicts ─────────────────────────────────
+    const sseRef = useRef(null);
+
+    useEffect(() => {
+        const user = AuthService.getCurrentUser();
+        if (!user?.token) return;
+
+        const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
+
+        // Use EventSource with token in URL (EventSource doesn't support custom headers)
+        const url = `${API_BASE}/submissions/stream?token=${encodeURIComponent(user.token)}`;
+        const es = new EventSource(url);
+        sseRef.current = es;
+
+        es.addEventListener('verdict', (e) => {
+            try {
+                const verdict = JSON.parse(e.data);
+                setSubmitting(false);
+                setRunning(false);
+                renderVerdict(verdict, false);
+            } catch (err) {
+                console.error('SSE parse error:', err);
+            }
+        });
+
+        es.onerror = () => {
+            // SSE will auto-reconnect — this is normal
+        };
+
+        return () => {
+            es.close();
+            sseRef.current = null;
+        };
+    }, []);
+
+    const renderVerdict = (sub, isTestRun) => {
+        if (sub.status === 'CE' || sub.status === 'RE') {
+            setOutput(
+                <div className="font-mono text-sm space-y-2">
+                    <div className={`text-lg font-bold ${sub.status === 'CE' ? 'text-orange-400' : 'text-red-400'}`}>
+                        {sub.status === 'CE' ? '⚠ Compilation Error' : '💥 Runtime Error'}
+                    </div>
+                    <pre className="bg-black/40 border border-red-500/30 p-3 rounded text-red-300 text-xs whitespace-pre-wrap overflow-x-auto">
+                        {sub.errorMessage || 'No error details available'}
+                    </pre>
+                    {isTestRun && <p className="text-yellow-500/70 text-xs">💡 Test run — not saved</p>}
+                    {!isTestRun && <p className="text-blue-400/70 text-xs">✓ Submission saved</p>}
+                </div>
+            );
+            return;
+        }
+
+        if (sub.status === 'TLE') {
+            setOutput(
+                <div className="font-mono text-sm space-y-2">
+                    <div className="text-yellow-400 text-lg font-bold">⏱ Time Limit Exceeded</div>
+                    <p className="text-gray-400 text-xs">Score: 0/100</p>
+                    {isTestRun
+                        ? <p className="text-yellow-500/70 text-xs">💡 Test run — not saved</p>
+                        : <p className="text-blue-400/70 text-xs">✓ Submission saved</p>}
+                </div>
+            );
+            return;
+        }
+
+        const testCaseDetails = sub.testCaseDetails ? JSON.parse(sub.testCaseDetails) : [];
+        const visibleTCs  = testCaseDetails.filter(tc => !tc.hidden);
+        const hiddenTCs   = testCaseDetails.filter(tc => tc.hidden);
+        const hiddenPassed = hiddenTCs.filter(tc => tc.status === 'PASS').length;
+        const total  = sub.totalTestCases || 0;
+        const passed = sub.testCasesPassed || 0;
+        const score  = sub.score != null ? sub.score : (total > 0 ? Math.round((passed / total) * 100) : 0);
+        const isAC   = sub.status === 'AC';
+
+        setOutput(
+            <div className="font-mono text-sm space-y-3">
+                <div className="flex items-center justify-between">
+                    <span className={`text-xl font-bold ${isAC ? 'text-green-400' : 'text-red-400'}`}>
+                        {isAC ? '✓ Accepted' : '✗ Wrong Answer'}
+                    </span>
+                    {!isTestRun && (
+                        <span className={`text-2xl font-bold ${isAC ? 'text-green-400' : score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
+                            {score}<span className="text-sm text-gray-500">/100</span>
+                        </span>
+                    )}
+                    {isTestRun && (
+                        <span className={`text-lg font-bold ${isAC ? 'text-green-400' : score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
+                            {score}%
+                        </span>
+                    )}
+                </div>
+                <div className="w-full bg-gray-800 rounded-full h-2">
+                    <div className={`h-2 rounded-full transition-all ${isAC ? 'bg-green-500' : score >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                         style={{ width: `${score}%` }} />
+                </div>
+                <div className="flex gap-4 text-xs text-gray-400">
+                    <span>{passed}/{total} test cases passed</span>
+                    {sub.timeConsumedMs > 0 && <span>⏱ {sub.timeConsumedMs}ms</span>}
+                    {sub.timeConsumed > 0 && <span>⏱ {sub.timeConsumed}ms</span>}
+                </div>
+                {visibleTCs.length > 0 && (
+                    <div className="space-y-1 border-t border-gray-700/50 pt-2">
+                        {visibleTCs.map((tc, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-xs">
+                                <span className="text-gray-500 w-12">TC #{tc.testCase}</span>
+                                <span className={`font-semibold ${tc.status === 'PASS' ? 'text-green-400' : 'text-red-400'}`}>
+                                    {tc.status === 'PASS' ? '✓ PASS' : '✗ FAIL'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {hiddenTCs.length > 0 && (
+                    <div className="text-xs text-gray-500 italic border-t border-gray-700/50 pt-2">
+                        🔒 {hiddenTCs.length} hidden test case{hiddenTCs.length > 1 ? 's' : ''} —{' '}
+                        <span className="text-green-400">{hiddenPassed} passed</span>,{' '}
+                        <span className="text-red-400">{hiddenTCs.length - hiddenPassed} failed</span>
+                    </div>
+                )}
+                <p className={`text-xs border-t border-gray-700/50 pt-2 ${isTestRun ? 'text-yellow-500/70' : 'text-blue-400/70'}`}>
+                    {isTestRun ? '💡 Test run — not saved' : '✓ Submission saved'}
+                </p>
+            </div>
+        );
+    };
 
     // Fetch problem details and existing submission
     useEffect(() => {
@@ -66,7 +194,7 @@ const ProblemSolve = () => {
                 setSnippetsLoaded(true);
 
                 // Fetch existing submission after snippets are loaded
-                api.get(`/submissions/user/${id}`)
+                SubmissionService.getUserSubmission(id)
                     .then(subRes => {
                         if (subRes.data) {
                             // Found existing submission
@@ -233,75 +361,20 @@ const ProblemSolve = () => {
         }
 
         setRunning(true);
-        setOutput("Running tests...");
+        setOutput(<div className="text-yellow-400 animate-pulse font-mono text-sm">⏳ Running tests...</div>);
 
-        api.post('/submissions/test', {
-            problemId: id,
-            code: code,
-            language: language
-        }).then(res => {
-            setRunning(false);
-            const sub = res.data;
-
-            // Determine status color
-            let statusColor = 'text-red-500';
-            if (sub.status === 'AC') statusColor = 'text-green-500';
-            else if (sub.status === 'JUDGING' || sub.status === 'PENDING') statusColor = 'text-yellow-500';
-
-            // Check for compilation or runtime errors
-            if (sub.status === 'CE' || sub.status === 'RE') {
-                setOutput(
-                    <div className="font-mono text-sm">
-                        <p className={`text-xl font-bold mb-2 ${statusColor}`}>
-                            {sub.status === 'CE' ? 'Compilation Error' : 'Runtime Error'}
-                        </p>
-                        <div className="bg-code-gray p-3 rounded mt-2 text-red-400 whitespace-pre-wrap overflow-x-auto">
-                            {sub.errorMessage || 'No error details available'}
-                        </div>
-                        <p className="text-yellow-500 mt-2 text-xs">💡 This was a test run - not saved</p>
-                    </div>
-                );
-            } else {
-                // Normal verdict display (no time for test runs)
-                const testCaseDetails = sub.testCaseDetails ? JSON.parse(sub.testCaseDetails) : [];
-                const visibleTestCases = testCaseDetails.filter(tc => !tc.hidden);
-
-                setOutput(
-                    <div className={`font-mono text-sm ${statusColor}`}>
-                        <p className="text-xl font-bold mb-2">{sub.status}</p>
-                        <div className="text-gray-300">
-                            <p>Passed: {sub.testCasesPassed} / {sub.totalTestCases}</p>
-
-                            {/* Test Case Details - Only show non-hidden test cases */}
-                            {visibleTestCases.length > 0 && (
-                                <div className="mt-3 border-t border-gray-700 pt-2">
-                                    <p className="text-xs text-gray-400 mb-1">Test Case Results:</p>
-                                    <div className="space-y-1">
-                                        {visibleTestCases.map((tc, idx) => (
-                                            <div key={idx} className="flex items-center gap-2 text-xs">
-                                                <span className="text-gray-500">TC #{tc.testCase}:</span>
-                                                <span className={tc.status === 'PASS' ? 'text-green-400' : 'text-red-400'}>
-                                                    {tc.status === 'PASS' ? '✓ PASS' : '✗ FAIL'}
-                                                </span>
-                                            </div>
-                                        ))}
-                                        {testCaseDetails.length > visibleTestCases.length && (
-                                            <p className="text-xs text-gray-500 italic mt-1">
-                                                + {testCaseDetails.length - visibleTestCases.length} hidden test case(s)
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        <p className="text-yellow-500 mt-2 text-xs">💡 This was a test run - not saved</p>
-                    </div>
-                );
-            }
-        }).catch(err => {
-            setRunning(false);
-            setOutput(<div className="text-red-500">Test failed: {err.message}</div>);
-        });
+        SubmissionService.testCode(id, code, language)
+            .then(() => {
+                // Verdict arrives via SSE — setRunning(false) called there
+                // Fallback: if SSE not connected, poll after 3s
+                setTimeout(() => {
+                    if (running) setRunning(false);
+                }, 10000);
+            })
+            .catch(err => {
+                setRunning(false);
+                setOutput(<div className="text-red-500 font-mono text-sm">Error: {err.message}</div>);
+            });
     };
 
     // Navigation handlers
@@ -351,76 +424,26 @@ const ProblemSolve = () => {
         }
 
         setSubmitting(true);
-        setOutput("Running tests...");
+        setOutput(<div className="text-yellow-400 animate-pulse font-mono text-sm">⏳ Submitting... verdict arriving via real-time stream</div>);
 
-        api.post('/submissions', {
-            problemId: id,
-            code: code,
-            language: language
-        }).then(res => {
-            setSubmitting(false);
-            const sub = res.data;
-
-            // Determine status color
-            let statusColor = 'text-red-500';
-            if (sub.status === 'AC') statusColor = 'text-green-500';
-            else if (sub.status === 'JUDGING' || sub.status === 'PENDING') statusColor = 'text-yellow-500';
-
-            // Check for compilation or runtime errors
-            if (sub.status === 'CE' || sub.status === 'RE') {
-                setOutput(
-                    <div className="font-mono text-sm">
-                        <p className={`text-xl font-bold mb-2 ${statusColor}`}>
-                            {sub.status === 'CE' ? 'Compilation Error' : 'Runtime Error'}
-                        </p>
-                        <div className="bg-code-gray p-3 rounded mt-2 text-red-400 whitespace-pre-wrap overflow-x-auto">
-                            {sub.errorMessage || 'No error details available'}
+        SubmissionService.submitCode(id, code, language)
+            .then(() => {
+                // Verdict arrives via SSE — setSubmitting(false) called in SSE handler
+                // Safety timeout in case SSE drops
+                setTimeout(() => setSubmitting(false), 15000);
+            })
+            .catch(err => {
+                setSubmitting(false);
+                if (err.response?.status === 429) {
+                    setOutput(
+                        <div className="font-mono text-sm text-orange-400">
+                            ⚠ {err.response.data?.message || 'Too many submissions. Please wait.'}
                         </div>
-                    </div>
-                );
-            } else {
-                // Normal verdict display with time
-                const testCaseDetails = sub.testCaseDetails ? JSON.parse(sub.testCaseDetails) : [];
-                const visibleTestCases = testCaseDetails.filter(tc => !tc.hidden);
-
-                setOutput(
-                    <div className={`font-mono text-sm ${statusColor}`}>
-                        <p className="text-xl font-bold mb-2">{sub.status}</p>
-                        <div className="text-gray-300">
-                            <p>Passed: {sub.testCasesPassed} / {sub.totalTestCases}</p>
-                            {sub.timeConsumed > 0 && <p>Time: {sub.timeConsumed}ms</p>}
-                            {/* <p className="text-code-green font-bold mt-1">Score: {sub.score || 0}/100</p> */}
-
-                            {/* Test Case Details - Only show non-hidden test cases */}
-                            {visibleTestCases.length > 0 && (
-                                <div className="mt-3 border-t border-gray-700 pt-2">
-                                    <p className="text-xs text-gray-400 mb-1">Test Case Results:</p>
-                                    <div className="space-y-1">
-                                        {visibleTestCases.map((tc, idx) => (
-                                            <div key={idx} className="flex items-center gap-2 text-xs">
-                                                <span className="text-gray-500">TC #{tc.testCase}:</span>
-                                                <span className={tc.status === 'PASS' ? 'text-green-400' : 'text-red-400'}>
-                                                    {tc.status === 'PASS' ? '✓ PASS' : '✗ FAIL'}
-                                                </span>
-                                            </div>
-                                        ))}
-                                        {testCaseDetails.length > visibleTestCases.length && (
-                                            <p className="text-xs text-gray-500 italic mt-1">
-                                                + {testCaseDetails.length - visibleTestCases.length} hidden test case(s)
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        <p className="text-blue-400 mt-2 text-xs">✓ Submission saved (updates previous if exists)</p>
-                    </div>
-                );
-            }
-        }).catch(err => {
-            setSubmitting(false);
-            setOutput(<div className="text-red-500">Submission failed: {err.message}</div>);
-        });
+                    );
+                } else {
+                    setOutput(<div className="text-red-500 font-mono text-sm">Submission failed: {err.message}</div>);
+                }
+            });
     };
 
     if (loading) return <div className="text-center mt-20 text-code-green animate-pulse">Loading Arena...</div>;

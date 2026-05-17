@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import api from '../services/api';
+import SubmissionService from '../services/submission.service';
 
 // Countdown Timer Component
 const CountdownTimer = ({ endTime }) => {
@@ -63,13 +64,14 @@ const ContestDetail = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const contestRes = await api.get(`/contests/${id}`);
-        const problemsRes = await api.get(`/problems/contest/${id}`);
-        setContest(contestRes.data);
-        setProblems(problemsRes.data);
+        // Single combined request — replaces 2 sequential calls
+        // (GET /contests/:id then GET /problems/contest/:id)
+        const detailRes = await api.get(`/contests/${id}/detail`);
+        setContest(detailRes.data.contest);
+        setProblems(detailRes.data.problems);
 
         try {
-          const submissionsRes = await api.get('/submissions/user');
+          const submissionsRes = await SubmissionService.getUserSubmissions();
           const submissionsMap = {};
           submissionsRes.data.forEach(sub => {
             const problemId = sub.problemId;
@@ -85,7 +87,6 @@ const ContestDetail = () => {
         setLoading(false);
       } catch (err) {
         console.error(err);
-        // Check if contest was deleted (404) or other error
         if (err.response?.status === 404) {
           setError('Contest not found');
         } else {

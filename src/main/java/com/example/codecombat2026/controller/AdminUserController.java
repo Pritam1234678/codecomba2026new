@@ -31,6 +31,9 @@ public class AdminUserController {
     @Autowired
     private com.example.codecombat2026.repository.SubmissionRepository submissionRepository;
 
+    @Autowired
+    private AdminDashboardController adminDashboardController;
+
     @GetMapping
     public List<User> getAllUsers() {
         return userRepository.findAll();
@@ -51,6 +54,7 @@ public class AdminUserController {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         user.setEnabled(true);
         userRepository.save(user);
+        adminDashboardController.invalidateStatsCache();
         return ResponseEntity.ok(new MessageResponse("User enabled successfully"));
     }
 
@@ -67,6 +71,7 @@ public class AdminUserController {
 
         user.setEnabled(false);
         userRepository.save(user);
+        adminDashboardController.invalidateStatsCache();
         return ResponseEntity.ok(new MessageResponse("User disabled successfully"));
     }
 
@@ -90,7 +95,7 @@ public class AdminUserController {
 
         // Finally delete the user
         userRepository.delete(user);
-
+        adminDashboardController.invalidateStatsCache();
         return ResponseEntity.ok(new MessageResponse("User and all their data deleted successfully"));
     }
 }

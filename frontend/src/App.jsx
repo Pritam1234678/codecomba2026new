@@ -1,3 +1,4 @@
+import React, { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import Navbar from './components/Navbar';
@@ -28,17 +29,19 @@ import EditProfile from './pages/EditProfile';
 import PlatformDetails from './pages/PlatformDetails';
 import Support from './pages/Support';
 import Home from './pages/Home';
-import NotFound from './pages/NotFound';
-import React from 'react';
+// Lazy-load NotFound — it pulls in Three.js (1MB) which is never needed on normal pages
+const NotFound = lazy(() => import('./pages/NotFound'));
 import api from './services/api';
 
 function App() {
   const location = useLocation();
 
-  // Check account status on every route change (except Support page)
+  // Check account status only on protected pages, not on every route change.
+  // The API interceptor already handles 401/403 responses globally.
+  // This effect only runs when navigating to a protected page after being idle.
   useEffect(() => {
     const checkAccountStatus = async () => {
-      // Skip check for Support page and public pages
+      // Skip check for public pages
       if (location.pathname === '/support' ||
         location.pathname === '/login' ||
         location.pathname === '/register' ||
@@ -49,11 +52,18 @@ function App() {
       const user = JSON.parse(localStorage.getItem('user'));
       if (!user || !user.token) return;
 
+      // Only check once per 5 minutes — not on every single route change
+      const lastCheck = sessionStorage.getItem('lastAccountCheck');
+      const now = Date.now();
+      if (lastCheck && now - parseInt(lastCheck) < 5 * 60 * 1000) {
+        return; // Skip — checked recently
+      }
+
       try {
-        // Make a lightweight API call to trigger interceptor
         await api.get('/user/profile');
+        sessionStorage.setItem('lastAccountCheck', String(now));
       } catch (error) {
-        // Interceptor will handle account disabled error
+        // Interceptor handles 401/403
       }
     };
 
@@ -97,7 +107,11 @@ function App() {
         <Route path="/support" element={<div className="flex-1"><Support /></div>} />
 
         {/* 404 Not Found - Catch all unknown routes */}
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={
+          <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-gray-400">Loading...</div>}>
+            <NotFound />
+          </Suspense>
+        } />
       </Routes>
       <Footer />
     </div>

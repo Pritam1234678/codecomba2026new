@@ -30,3 +30,8 @@ src/main/resources/application-*.properties
 frontend/.env
 frontend/.env.local
 frontend/.env.production
+.env
+# .env.example is intentionally NOT ignored — it's the template for teammates
+
+# Uploaded user files — not for git
+uploads/

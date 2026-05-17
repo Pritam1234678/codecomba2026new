@@ -19,58 +19,55 @@ public class CodeSnippetController {
     @Autowired
     private CodeSnippetService snippetService;
 
-    /**
-     * Get all snippets for a problem
-     * Public endpoint - users need this to load code editor
-     */
+    // ─── User-facing endpoints ────────────────────────────────────────────────
+    // Returns only the starter code extracted from between USER_CODE_START/END markers.
+    // solutionTemplate (full harness) is NEVER returned to users.
+
     @GetMapping
     public ResponseEntity<List<CodeSnippetDTO>> getAllSnippets(@PathVariable Long problemId) {
-        List<CodeSnippetDTO> snippets = snippetService.getSnippetsByProblemId(problemId);
-        return ResponseEntity.ok(snippets);
+        return ResponseEntity.ok(snippetService.getSnippetsByProblemId(problemId));
     }
 
-    /**
-     * Get snippet for specific language
-     * Public endpoint
-     */
     @GetMapping("/{language}")
     public ResponseEntity<CodeSnippetDTO> getSnippet(
             @PathVariable Long problemId,
             @PathVariable String language) {
-        CodeSnippetDTO snippet = snippetService.getSnippet(problemId, language);
-        return ResponseEntity.ok(snippet);
+        return ResponseEntity.ok(snippetService.getSnippet(problemId, language));
     }
 
-    /**
-     * Create or update a snippet
-     * Admin only
-     */
+    // ─── Admin endpoints ──────────────────────────────────────────────────────
+    // Returns full harness (solutionTemplate) for editing.
+
+    @GetMapping("/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<CodeSnippetDTO>> getAllSnippetsAdmin(@PathVariable Long problemId) {
+        return ResponseEntity.ok(snippetService.getSnippetsByProblemIdAdmin(problemId));
+    }
+
+    @GetMapping("/admin/{language}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<CodeSnippetDTO> getSnippetAdmin(
+            @PathVariable Long problemId,
+            @PathVariable String language) {
+        return ResponseEntity.ok(snippetService.getSnippetAdmin(problemId, language));
+    }
+
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CodeSnippet> saveSnippet(
             @PathVariable Long problemId,
             @RequestBody CodeSnippetDTO dto) {
-        CodeSnippet snippet = snippetService.saveSnippet(problemId, dto);
-        return ResponseEntity.ok(snippet);
+        return ResponseEntity.ok(snippetService.saveSnippet(problemId, dto));
     }
 
-    /**
-     * Bulk create/update snippets
-     * Admin only
-     */
     @PostMapping("/bulk")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<CodeSnippet>> saveAllSnippets(
             @PathVariable Long problemId,
             @RequestBody List<CodeSnippetDTO> dtos) {
-        List<CodeSnippet> snippets = snippetService.saveAllSnippets(problemId, dtos);
-        return ResponseEntity.ok(snippets);
+        return ResponseEntity.ok(snippetService.saveAllSnippets(problemId, dtos));
     }
 
-    /**
-     * Delete a snippet
-     * Admin only
-     */
     @DeleteMapping("/{snippetId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteSnippet(@PathVariable Long snippetId) {
@@ -78,21 +75,15 @@ public class CodeSnippetController {
         return ResponseEntity.ok(new MessageResponse("Snippet deleted successfully"));
     }
 
-    /**
-     * Check if problem has all required snippets
-     * Admin only
-     */
     @GetMapping("/validate")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> validateSnippets(@PathVariable Long problemId) {
         boolean hasAll = snippetService.hasAllLanguages(problemId);
-
         if (hasAll) {
             return ResponseEntity.ok(new MessageResponse("All languages configured"));
-        } else {
-            List<String> missing = snippetService.getMissingLanguages(problemId);
-            return ResponseEntity.badRequest()
-                    .body(new MessageResponse("Missing languages: " + String.join(", ", missing)));
         }
+        List<String> missing = snippetService.getMissingLanguages(problemId);
+        return ResponseEntity.badRequest()
+                .body(new MessageResponse("Missing languages: " + String.join(", ", missing)));
     }
 }
