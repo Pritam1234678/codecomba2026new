@@ -47,7 +47,7 @@ const ForgotPassword = () => {
             position: 'relative',
         }}>
             {/* ── Background image ── */}
-            <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: 'url(/bg-forgot-password.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
+            <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: 'url(/bg-forgot-password.webp)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
             <div style={{ position: 'fixed', inset: 0, zIndex: 1, background: 'rgba(19,19,19,0.75)' }} />
             <div style={{ position: 'fixed', inset: 0, zIndex: 2, backgroundImage: `linear-gradient(to right,${C.border} 1px,transparent 1px),linear-gradient(to bottom,${C.border} 1px,transparent 1px)`, backgroundSize: '64px 64px', opacity: 0.07 }} />
 

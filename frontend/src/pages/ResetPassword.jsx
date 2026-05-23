@@ -20,7 +20,7 @@ const C = {
 // ── Shared background layers (same as Login) ──────────────────────────────────
 const BgLayers = () => (
     <>
-        <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: 'url(/bg-login.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: 'url(/bg-login.webp)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
         <div style={{ position: 'fixed', inset: 0, zIndex: 1, background: 'rgba(19,19,19,0.72)' }} />
         <div style={{ position: 'fixed', inset: 0, zIndex: 2, backgroundImage: `linear-gradient(to right,${C.border} 1px,transparent 1px),linear-gradient(to bottom,${C.border} 1px,transparent 1px)`, backgroundSize: '64px 64px', opacity: 0.08 }} />
     </>

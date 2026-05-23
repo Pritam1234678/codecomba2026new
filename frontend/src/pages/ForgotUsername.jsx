@@ -67,7 +67,7 @@ const ForgotUsername = () => {
                 }} />
                 {/* Wordmark image */}
                 <img
-                    src="/codecombat-wordmark.png"
+                    src="/codecombat-wordmark.webp"
                     alt="Code Combat"
                     style={{
                         position: 'absolute', inset: 0,

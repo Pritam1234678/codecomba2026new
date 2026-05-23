@@ -75,7 +75,7 @@ const Login = () => {
             {/* ── Background image ── */}
             <div style={{
                 position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
-                backgroundImage: 'url(/bg-login.png)',
+                backgroundImage: 'url(/bg-login.webp)',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat',

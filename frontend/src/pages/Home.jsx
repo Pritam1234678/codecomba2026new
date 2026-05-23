@@ -57,8 +57,11 @@ const Home = () => {
             }}>
                 <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
                     <img
-                        src="/bg-hero-new.png"
+                        src="/bg-hero-new.webp"
                         alt=""
+                        loading="eager"
+                        fetchpriority="high"
+                        decoding="async"
                         style={{
                             width: '100%', height: '100%',
                             objectFit: 'cover',
@@ -173,7 +176,9 @@ const Home = () => {
                     }}
                 >
                     <img
-                        src="/bg-feature-1.png"
+                        src="/bg-feature-1.webp"
+                        loading="lazy"
+                        decoding="async"
                         alt=""
                         style={{
                             position: 'absolute', inset: 0,
@@ -223,7 +228,9 @@ const Home = () => {
                 >
                     {/* Background image */}
                     <img
-                        src="/bg-feature-2.png"
+                        src="/bg-feature-2.webp"
+                        loading="lazy"
+                        decoding="async"
                         alt=""
                         style={{
                             position: 'absolute', inset: 0,
@@ -317,7 +324,9 @@ const Home = () => {
                     }}
                 >
                     <img
-                        src="/bg-feature-3.png"
+                        src="/bg-feature-3.webp"
+                        loading="lazy"
+                        decoding="async"
                         alt=""
                         style={{
                             position: 'absolute', inset: 0,
