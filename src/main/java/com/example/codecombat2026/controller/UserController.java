@@ -70,8 +70,7 @@ public class UserController {
 
         UserProfileResponse profile = new UserProfileResponse(
                 user.getId(), user.getUsername(), user.getEmail(),
-                user.getFullName(), user.getRollNumber(), user.getBranch(),
-                user.getPhoneNumber(), photoUrl);
+                user.getFullName(), photoUrl);
 
         try {
             redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(profile), PROFILE_TTL);
@@ -80,20 +79,11 @@ public class UserController {
         return ResponseEntity.ok(profile);
     }
 
-    /**
-     * Combined dashboard endpoint — returns profile + submissions in ONE request.
-     * Replaces the two sequential calls UserDashboard.jsx was making:
-     *   GET /user/profile  (hits Valkey cache)
-     *   GET /submissions/user  (hits MySQL)
-     * Both are fetched in parallel, cutting latency roughly in half.
-     * Submissions are limited to the 20 most recent to avoid large payloads.
-     */
     @GetMapping("/dashboard")
     public ResponseEntity<?> getDashboardData(@AuthenticationPrincipal UserDetailsImpl userDetails) {
         Long userId = userDetails.getId();
         String username = userDetails.getUsername();
 
-        // Fetch profile (Valkey) and submissions (MySQL) in parallel
         CompletableFuture<UserProfileResponse> profileFuture = CompletableFuture.supplyAsync(() -> {
             String cacheKey = "profile:" + username;
             try {
@@ -109,8 +99,7 @@ public class UserController {
                     .map(UserPhoto::getPhotoUrl).orElse(null);
             UserProfileResponse profile = new UserProfileResponse(
                     user.getId(), user.getUsername(), user.getEmail(),
-                    user.getFullName(), user.getRollNumber(), user.getBranch(),
-                    user.getPhoneNumber(), photoUrl);
+                    user.getFullName(), photoUrl);
             try {
                 redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(profile), PROFILE_TTL);
             } catch (Exception ignored) {}
@@ -123,7 +112,6 @@ public class UserController {
         UserProfileResponse profile = profileFuture.join();
         List<Submission> submissions = submissionsFuture.join();
 
-        // Limit to 20 most recent for the dashboard table
         List<Submission> recent = submissions.size() > 20
                 ? submissions.subList(submissions.size() - 20, submissions.size())
                 : submissions;
@@ -151,15 +139,6 @@ public class UserController {
         if (request.getFullName() != null && !request.getFullName().isEmpty()) {
             user.setFullName(request.getFullName());
         }
-        if (request.getPhoneNumber() != null) {
-            user.setPhoneNumber(request.getPhoneNumber());
-        }
-        if (request.getRollNumber() != null) {
-            user.setRollNumber(request.getRollNumber());
-        }
-        if (request.getBranch() != null) {
-            user.setBranch(request.getBranch());
-        }
 
         userRepository.save(user);
 
@@ -170,8 +149,7 @@ public class UserController {
 
         return ResponseEntity.ok(new UserProfileResponse(
                 user.getId(), user.getUsername(), user.getEmail(),
-                user.getFullName(), user.getRollNumber(), user.getBranch(),
-                user.getPhoneNumber(), photoUrl));
+                user.getFullName(), photoUrl));
     }
 
     // ─── POST /api/user/profile/photo ─────────────────────────────────────────
@@ -219,7 +197,6 @@ public class UserController {
                 userPhotoRepository.save(new UserPhoto(user.getId(), photoUrl));
             }
 
-            // Evict profile cache so photo shows immediately
             try { redis.delete("profile:" + username); } catch (Exception ignored) {}
 
             return ResponseEntity.ok(new PhotoUploadResponse(photoUrl, "Photo uploaded successfully"));
@@ -234,20 +211,11 @@ public class UserController {
     public static class UpdateProfileRequest {
         private String email;
         private String fullName;
-        private String phoneNumber;
-        private String rollNumber;
-        private String branch;
 
         public String getEmail() { return email; }
         public void setEmail(String email) { this.email = email; }
         public String getFullName() { return fullName; }
         public void setFullName(String fullName) { this.fullName = fullName; }
-        public String getPhoneNumber() { return phoneNumber; }
-        public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
-        public String getRollNumber() { return rollNumber; }
-        public void setRollNumber(String rollNumber) { this.rollNumber = rollNumber; }
-        public String getBranch() { return branch; }
-        public void setBranch(String branch) { this.branch = branch; }
     }
 
     public static class PhotoUploadResponse {
@@ -268,22 +236,16 @@ public class UserController {
         private String username;
         private String email;
         private String fullName;
-        private String rollNumber;
-        private String branch;
-        private String phoneNumber;
         private String photoUrl;
 
         public UserProfileResponse() {}
 
-        public UserProfileResponse(Long id, String username, String email, String fullName,
-                String rollNumber, String branch, String phoneNumber, String photoUrl) {
+        public UserProfileResponse(Long id, String username, String email,
+                String fullName, String photoUrl) {
             this.id = id;
             this.username = username;
             this.email = email;
             this.fullName = fullName;
-            this.rollNumber = rollNumber;
-            this.branch = branch;
-            this.phoneNumber = phoneNumber;
             this.photoUrl = photoUrl;
         }
 
@@ -291,17 +253,11 @@ public class UserController {
         public String getUsername() { return username; }
         public String getEmail() { return email; }
         public String getFullName() { return fullName; }
-        public String getRollNumber() { return rollNumber; }
-        public String getBranch() { return branch; }
-        public String getPhoneNumber() { return phoneNumber; }
         public String getPhotoUrl() { return photoUrl; }
         public void setId(Long id) { this.id = id; }
         public void setUsername(String username) { this.username = username; }
         public void setEmail(String email) { this.email = email; }
         public void setFullName(String fullName) { this.fullName = fullName; }
-        public void setRollNumber(String rollNumber) { this.rollNumber = rollNumber; }
-        public void setBranch(String branch) { this.branch = branch; }
-        public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
         public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
     }
 }

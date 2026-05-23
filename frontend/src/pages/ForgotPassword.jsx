@@ -3,183 +3,259 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 
-const ForgotPassword = () => {
-    const [formData, setFormData] = useState({
-        username: '',
-        email: '',
-        phoneNumber: ''
-    });
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
-    const [success, setSuccess] = useState(false);
+const C = {
+    bg:        '#131313',
+    surfaceLow:'#1c1b1b',
+    surfaceCon:'#201f1f',
+    border:    '#50453b',
+    primary:   '#f1bc8b',
+    secondary: '#e9c176',
+    muted:     '#d4c4b7',
+    outline:   '#9d8e83',
+    error:     '#ffb4ab',
+    onBg:      '#e5e2e1',
+};
 
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+const ForgotPassword = () => {
+    const [formData, setFormData] = useState({ username: '', email: '' });
+    const [loading, setLoading]   = useState(false);
+    const [message, setMessage]   = useState('');
+    const [success, setSuccess]   = useState(false);
+
+    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setMessage('');
-        setLoading(true);
-
+        setMessage(''); setLoading(true);
         try {
-            const response = await api.post('/auth/forgot-password', formData);
+            const res = await api.post('/auth/forgot-password', formData);
             setSuccess(true);
-            setMessage(response.data.message);
-        } catch (error) {
+            setMessage(res.data.message);
+        } catch (err) {
             setSuccess(false);
-            const errorMessage = error.response?.data?.message || 'An error occurred. Please try again.';
-            setMessage(errorMessage);
+            setMessage(err.response?.data?.message || 'An error occurred. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center px-4 py-12">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5 }}
-                className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 p-8 md:p-12 rounded-2xl shadow-2xl w-full max-w-md"
-            >
-                {/* Header */}
+        <div style={{
+            flex: 1, display: 'flex', flexDirection: 'column',
+            backgroundColor: C.bg, color: C.onBg,
+            fontFamily: "'Geist', sans-serif",
+            position: 'relative',
+        }}>
+            {/* ── Background image ── */}
+            <div style={{ position: 'fixed', inset: 0, zIndex: 0, backgroundImage: 'url(/bg-forgot-password.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
+            <div style={{ position: 'fixed', inset: 0, zIndex: 1, background: 'rgba(19,19,19,0.75)' }} />
+            <div style={{ position: 'fixed', inset: 0, zIndex: 2, backgroundImage: `linear-gradient(to right,${C.border} 1px,transparent 1px),linear-gradient(to bottom,${C.border} 1px,transparent 1px)`, backgroundSize: '64px 64px', opacity: 0.07 }} />
+
+            {/* ── Main ── */}
+            <main style={{
+                flexGrow: 1, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                padding: '32px 64px',
+                position: 'relative', zIndex: 10,
+            }}>
                 <motion.div
-                    initial={{ opacity: 0, y: -20 }}
+                    initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.2 }}
-                    className="text-center mb-8"
+                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                    style={{ width: '100%', maxWidth: '672px', display: 'flex', flexDirection: 'column', gap: '3rem' }}
                 >
-                    <h2 className="text-4xl font-bold mb-2">
-                        <span className="text-white">Forgot </span>
-                        <span className="text-green-400">Password?</span>
-                    </h2>
-                    <p className="text-gray-400 text-sm">
-                        Don't worry, user. We'll help you reset your password.
-                    </p>
-                </motion.div>
-
-                {/* Message */}
-                {message && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`border px-4 py-3 rounded-xl mb-6 ${success
-                            ? 'bg-green-500/10 border-green-500/50'
-                            : 'bg-red-500/10 border-red-500/50'
-                            }`}
-                    >
-                        <p className={`text-sm ${success ? 'text-green-300' : 'text-red-300'}`}>
-                            {message}
+                    {/* Header section */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <h1 style={{
+                            fontFamily: "'Playfair Display', serif",
+                            fontSize: '48px', fontWeight: 700,
+                            lineHeight: 1.1, color: C.primary, margin: 0,
+                        }}>
+                            Recovery Protocol
+                        </h1>
+                        <p style={{ fontSize: '18px', color: C.muted, lineHeight: 1.6, margin: 0 }}>
+                            Initialize identity verification to restore access to the Arena.
                         </p>
-                        {success && (
-                            <div className="mt-3 pt-3 border-t border-green-500/30">
-                                <p className="text-yellow-400 text-sm font-semibold flex items-center gap-2">
-                                  
-                                    If you don't see this email in your inbox, please check your spam/junk folder.
-                                </p>
-                            </div>
-                        )}
-                    </motion.div>
-                )}
+                    </div>
 
-                {!success && (
-                    <motion.form
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.6, delay: 0.3 }}
-                        onSubmit={handleSubmit}
-                        className="space-y-5"
-                    >
-                        {/* Username */}
-                        <div>
-                            <label className="block text-gray-400 text-sm font-medium mb-2">
-                                Username *
-                            </label>
-                            <input
-                                name="username"
-                                type="text"
-                                value={formData.username}
-                                onChange={handleChange}
-                                required
-                                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-                                placeholder="Enter your username"
-                            />
+                    {/* Step indicator */}
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '16px',
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: '12px', letterSpacing: '0.1em', color: C.muted,
+                    }}>
+                        <span style={{ color: C.secondary, borderBottom: `2px solid ${C.secondary}`, paddingBottom: '4px' }}>1. Identify</span>
+                        <span style={{ color: C.border }}>›</span>
+                        <span style={{ opacity: 0.5 }}>2. Verify</span>
+                        <span style={{ color: C.border }}>›</span>
+                        <span style={{ opacity: 0.5 }}>3. Reset</span>
+                    </div>
+
+                    {/* Form panel */}
+                    {!success ? (
+                        <div style={{
+                            border: `1px solid ${C.border}`,
+                            padding: '3rem',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            backgroundColor: 'rgba(28,27,27,0.88)',
+                            backdropFilter: 'blur(12px)',
+                        }}>
+                            {/* Amber top accent */}
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', backgroundColor: C.secondary }} />
+
+                            {/* Error */}
+                            {message && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                                    style={{
+                                        marginBottom: '2rem', padding: '10px 14px',
+                                        border: `1px solid ${C.error}`, borderLeft: `3px solid ${C.error}`,
+                                        backgroundColor: 'rgba(255,180,171,0.08)',
+                                        display: 'flex', alignItems: 'center', gap: '8px',
+                                    }}
+                                >
+                                    <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error, margin: 0 }}>{message}</p>
+                                </motion.div>
+                            )}
+
+                            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                {/* Username */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', color: C.primary, textTransform: 'uppercase' }}>
+                                        Username
+                                    </label>
+                                    <div style={{ position: 'relative' }}>
+                                        <span style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', color: C.primary, opacity: 0.5, fontFamily: "'JetBrains Mono', monospace", fontSize: '14px' }}>
+                                            &gt;
+                                        </span>
+                                        <input
+                                            name="username" type="text" placeholder="Architect_01"
+                                            value={formData.username} onChange={handleChange} required
+                                            style={{
+                                                width: '100%', backgroundColor: 'transparent',
+                                                border: 'none', borderBottom: `1px solid ${C.border}`,
+                                                color: C.onBg, fontFamily: "'JetBrains Mono', monospace",
+                                                fontSize: '14px', padding: '8px 0 8px 24px',
+                                                outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box',
+                                            }}
+                                            onFocus={e => e.target.style.borderBottomColor = C.secondary}
+                                            onBlur={e => e.target.style.borderBottomColor = C.border}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Email */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', color: C.primary, textTransform: 'uppercase' }}>
+                                        Email Address
+                                    </label>
+                                    <div style={{ position: 'relative' }}>
+                                        <span style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', color: C.primary, opacity: 0.5, fontFamily: "'JetBrains Mono', monospace", fontSize: '14px' }}>
+                                            &gt;
+                                        </span>
+                                        <input
+                                            name="email" type="email" placeholder="architect@codecombat.io"
+                                            value={formData.email} onChange={handleChange} required
+                                            style={{
+                                                width: '100%', backgroundColor: 'transparent',
+                                                border: 'none', borderBottom: `1px solid ${C.border}`,
+                                                color: C.onBg, fontFamily: "'JetBrains Mono', monospace",
+                                                fontSize: '14px', padding: '8px 0 8px 24px',
+                                                outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box',
+                                            }}
+                                            onFocus={e => e.target.style.borderBottomColor = C.secondary}
+                                            onBlur={e => e.target.style.borderBottomColor = C.border}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div style={{ paddingTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                                    <Link to="/login" style={{
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                        fontSize: '12px', letterSpacing: '0.1em',
+                                        color: C.muted, textDecoration: 'none', transition: 'color 0.2s',
+                                    }}
+                                        onMouseEnter={e => e.target.style.color = C.secondary}
+                                        onMouseLeave={e => e.target.style.color = C.muted}
+                                    >
+                                        &lt; Abort Protocol
+                                    </Link>
+                                    <SlideButton type="submit" disabled={loading}>
+                                        {loading ? 'Sending...' : 'Execute Request'}
+                                    </SlideButton>
+                                </div>
+                            </form>
                         </div>
-
-                        {/* Email */}
-                        <div>
-                            <label className="block text-gray-400 text-sm font-medium mb-2">
-                                Registered Email *
-                            </label>
-                            <input
-                                name="email"
-                                type="email"
-                                value={formData.email}
-                                onChange={handleChange}
-                                required
-                                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-                                placeholder="your.email@example.com"
-                            />
-                        </div>
-
-                        {/* Phone Number */}
-                        <div>
-                            <label className="block text-gray-400 text-sm font-medium mb-2">
-                                Registered Phone Number *
-                            </label>
-                            <input
-                                name="phoneNumber"
-                                type="text"
-                                value={formData.phoneNumber}
-                                onChange={handleChange}
-                                required
-                                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-                                placeholder="+91 1234567890"
-                            />
-                        </div>
-
-                        {/* Submit Button */}
-                        <div className="pt-2">
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                type="submit"
-                                disabled={loading}
-                                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-green-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    ) : (
+                        /* Success state */
+                        <motion.div
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                            style={{
+                                border: `1px solid ${C.border}`,
+                                padding: '3rem',
+                                position: 'relative',
+                                backgroundColor: C.surfaceLow,
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1.5rem',
+                            }}
+                        >
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', backgroundColor: C.secondary }} />
+                            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '32px', fontWeight: 600, color: C.onBg, margin: 0 }}>
+                                Protocol Sent
+                            </h3>
+                            <p style={{ fontSize: '16px', color: C.muted, lineHeight: 1.6, maxWidth: '400px', margin: 0 }}>
+                                {message}
+                            </p>
+                            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.secondary, letterSpacing: '0.05em', margin: 0 }}>
+                                Check spam/junk if not in inbox.
+                            </p>
+                            <Link to="/login" style={{
+                                marginTop: '1rem',
+                                border: `1px solid ${C.border}`,
+                                backgroundColor: 'transparent',
+                                padding: '12px 32px',
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '12px', letterSpacing: '0.1em',
+                                color: C.onBg, textDecoration: 'none',
+                                textTransform: 'uppercase', transition: 'all 0.2s',
+                            }}
+                                onMouseEnter={e => { e.target.style.borderColor = C.secondary; e.target.style.color = C.secondary; }}
+                                onMouseLeave={e => { e.target.style.borderColor = C.border; e.target.style.color = C.onBg; }}
                             >
-                                {loading ? (
-                                    <span className="flex items-center justify-center gap-2">
-                                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                        </svg>
-                                        Sending...
-                                    </span>
-                                ) : (
-                                    'Send Reset Link'
-                                )}
-                            </motion.button>
-                        </div>
-                    </motion.form>
-                )}
-
-                {/* Back to Login */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.6, delay: 0.5 }}
-                    className="mt-6 text-center"
-                >
-                    <Link
-                        to="/login"
-                        className="text-green-400 hover:text-green-300 text-sm font-semibold transition-colors"
-                    >
-                        ← Back to Login
-                    </Link>
+                                Return to Login
+                            </Link>
+                        </motion.div>
+                    )}
                 </motion.div>
-            </motion.div>
+            </main>
+
+
+            <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
         </div>
+    );
+};
+
+const SlideButton = ({ children, type = 'button', disabled = false }) => {
+    const [hovered, setHovered] = React.useState(false);
+    return (
+        <button type={type} disabled={disabled}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                border: '1px solid #e9c176',
+                backgroundColor: hovered && !disabled ? '#e9c176' : 'transparent',
+                color: hovered && !disabled ? '#131313' : '#e9c176',
+                padding: '12px 32px', cursor: disabled ? 'not-allowed' : 'pointer',
+                opacity: disabled ? 0.4 : 1, transition: 'all 0.3s',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '12px', letterSpacing: '0.1em',
+                fontWeight: 500, textTransform: 'uppercase',
+                display: 'inline-flex', alignItems: 'center', gap: '8px',
+            }}
+        >
+            {children}
+        </button>
     );
 };
 

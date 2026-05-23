@@ -63,6 +63,12 @@ public class Problem {
     private Boolean active = true;
 
     /**
+     * Difficulty level: EASY, MEDIUM, HARD
+     */
+    @Column(nullable = false)
+    private String level = "MEDIUM";
+
+    /**
      * Code snippets for each language.
      * Each snippet contains:
      *   - starterCode: shown to the user in the editor

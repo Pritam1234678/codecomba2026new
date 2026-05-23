@@ -8,13 +8,20 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Registry of active SSE connections.
- * When a judge worker finishes, it calls sendVerdict() to push
- * the result directly to the user's browser — no polling needed.
+ *
+ * Multi-tab safe: each open stream gets its own subscription id, and any
+ * verdict for the user is fanned out to every active subscription. So a user
+ * with two tabs open both see their submission verdicts.
+ *
+ * When a judge worker finishes, it calls sendVerdict() to push the result
+ * directly to every subscription registered for that user — no polling needed.
  */
 @Component
 public class SseEmitterRegistry {
@@ -24,78 +31,117 @@ public class SseEmitterRegistry {
     @Autowired
     private ObjectMapper objectMapper;
 
-    // userId → SseEmitter (one active connection per user)
-    private final ConcurrentHashMap<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
+    /**
+     * userId → (subscriptionId → emitter). The inner map is a {@link ConcurrentHashMap}
+     * so concurrent register/remove from the SSE thread doesn't corrupt state.
+     */
+    private final ConcurrentHashMap<Long, ConcurrentHashMap<String, SseEmitter>> emitters = new ConcurrentHashMap<>();
 
     /**
-     * Register a new SSE connection for a user.
-     * Called when user opens GET /api/submissions/stream.
+     * Register a new SSE connection for a user. Each call returns a fresh
+     * emitter and unique subscriptionId, so multiple tabs are independent.
      */
     public SseEmitter register(Long userId) {
-        // Remove any existing connection for this user
-        SseEmitter existing = emitters.remove(userId);
-        if (existing != null) {
-            try { existing.complete(); } catch (Exception ignored) {}
-        }
-
+        String subId = UUID.randomUUID().toString();
         SseEmitter emitter = new SseEmitter(300_000L); // 5 min timeout
 
-        emitter.onCompletion(() -> {
-            emitters.remove(userId);
-            log.debug("SSE connection closed for user {}", userId);
-        });
-        emitter.onTimeout(() -> {
-            emitters.remove(userId);
-            log.debug("SSE connection timed out for user {}", userId);
-        });
-        emitter.onError(e -> {
-            emitters.remove(userId);
-            log.debug("SSE error for user {}: {}", userId, e.getMessage());
-        });
+        // Insert into the per-user map atomically
+        emitters.computeIfAbsent(userId, k -> new ConcurrentHashMap<>()).put(subId, emitter);
 
-        emitters.put(userId, emitter);
-        log.debug("SSE connection registered for user {} (total: {})", userId, emitters.size());
+        emitter.onCompletion(() -> remove(userId, subId, "completed"));
+        emitter.onTimeout(() -> remove(userId, subId, "timeout"));
+        emitter.onError(e -> remove(userId, subId, "error: " + e.getMessage()));
+
+        log.debug("SSE subscribed: user={} sub={} (totalUsers={}, totalSubs={})",
+            userId, subId, emitters.size(), totalSubscriptions());
+
+        // Send an immediate "connected" event so the browser confirms the SSE stream is live
+        try {
+            emitter.send(SseEmitter.event().name("connected").data("{\"status\":\"connected\"}"));
+        } catch (IOException e) {
+            log.debug("Failed to send connected event to user {}: {}", userId, e.getMessage());
+            remove(userId, subId, "send-failed");
+        }
+
         return emitter;
     }
 
     /**
-     * Push a verdict event to a specific user.
+     * Push a verdict event to every subscription for the user.
      * Called by the judge worker after code execution completes.
+     * Best-effort — a single dead emitter does not abort the fan-out.
      */
     public void sendVerdict(Long userId, Object verdictData) {
-        SseEmitter emitter = emitters.get(userId);
-        if (emitter == null) {
-            log.debug("No SSE connection for user {} — verdict not pushed", userId);
+        ConcurrentHashMap<String, SseEmitter> subs = emitters.get(userId);
+        if (subs == null || subs.isEmpty()) {
+            log.debug("No SSE subscriptions for user {} — verdict not pushed", userId);
             return;
         }
 
+        String json;
         try {
-            String json = objectMapper.writeValueAsString(verdictData);
-            emitter.send(SseEmitter.event()
-                .name("verdict")
-                .data(json));
-            log.debug("Verdict pushed to user {}", userId);
+            json = objectMapper.writeValueAsString(verdictData);
         } catch (IOException e) {
-            emitters.remove(userId);
-            log.debug("SSE send failed for user {}: {}", userId, e.getMessage());
+            log.error("Failed to serialise verdict for user {}: {}", userId, e.getMessage());
+            return;
         }
+
+        // Iterate a snapshot so concurrent removal from onError doesn't trip ConcurrentModification
+        Iterator<Map.Entry<String, SseEmitter>> it = subs.entrySet().iterator();
+        int delivered = 0;
+        while (it.hasNext()) {
+            Map.Entry<String, SseEmitter> e = it.next();
+            try {
+                e.getValue().send(SseEmitter.event().name("verdict").data(json));
+                delivered++;
+            } catch (IOException ex) {
+                // Subscription is broken — drop it
+                it.remove();
+                log.debug("SSE send failed for user {} sub {}: {}", userId, e.getKey(), ex.getMessage());
+            }
+        }
+        if (subs.isEmpty()) {
+            emitters.remove(userId);
+        }
+        log.debug("Verdict delivered to {} subscription(s) for user {}", delivered, userId);
     }
 
     /**
-     * Send a heartbeat to keep connections alive through proxies/load balancers.
+     * Send a heartbeat to keep connections alive through proxies / load balancers.
      * Called every 25 seconds by a scheduler.
      */
     public void sendHeartbeat() {
-        emitters.forEach((userId, emitter) -> {
-            try {
-                emitter.send(SseEmitter.event().name("ping").data(""));
-            } catch (Exception e) {
-                emitters.remove(userId);
+        if (emitters.isEmpty()) return;
+        emitters.forEach((userId, subs) -> {
+            Iterator<Map.Entry<String, SseEmitter>> it = subs.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, SseEmitter> e = it.next();
+                try {
+                    e.getValue().send(SseEmitter.event().name("ping").data(""));
+                } catch (Exception ex) {
+                    it.remove();
+                }
             }
+            if (subs.isEmpty()) emitters.remove(userId);
         });
     }
 
     public int getActiveConnectionCount() {
-        return emitters.size();
+        return totalSubscriptions();
+    }
+
+    private int totalSubscriptions() {
+        int total = 0;
+        for (ConcurrentHashMap<String, SseEmitter> m : emitters.values()) total += m.size();
+        return total;
+    }
+
+    private void remove(Long userId, String subId, String reason) {
+        ConcurrentHashMap<String, SseEmitter> subs = emitters.get(userId);
+        if (subs == null) return;
+        if (subs.remove(subId) != null) {
+            log.debug("SSE unsubscribed: user={} sub={} reason={}", userId, subId, reason);
+        }
+        if (subs.isEmpty()) emitters.remove(userId);
     }
 }

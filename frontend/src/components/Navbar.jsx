@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import AuthService from '../services/auth.service';
+
+// ── Stitch Design Tokens ──────────────────────────────────────────────────────
+const C = {
+    bg:        '#131313',
+    border:    '#50453b',
+    primary:   '#f1bc8b',
+    secondary: '#e9c176',
+    muted:     '#d4c4b7',
+    surface:   '#201f1f',
+    surfaceHi: '#2a2a2a',
+};
 
 const Navbar = () => {
     const [currentUser, setCurrentUser] = useState(undefined);
@@ -12,15 +22,9 @@ const Navbar = () => {
 
     useEffect(() => {
         const user = AuthService.getCurrentUser();
-        if (user) {
-            setCurrentUser(user);
-        }
+        if (user) setCurrentUser(user);
 
-        // Handle window resize for custom 900px breakpoint
-        const handleResize = () => {
-            setIsDesktop(window.innerWidth >= 900);
-        };
-
+        const handleResize = () => setIsDesktop(window.innerWidth >= 900);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
@@ -29,294 +33,364 @@ const Navbar = () => {
         AuthService.logout();
         setCurrentUser(undefined);
         setMobileMenuOpen(false);
-        navigate("/");
+        navigate('/');
     };
 
     const isActive = (path) => location.pathname === path;
+    const isAdmin  = currentUser?.roles?.includes('ROLE_ADMIN');
 
     const closeMobileMenu = () => setMobileMenuOpen(false);
 
     return (
         <>
-            <motion.nav
-                initial={{ y: -100, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-                className="bg-black/40 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50 shadow-2xl"
+            {/* ── Desktop / Main Nav ── */}
+            <header
                 style={{
-                    background: 'linear-gradient(180deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.6) 100%)'
+                    backgroundColor: C.bg,
+                    borderBottom: `1px solid ${C.border}`,
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 50,
+                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                 }}
             >
-                <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-                    <div className="flex items-center justify-between h-14 sm:h-16">
-                        {/* Logo */}
-                        <motion.div
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="flex-shrink-0"
-                        >
-                            <Link to="/" className="flex items-center">
-                                <span className="text-white font-mono text-base sm:text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
-                                    &lt;CodeCombat /&gt;
-                                </span>
-                            </Link>
-                        </motion.div>
+                <div
+                    style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: isDesktop ? '0.875rem 64px' : '0.875rem 20px',
+                        maxWidth: '100%',
+                    }}
+                >
+                    {/* Logo */}
+                    <Link
+                        to="/"
+                        style={{
+                            fontFamily: "'Playfair Display', 'Georgia', serif",
+                            fontSize: '22px',
+                            fontWeight: 600,
+                            color: C.primary,
+                            fontStyle: 'italic',
+                            textDecoration: 'none',
+                            letterSpacing: '-0.01em',
+                            flexShrink: 0,
+                        }}
+                    >
+                        Code Coder
+                    </Link>
 
-                        {/* Desktop Navigation Links */}
-                        {isDesktop && (
-                            <div className="flex items-center space-x-2">
-                                {currentUser && currentUser.roles && currentUser.roles.includes('ROLE_ADMIN') && (
-                                    <NavLink to="/admin/dashboard" isActive={isActive('/admin/dashboard')}>
-                                        Dashboard
-                                    </NavLink>
-                                )}
-                                {currentUser && currentUser.roles && !currentUser.roles.includes('ROLE_ADMIN') && (
-                                    <NavLink to="/dashboard" isActive={isActive('/dashboard')}>
-                                        Dashboard
-                                    </NavLink>
-                                )}
-                                <NavLink
-                                    to={currentUser && currentUser.roles && currentUser.roles.includes('ROLE_ADMIN') ? '/admin/contests' : '/contests'}
-                                    isActive={isActive('/contests') || isActive('/admin/contests')}
-                                >
-                                    Contests
-                                </NavLink>
-                                {currentUser && currentUser.roles && currentUser.roles.includes('ROLE_ADMIN') && (
-                                    <NavLink to="/admin/leaderboard" isActive={isActive('/admin/leaderboard')}>
-                                        Leaderboard
-                                    </NavLink>
-                                )}
-                                {currentUser && currentUser.roles && !currentUser.roles.includes('ROLE_ADMIN') && (
-                                    <NavLink to="/platform-details" isActive={isActive('/platform-details')}>
-                                        Platform Details
-                                    </NavLink>
-                                )}
-                                <NavLink to="/support" isActive={isActive('/support')}>
-                                    Support
-                                </NavLink>
-                            </div>
-                        )}
+                    {/* Desktop Nav Links */}
+                    {isDesktop && (
+                        <nav style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                            {/* Dashboard — shown when logged in */}
+                            {currentUser && isAdmin && (
+                                <StitchNavLink to="/admin/dashboard" active={isActive('/admin/dashboard')}>
+                                    Dashboard
+                                </StitchNavLink>
+                            )}
+                            {currentUser && !isAdmin && (
+                                <StitchNavLink to="/dashboard" active={isActive('/dashboard')}>
+                                    Dashboard
+                                </StitchNavLink>
+                            )}
 
-                        {/* Desktop Auth Section */}
-                        {isDesktop && (
-                            <div className="flex items-center space-x-3">
-                                {currentUser ? (
-                                    <motion.div
-                                        initial={{ opacity: 0, x: 20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        className="flex items-center space-x-3"
-                                    >
-                                        <div className="px-4 py-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg">
-                                            <span className="text-gray-300 text-sm font-medium">{currentUser.username}</span>
-                                        </div>
-                                        <motion.button
-                                            whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,0.1)' }}
-                                            whileTap={{ scale: 0.95 }}
-                                            onClick={logOut}
-                                            className="px-4 py-2 bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-white/10 hover:border-white/20 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-all"
-                                        >
-                                            Logout
-                                        </motion.button>
-                                    </motion.div>
-                                ) : (
-                                    <motion.div
-                                        initial={{ opacity: 0, x: 20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        className="flex items-center space-x-3"
-                                    >
-                                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                            <Link
-                                                to="/login"
-                                                className="px-4 py-2 text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-colors"
-                                            >
-                                                Login
-                                            </Link>
-                                        </motion.div>
-                                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                            <Link
-                                                to="/register"
-                                                className="px-5 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 hover:border-white/30 text-white rounded-lg text-sm font-semibold transition-all shadow-lg"
-                                            >
-                                                Register
-                                            </Link>
-                                        </motion.div>
-                                    </motion.div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Mobile Hamburger Button */}
-                        {!isDesktop && (
-                            <motion.button
-                                whileTap={{ scale: 0.9 }}
-                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                                className="p-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-                                aria-label="Toggle menu"
+                            {/* Contests */}
+                            <StitchNavLink
+                                to={isAdmin ? '/admin/contests' : '/contests'}
+                                active={isActive('/contests') || isActive('/admin/contests')}
                             >
-                                <svg
-                                    className="w-6 h-6 text-white"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    {mobileMenuOpen ? (
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    ) : (
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                                    )}
-                                </svg>
-                            </motion.button>
-                        )}
-                    </div>
-                </div>
-            </motion.nav>
+                                Contests
+                            </StitchNavLink>
 
-            {/* Mobile Menu Overlay */}
+                            {/* Compiler — public access */}
+                            <StitchNavLink to="/compiler" active={isActive('/compiler')}>
+                                Compiler
+                            </StitchNavLink>
+
+                            {/* Rankings / Leaderboard — admin only */}
+                            {isAdmin && (
+                                <StitchNavLink to="/admin/leaderboard" active={isActive('/admin/leaderboard')}>
+                                    Rankings
+                                </StitchNavLink>
+                            )}
+
+                            {/* Platform Details — user only */}
+                            {currentUser && !isAdmin && (
+                                <StitchNavLink to="/platform-details" active={isActive('/platform-details')}>
+                                    Platform Details
+                                </StitchNavLink>
+                            )}
+
+                            {/* Support — always visible */}
+                            <StitchNavLink to="/support" active={isActive('/support')}>
+                                Support
+                            </StitchNavLink>
+                        </nav>
+                    )}
+
+                    {/* Desktop Auth */}
+                    {isDesktop && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                            {currentUser ? (
+                                <>
+                                    {/* Username badge */}
+                                    <span
+                                        style={{
+                                            fontSize: '12px',
+                                            letterSpacing: '0.08em',
+                                            color: C.muted,
+                                            padding: '6px 14px',
+                                            border: `1px solid ${C.border}`,
+                                            backgroundColor: C.surface,
+                                        }}
+                                    >
+                                        {currentUser.username}
+                                    </span>
+                                    {/* Logout */}
+                                    <StitchButton onClick={logOut} variant="ghost">
+                                        Logout
+                                    </StitchButton>
+                                </>
+                            ) : (
+                                <>
+                                    <StitchButton as={Link} to="/login" variant="ghost">
+                                        Login
+                                    </StitchButton>
+                                    <StitchButton as={Link} to="/register" variant="outline">
+                                        Sign Up
+                                    </StitchButton>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Mobile Hamburger */}
+                    {!isDesktop && (
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            style={{
+                                background: 'none',
+                                border: `1px solid ${C.border}`,
+                                padding: '6px 10px',
+                                cursor: 'pointer',
+                                color: C.muted,
+                                display: 'flex',
+                                alignItems: 'center',
+                            }}
+                            aria-label="Toggle menu"
+                        >
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                {mobileMenuOpen
+                                    ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                }
+                            </svg>
+                        </button>
+                    )}
+                </div>
+            </header>
+
+            {/* ── Mobile Overlay ── */}
             {mobileMenuOpen && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
+                <div
                     onClick={closeMobileMenu}
-                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+                    style={{
+                        position: 'fixed', inset: 0,
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 40,
+                    }}
                 />
             )}
 
-            {/* Mobile Slide-out Menu */}
-            <motion.div
-                initial={{ x: '100%' }}
-                animate={{ x: mobileMenuOpen ? 0 : '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed top-0 right-0 h-full w-72 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border-l border-white/20 z-50 md:hidden shadow-2xl"
+            {/* ── Mobile Slide-out ── */}
+            <div
+                style={{
+                    position: 'fixed',
+                    top: 0, right: 0,
+                    height: '100%',
+                    width: '280px',
+                    backgroundColor: C.bg,
+                    borderLeft: `1px solid ${C.border}`,
+                    zIndex: 50,
+                    transform: mobileMenuOpen ? 'translateX(0)' : 'translateX(100%)',
+                    transition: 'transform 0.3s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    padding: '1.5rem',
+                    fontFamily: "'JetBrains Mono', monospace",
+                }}
             >
-                <div className="flex flex-col h-full p-6 space-y-6">
-                    {/* Close Button */}
-                    <button
+                {/* Close */}
+                <button
+                    onClick={closeMobileMenu}
+                    style={{
+                        alignSelf: 'flex-end',
+                        background: 'none',
+                        border: `1px solid ${C.border}`,
+                        padding: '6px 10px',
+                        cursor: 'pointer',
+                        color: C.muted,
+                        marginBottom: '2rem',
+                    }}
+                >
+                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+
+                {/* Mobile Links */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                    {currentUser && isAdmin && (
+                        <MobileLink to="/admin/dashboard" active={isActive('/admin/dashboard')} onClick={closeMobileMenu}>Dashboard</MobileLink>
+                    )}
+                    {currentUser && !isAdmin && (
+                        <MobileLink to="/dashboard" active={isActive('/dashboard')} onClick={closeMobileMenu}>Dashboard</MobileLink>
+                    )}
+                    <MobileLink
+                        to={isAdmin ? '/admin/contests' : '/contests'}
+                        active={isActive('/contests') || isActive('/admin/contests')}
                         onClick={closeMobileMenu}
-                        className="self-end p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-green-500/50 transition-all duration-300 group"
                     >
-                        <svg className="w-6 h-6 text-white group-hover:text-green-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-
-                    {/* Mobile Navigation Links */}
-                    <div className="flex flex-col space-y-3">
-                        {currentUser && currentUser.roles && currentUser.roles.includes('ROLE_ADMIN') && (
-                            <MobileNavLink to="/admin/dashboard" onClick={closeMobileMenu} isActive={isActive('/admin/dashboard')}>
-                                Dashboard
-                            </MobileNavLink>
-                        )}
-                        {currentUser && currentUser.roles && !currentUser.roles.includes('ROLE_ADMIN') && (
-                            <MobileNavLink to="/dashboard" onClick={closeMobileMenu} isActive={isActive('/dashboard')}>
-                                Dashboard
-                            </MobileNavLink>
-                        )}
-                        <MobileNavLink
-                            to={currentUser && currentUser.roles && currentUser.roles.includes('ROLE_ADMIN') ? '/admin/contests' : '/contests'}
-                            onClick={closeMobileMenu}
-                            isActive={isActive('/contests') || isActive('/admin/contests')}
-                        >
-                            Contests
-                        </MobileNavLink>
-                        {currentUser && currentUser.roles && currentUser.roles.includes('ROLE_ADMIN') && (
-                            <MobileNavLink to="/admin/leaderboard" onClick={closeMobileMenu} isActive={isActive('/admin/leaderboard')}>
-                                Leaderboard
-                            </MobileNavLink>
-                        )}
-                        {currentUser && currentUser.roles && !currentUser.roles.includes('ROLE_ADMIN') && (
-                            <MobileNavLink to="/platform-details" onClick={closeMobileMenu} isActive={isActive('/platform-details')}>
-                                Platform Details
-                            </MobileNavLink>
-                        )}
-                        <MobileNavLink to="/support" onClick={closeMobileMenu} isActive={isActive('/support')}>
-                            Support
-                        </MobileNavLink>
-                    </div>
-
-                    {/* Mobile Auth Section */}
-                    <div className="flex flex-col space-y-3 mt-auto border-t border-white/10 pt-6">
-                        {currentUser ? (
-                            <>
-                                <div className="px-4 py-3 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 rounded-2xl text-center shadow-lg">
-                                    <span className="text-gray-200 text-sm font-semibold">{currentUser.username}</span>
-                                </div>
-                                <motion.button
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={logOut}
-                                    className="w-full px-4 py-3 bg-gradient-to-br from-white/5 to-white/2 hover:from-green-500/20 hover:to-emerald-600/10 backdrop-blur-xl border border-white/10 hover:border-green-500/50 text-gray-300 hover:text-white rounded-2xl text-sm font-semibold transition-all duration-300 shadow-lg hover:shadow-green-500/20"
-                                >
-                                    Logout
-                                </motion.button>
-                            </>
-                        ) : (
-                            <>
-                                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                                    <Link
-                                        to="/login"
-                                        onClick={closeMobileMenu}
-                                        className="w-full block px-4 py-3 text-center bg-gradient-to-br from-white/5 to-white/2 hover:from-green-500/10 hover:to-emerald-600/5 backdrop-blur-xl border border-white/10 hover:border-green-500/50 text-gray-300 hover:text-white rounded-2xl text-sm font-semibold transition-all duration-300 shadow-lg hover:shadow-green-500/20"
-                                    >
-                                        Login
-                                    </Link>
-                                </motion.div>
-                                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                                    <Link
-                                        to="/register"
-                                        onClick={closeMobileMenu}
-                                        className="w-full block px-5 py-3 text-center bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 backdrop-blur-xl border border-green-500/30 hover:border-green-400/50 text-white rounded-2xl text-sm font-bold transition-all duration-300 shadow-lg shadow-green-500/30 hover:shadow-green-500/50"
-                                    >
-                                        Register
-                                    </Link>
-                                </motion.div>
-                            </>
-                        )}
-                    </div>
+                        Contests
+                    </MobileLink>
+                    <MobileLink to="/compiler" active={isActive('/compiler')} onClick={closeMobileMenu}>
+                        Compiler
+                    </MobileLink>
+                    {isAdmin && (
+                        <MobileLink to="/admin/leaderboard" active={isActive('/admin/leaderboard')} onClick={closeMobileMenu}>Rankings</MobileLink>
+                    )}
+                    {currentUser && !isAdmin && (
+                        <MobileLink to="/platform-details" active={isActive('/platform-details')} onClick={closeMobileMenu}>Platform Details</MobileLink>
+                    )}
+                    <MobileLink to="/support" active={isActive('/support')} onClick={closeMobileMenu}>Support</MobileLink>
                 </div>
-            </motion.div>
+
+                {/* Mobile Auth */}
+                <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {currentUser ? (
+                        <>
+                            <div style={{ fontSize: '12px', letterSpacing: '0.08em', color: C.muted, padding: '10px 14px', border: `1px solid ${C.border}`, textAlign: 'center' }}>
+                                {currentUser.username}
+                            </div>
+                            <button
+                                onClick={logOut}
+                                style={{
+                                    fontSize: '12px', letterSpacing: '0.1em', fontWeight: 500,
+                                    color: C.muted, border: `1px solid ${C.border}`,
+                                    padding: '10px 16px', background: 'none', cursor: 'pointer',
+                                    transition: 'all 0.15s', width: '100%',
+                                }}
+                            >
+                                Logout
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <Link to="/login" onClick={closeMobileMenu} style={{ fontSize: '12px', letterSpacing: '0.1em', color: C.muted, border: `1px solid ${C.border}`, padding: '10px 16px', textDecoration: 'none', textAlign: 'center', display: 'block' }}>
+                                Login
+                            </Link>
+                            <Link to="/register" onClick={closeMobileMenu} style={{ fontSize: '12px', letterSpacing: '0.1em', color: '#131313', backgroundColor: C.secondary, border: `1px solid ${C.secondary}`, padding: '10px 16px', textDecoration: 'none', textAlign: 'center', display: 'block', fontWeight: 600 }}>
+                                Sign Up
+                            </Link>
+                        </>
+                    )}
+                </div>
+            </div>
         </>
     );
 };
 
-// NavLink Component with glassmorphism
-const NavLink = ({ to, children, isActive }) => {
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+const StitchNavLink = ({ to, children, active }) => {
+    const [hovered, setHovered] = useState(false);
     return (
-        <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+        <Link
+            to={to}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '12px',
+                letterSpacing: '0.1em',
+                fontWeight: 500,
+                color: active ? '#f1bc8b' : hovered ? '#e9c176' : '#d4c4b7',
+                textDecoration: 'none',
+                borderBottom: active ? '2px solid #f1bc8b' : '2px solid transparent',
+                paddingBottom: '2px',
+                transition: 'color 0.2s, border-color 0.2s',
+            }}
         >
-            <Link
-                to={to}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all backdrop-blur-sm ${isActive
-                    ? 'bg-white/20 text-white border border-white/30 shadow-lg'
-                    : 'text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/20'
-                    }`}
-            >
-                {children}
-            </Link>
-        </motion.div>
+            {children}
+        </Link>
     );
 };
 
-// MobileNavLink Component for mobile menu
-const MobileNavLink = ({ to, children, isActive, onClick }) => {
+const StitchButton = ({ as: Tag = 'button', children, onClick, to, variant = 'ghost' }) => {
+    const [hovered, setHovered] = useState(false);
+
+    const base = {
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '12px',
+        letterSpacing: '0.1em',
+        fontWeight: 500,
+        padding: '8px 16px',
+        cursor: 'pointer',
+        textDecoration: 'none',
+        display: 'inline-block',
+        transition: 'all 0.15s',
+        background: 'none',
+        border: 'none',
+    };
+
+    const styles = {
+        ghost: {
+            ...base,
+            color: hovered ? '#e9c176' : '#d4c4b7',
+            textDecoration: hovered ? 'underline' : 'none',
+            textDecorationColor: '#e9c176',
+        },
+        outline: {
+            ...base,
+            color: hovered ? '#131313' : '#f1bc8b',
+            border: '1px solid #e9c176',
+            backgroundColor: hovered ? '#e9c176' : 'transparent',
+        },
+    };
+
+    const props = {
+        style: styles[variant],
+        onMouseEnter: () => setHovered(true),
+        onMouseLeave: () => setHovered(false),
+        ...(Tag === 'button' ? { onClick } : { to }),
+    };
+
+    return <Tag {...props}>{children}</Tag>;
+};
+
+const MobileLink = ({ to, children, active, onClick }) => {
     return (
-        <motion.div
-            whileHover={{ scale: 1.02, x: 4 }}
-            whileTap={{ scale: 0.98 }}
+        <Link
+            to={to}
+            onClick={onClick}
+            style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '12px',
+                letterSpacing: '0.1em',
+                fontWeight: 500,
+                color: active ? '#f1bc8b' : '#d4c4b7',
+                textDecoration: 'none',
+                padding: '10px 14px',
+                borderLeft: active ? '2px solid #f1bc8b' : '2px solid transparent',
+                backgroundColor: active ? 'rgba(241,188,139,0.06)' : 'transparent',
+                display: 'block',
+                transition: 'all 0.2s',
+            }}
         >
-            <Link
-                to={to}
-                onClick={onClick}
-                className={`block w-full px-4 py-3 rounded-2xl text-sm font-semibold transition-all duration-300 ${isActive
-                    ? 'bg-gradient-to-r from-green-500/20 to-emerald-600/20 text-white border border-green-500/50 shadow-lg shadow-green-500/20'
-                    : 'bg-gradient-to-br from-white/5 to-white/2 text-gray-400 hover:text-white hover:from-green-500/10 hover:to-emerald-600/10 border border-white/10 hover:border-green-500/30 hover:shadow-lg hover:shadow-green-500/10'
-                    }`}
-            >
-                {children}
-            </Link>
-        </motion.div>
+            {children}
+        </Link>
     );
 };
 

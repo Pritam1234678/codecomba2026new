@@ -19,4 +19,5 @@ public class VerdictEvent {
     private long timeConsumedMs;
     private String errorMessage;  // null unless CE/RE
     private String testCaseDetails; // JSON array of TC results
+    private boolean testRun;      // true = test run, not saved to DB
 }

@@ -6,6 +6,26 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      // SSE stream endpoint — needs special handling to disable buffering
+      '/api/submissions/stream': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+        // Disable response buffering so SSE events flow through immediately
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            // Force chunked transfer — prevents Vite from buffering SSE
+            proxyRes.headers['cache-control'] = 'no-cache';
+            proxyRes.headers['x-accel-buffering'] = 'no';
+          });
+        },
+      },
+      // WebSocket for interactive compiler
+      '/api/compiler/ws': {
+        target: 'ws://localhost:8080',
+        ws: true,
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../services/api';
@@ -6,1022 +6,946 @@ import ProblemService from '../services/problem.service';
 import SubmissionService from '../services/submission.service';
 import AuthService from '../services/auth.service';
 
-const ProblemSolve = () => {
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const [problem, setProblem] = useState(null);
-    const [code, setCode] = useState("// Write your code here\n");
-    const [language, setLanguage] = useState("JAVA");
-    const [output, setOutput] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
-    const [running, setRunning] = useState(false);
-    const [hasExistingSubmission, setHasExistingSubmission] = useState(false);
-    const [snippets, setSnippets] = useState({});
-    const [snippetsLoaded, setSnippetsLoaded] = useState(false);
-    const [isProblemCollapsed, setIsProblemCollapsed] = useState(false);
-    const [isConsoleCollapsed, setIsConsoleCollapsed] = useState(false);
-    const [allProblems, setAllProblems] = useState([]);
-    const [currentIndex, setCurrentIndex] = useState(-1);
+// ── Design tokens ─────────────────────────────────────────────────────────────
+const C = {
+    bg:         '#131313',
+    surfaceCon: '#201f1f',
+    surfaceLow: '#1c1b1b',
+    surfaceHi:  '#2a2a2a',
+    surfaceMin: '#0e0e0e',
+    border:     '#50453b',
+    primary:    '#f1bc8b',
+    secondary:  '#e9c176',
+    muted:      '#d4c4b7',
+    outline:    '#9d8e83',
+    onBg:       '#e5e2e1',
+    error:      '#ffb4ab',
+    success:    '#4ade80',
+};
 
-    // Contest status monitoring
-    const [contestStatus, setContestStatus] = useState({
-        active: true,
-        exists: true,
-        contestName: '',
-        endTime: null,
-        checked: false
-    });
-    const [showStatusBanner, setShowStatusBanner] = useState(false);
-    const [timeRemaining, setTimeRemaining] = useState('');
+const LANG_MAP = {
+    JAVA:       { label: 'Java 21',       monaco: 'java' },
+    CPP:        { label: 'C++ 20',        monaco: 'cpp' },
+    C:          { label: 'C',             monaco: 'c' },
+    PYTHON:     { label: 'Python 3.11',   monaco: 'python' },
+    JAVASCRIPT: { label: 'JavaScript',    monaco: 'javascript' },
+};
 
-    // ── SSE connection for real-time verdicts ─────────────────────────────────
-    const sseRef = useRef(null);
+const DIFF_CFG = {
+    EASY:   { color: C.success,   label: 'Easy' },
+    MEDIUM: { color: C.secondary, label: 'Medium' },
+    HARD:   { color: C.error,     label: 'Hard' },
+};
 
-    useEffect(() => {
-        const user = AuthService.getCurrentUser();
-        if (!user?.token) return;
-
-        const API_BASE = import.meta.env.VITE_API_URL ?? '/api';
-
-        // Use EventSource with token in URL (EventSource doesn't support custom headers)
-        const url = `${API_BASE}/submissions/stream?token=${encodeURIComponent(user.token)}`;
-        const es = new EventSource(url);
-        sseRef.current = es;
-
-        es.addEventListener('verdict', (e) => {
-            try {
-                const verdict = JSON.parse(e.data);
-                setSubmitting(false);
-                setRunning(false);
-                renderVerdict(verdict, false);
-            } catch (err) {
-                console.error('SSE parse error:', err);
-            }
-        });
-
-        es.onerror = () => {
-            // SSE will auto-reconnect — this is normal
-        };
-
-        return () => {
-            es.close();
-            sseRef.current = null;
-        };
-    }, []);
-
-    const renderVerdict = (sub, isTestRun) => {
-        if (sub.status === 'CE' || sub.status === 'RE') {
-            setOutput(
-                <div className="font-mono text-sm space-y-2">
-                    <div className={`text-lg font-bold ${sub.status === 'CE' ? 'text-orange-400' : 'text-red-400'}`}>
-                        {sub.status === 'CE' ? '⚠ Compilation Error' : '💥 Runtime Error'}
-                    </div>
-                    <pre className="bg-black/40 border border-red-500/30 p-3 rounded text-red-300 text-xs whitespace-pre-wrap overflow-x-auto">
-                        {sub.errorMessage || 'No error details available'}
-                    </pre>
-                    {isTestRun && <p className="text-yellow-500/70 text-xs">💡 Test run — not saved</p>}
-                    {!isTestRun && <p className="text-blue-400/70 text-xs">✓ Submission saved</p>}
-                </div>
-            );
-            return;
-        }
-
-        if (sub.status === 'TLE') {
-            setOutput(
-                <div className="font-mono text-sm space-y-2">
-                    <div className="text-yellow-400 text-lg font-bold">⏱ Time Limit Exceeded</div>
-                    <p className="text-gray-400 text-xs">Score: 0/100</p>
-                    {isTestRun
-                        ? <p className="text-yellow-500/70 text-xs">💡 Test run — not saved</p>
-                        : <p className="text-blue-400/70 text-xs">✓ Submission saved</p>}
-                </div>
-            );
-            return;
-        }
-
-        const testCaseDetails = sub.testCaseDetails ? JSON.parse(sub.testCaseDetails) : [];
-        const visibleTCs  = testCaseDetails.filter(tc => !tc.hidden);
-        const hiddenTCs   = testCaseDetails.filter(tc => tc.hidden);
-        const hiddenPassed = hiddenTCs.filter(tc => tc.status === 'PASS').length;
-        const total  = sub.totalTestCases || 0;
-        const passed = sub.testCasesPassed || 0;
-        const score  = sub.score != null ? sub.score : (total > 0 ? Math.round((passed / total) * 100) : 0);
-        const isAC   = sub.status === 'AC';
-
-        setOutput(
-            <div className="font-mono text-sm space-y-3">
-                <div className="flex items-center justify-between">
-                    <span className={`text-xl font-bold ${isAC ? 'text-green-400' : 'text-red-400'}`}>
-                        {isAC ? '✓ Accepted' : '✗ Wrong Answer'}
-                    </span>
-                    {!isTestRun && (
-                        <span className={`text-2xl font-bold ${isAC ? 'text-green-400' : score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
-                            {score}<span className="text-sm text-gray-500">/100</span>
-                        </span>
-                    )}
-                    {isTestRun && (
-                        <span className={`text-lg font-bold ${isAC ? 'text-green-400' : score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
-                            {score}%
-                        </span>
-                    )}
-                </div>
-                <div className="w-full bg-gray-800 rounded-full h-2">
-                    <div className={`h-2 rounded-full transition-all ${isAC ? 'bg-green-500' : score >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                         style={{ width: `${score}%` }} />
-                </div>
-                <div className="flex gap-4 text-xs text-gray-400">
-                    <span>{passed}/{total} test cases passed</span>
-                    {sub.timeConsumedMs > 0 && <span>⏱ {sub.timeConsumedMs}ms</span>}
-                    {sub.timeConsumed > 0 && <span>⏱ {sub.timeConsumed}ms</span>}
-                </div>
-                {visibleTCs.length > 0 && (
-                    <div className="space-y-1 border-t border-gray-700/50 pt-2">
-                        {visibleTCs.map((tc, idx) => (
-                            <div key={idx} className="flex items-center gap-2 text-xs">
-                                <span className="text-gray-500 w-12">TC #{tc.testCase}</span>
-                                <span className={`font-semibold ${tc.status === 'PASS' ? 'text-green-400' : 'text-red-400'}`}>
-                                    {tc.status === 'PASS' ? '✓ PASS' : '✗ FAIL'}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                {hiddenTCs.length > 0 && (
-                    <div className="text-xs text-gray-500 italic border-t border-gray-700/50 pt-2">
-                        🔒 {hiddenTCs.length} hidden test case{hiddenTCs.length > 1 ? 's' : ''} —{' '}
-                        <span className="text-green-400">{hiddenPassed} passed</span>,{' '}
-                        <span className="text-red-400">{hiddenTCs.length - hiddenPassed} failed</span>
-                    </div>
-                )}
-                <p className={`text-xs border-t border-gray-700/50 pt-2 ${isTestRun ? 'text-yellow-500/70' : 'text-blue-400/70'}`}>
-                    {isTestRun ? '💡 Test run — not saved' : '✓ Submission saved'}
-                </p>
-            </div>
-        );
-    };
-
-    // Fetch problem details and existing submission
-    useEffect(() => {
-        // Reset all states when problem changes
-        setLoading(true);
-        setHasExistingSubmission(false);
-        setOutput(null);
-        setCode("// Write your code here\n");
-        setLanguage("JAVA");
-        setSnippets({});
-        setSnippetsLoaded(false);
-
-        // Fetch problem details
-        api.get(`/problems/${id}`)
-            .then(res => {
-                setProblem(res.data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error('Problem fetch error:', err);
-                setLoading(false);
-            });
-
-        // Fetch code snippets
-        ProblemService.getSnippets(id)
-            .then(res => {
-                const snippetMap = {};
-                res.data.forEach(snippet => {
-                    snippetMap[snippet.language] = snippet.starterCode;
-                });
-                setSnippets(snippetMap);
-                setSnippetsLoaded(true);
-
-                // Fetch existing submission after snippets are loaded
-                SubmissionService.getUserSubmission(id)
-                    .then(subRes => {
-                        if (subRes.data) {
-                            // Found existing submission
-                            console.log('Loaded existing submission:', subRes.data);
-                            setHasExistingSubmission(true);
-                            setCode(subRes.data.code);
-                            setLanguage(subRes.data.language);
-                            setOutput(
-                                <div className="space-y-2">
-                                    <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-md flex items-center gap-2">
-                                        <span className="text-lg">✓</span>
-                                        <span>Already Submitted</span>
-                                    </div>
-                                    <p className="font-mono text-xs text-gray-300">Loaded your last submission (Status: <span className="text-emerald-400 font-bold">{subRes.data.status}</span>)</p>
-                                    <p className="font-mono text-xs text-yellow-400 bg-yellow-500/10 px-3 py-2 rounded border border-yellow-500/30">⚠️ If you submit again, your original code will be replaced by your new submission</p>
-                                </div>
-                            );
-                        } else {
-                            // No submission, load starter code from snippets
-                            const defaultLang = "JAVA";
-                            if (snippetMap[defaultLang]) {
-                                setCode(snippetMap[defaultLang]);
-                                setLanguage(defaultLang);
-                            }
-                        }
-                    })
-                    .catch(err => {
-                        // 404 means no submission exists - this is expected for new problems
-                        if (err.response?.status !== 404) {
-                            console.error('Unexpected error fetching submission:', err);
-                        }
-                        // Load starter code from snippets
-                        const defaultLang = "JAVA";
-                        if (snippetMap[defaultLang]) {
-                            setCode(snippetMap[defaultLang]);
-                            setLanguage(defaultLang);
-                        }
-                    });
-            })
-            .catch(err => {
-                console.error('Snippet fetch error:', err);
-                setSnippetsLoaded(true);
-            });
-    }, [id]);
-
-    // Fetch all problems for navigation
-    useEffect(() => {
-        api.get('/problems')
-            .then(res => {
-                const problems = res.data;
-                console.log('All problems fetched:', problems);
-                setAllProblems(problems);
-
-                // Find current problem index
-                const index = problems.findIndex(p => p.id === parseInt(id));
-                console.log('Current problem ID:', id, 'Index:', index, 'Total problems:', problems.length);
-                setCurrentIndex(index);
-            })
-            .catch(err => {
-                console.error('Error fetching problems:', err);
-            });
-    }, [id]);
-
-    // Poll contest status every 10 seconds
-    useEffect(() => {
-        const checkContestStatus = async () => {
-            try {
-                const res = await api.get(`/problems/${id}/contest-status`);
-                const status = res.data;
-
-                setContestStatus({
-                    ...status,
-                    checked: true
-                });
-
-                // If contest was deleted, problem is also deleted (cascade)
-                // Show "Problem Not Found" page
-                if (!status.exists) {
-                    setProblem(null);
-                    return;
-                }
-
-                // If contest is just deactivated, show banner
-                if (!status.active) {
-                    setShowStatusBanner(true);
-                }
-            } catch (err) {
-                console.error('Error checking contest status:', err);
-                // If API fails, problem might be deleted
-                if (err.response?.status === 404) {
-                    setProblem(null);
-                }
-            }
-        };
-
-        // Initial check
-        checkContestStatus();
-
-        // Poll every 10 seconds
-        const interval = setInterval(() => {
-            checkContestStatus();
-        }, 10000);
-
-        // Cleanup on unmount
-        return () => clearInterval(interval);
-    }, [id]);
-
-    // Countdown timer - updates every second
-    useEffect(() => {
-        if (!contestStatus.endTime) {
-            setTimeRemaining('');
-            return;
-        }
-
-        const calculateTimeLeft = () => {
-            const now = new Date();
-            const end = new Date(contestStatus.endTime);
-            const diff = end - now;
-
-            if (diff <= 0) {
-                setTimeRemaining('Ended');
-                return;
-            }
-
-            const hours = Math.floor(diff / (1000 * 60 * 60));
-            const minutes = Math.floor((diff / (1000 * 60)) % 60);
-            const seconds = Math.floor((diff / 1000) % 60);
-
-            if (hours > 0) {
-                setTimeRemaining(`${hours}h ${minutes}m remaining`);
-            } else if (minutes > 0) {
-                setTimeRemaining(`${minutes}m ${seconds}s remaining`);
-            } else {
-                setTimeRemaining(`${seconds}s remaining`);
-            }
-        };
-
-        calculateTimeLeft();
-        const timer = setInterval(calculateTimeLeft, 1000);
-
-        return () => clearInterval(timer);
-    }, [contestStatus.endTime]);
-
-
-    // Handle manual language change (only update if no submission or explicit change)
-    const handleLanguageChange = (newLang) => {
-        setLanguage(newLang);
-
-        // Load snippet if available
-        if (snippets[newLang]) {
-            setCode(snippets[newLang]);
-        } else {
-            setCode(''); // Empty if no snippet available
-        }
-    };
-
-    const handleRun = () => {
-        // Check contest status before running
-        if (!contestStatus.active || !contestStatus.exists) {
-            setShowStatusBanner(true);
-            // Redirect to contests page after 2 seconds
-            setTimeout(() => navigate('/contests'), 2000);
-            return;
-        }
-
-        setRunning(true);
-        setOutput(<div className="text-yellow-400 animate-pulse font-mono text-sm">⏳ Running tests...</div>);
-
-        SubmissionService.testCode(id, code, language)
-            .then(() => {
-                // Verdict arrives via SSE — setRunning(false) called there
-                // Fallback: if SSE not connected, poll after 3s
-                setTimeout(() => {
-                    if (running) setRunning(false);
-                }, 10000);
-            })
-            .catch(err => {
-                setRunning(false);
-                setOutput(<div className="text-red-500 font-mono text-sm">Error: {err.message}</div>);
-            });
-    };
-
-    // Navigation handlers
-    const handlePreviousProblem = () => {
-        // Check contest status before navigating
-        if (!contestStatus.active || !contestStatus.exists) {
-            setShowStatusBanner(true);
-            setTimeout(() => navigate('/contests'), 2000);
-            return;
-        }
-
-        console.log('Previous clicked! currentIndex:', currentIndex, 'allProblems.length:', allProblems.length);
-        if (currentIndex > 0 && allProblems.length > 0) {
-            const prevProblem = allProblems[currentIndex - 1];
-            console.log('Navigating to previous problem:', prevProblem);
-            navigate(`/problems/${prevProblem.id}`);
-        } else {
-            console.log('Cannot navigate to previous - at first problem or no problems loaded');
-        }
-    };
-
-    const handleNextProblem = () => {
-        // Check contest status before navigating
-        if (!contestStatus.active || !contestStatus.exists) {
-            setShowStatusBanner(true);
-            setTimeout(() => navigate('/contests'), 2000);
-            return;
-        }
-
-        console.log('Next clicked! currentIndex:', currentIndex, 'allProblems.length:', allProblems.length);
-        if (currentIndex < allProblems.length - 1 && allProblems.length > 0) {
-            const nextProblem = allProblems[currentIndex + 1];
-            console.log('Navigating to next problem:', nextProblem);
-            navigate(`/problems/${nextProblem.id}`);
-        } else {
-            console.log('Cannot navigate to next - at last problem or no problems loaded');
-        }
-    };
-
-    const handleSubmit = () => {
-        // Check contest status before submitting
-        if (!contestStatus.active || !contestStatus.exists) {
-            setShowStatusBanner(true);
-            // Redirect to contests page after 2 seconds
-            setTimeout(() => navigate('/contests'), 2000);
-            return;
-        }
-
-        setSubmitting(true);
-        setOutput(<div className="text-yellow-400 animate-pulse font-mono text-sm">⏳ Submitting... verdict arriving via real-time stream</div>);
-
-        SubmissionService.submitCode(id, code, language)
-            .then(() => {
-                // Verdict arrives via SSE — setSubmitting(false) called in SSE handler
-                // Safety timeout in case SSE drops
-                setTimeout(() => setSubmitting(false), 15000);
-            })
-            .catch(err => {
-                setSubmitting(false);
-                if (err.response?.status === 429) {
-                    setOutput(
-                        <div className="font-mono text-sm text-orange-400">
-                            ⚠ {err.response.data?.message || 'Too many submissions. Please wait.'}
-                        </div>
-                    );
-                } else {
-                    setOutput(<div className="text-red-500 font-mono text-sm">Submission failed: {err.message}</div>);
-                }
-            });
-    };
-
-    if (loading) return <div className="text-center mt-20 text-code-green animate-pulse">Loading Arena...</div>;
-
-    if (!problem) {
+// ── Verdict renderer (pure function → returns JSX) ────────────────────────────
+function buildVerdictUI(sub, isTestRun) {
+    if (sub.status === 'CE' || sub.status === 'RE') {
+        const isCE = sub.status === 'CE';
         return (
-            <div className="max-w-7xl mx-auto px-4 py-8 flex items-center justify-center min-h-[80vh]">
-                <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-12 shadow-2xl max-w-2xl w-full text-center">
-                    <div className="mb-6">
-                        <span className="text-8xl">🔍</span>
-                    </div>
-                    <h1 className="text-4xl font-bold bg-gradient-to-r from-red-400 via-red-500 to-red-600 bg-clip-text text-transparent mb-4">
-                        Problem Not Found
-                    </h1>
-                    <p className="text-xl text-gray-400 mb-2">
-                        The problem you're looking for doesn't exist or has been removed.
-                    </p>
-                    <p className="text-sm text-gray-500 mb-8">
-                        Problem ID: <span className="font-mono text-red-400">{id}</span>
-                    </p>
-                    <div className="flex gap-4 justify-center">
-                        <button
-                            onClick={() => navigate('/contests')}
-                            className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg transition-all transform hover:scale-105"
-                        >
-                            Browse Contests
-                        </button>
-                        <button
-                            onClick={() => navigate('/dashboard')}
-                            className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold rounded-xl border border-white/30 transition-all"
-                        >
-                            Go to Dashboard
-                        </button>
-                    </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px', color: isCE ? C.secondary : C.error, fontVariationSettings: "'FILL' 1" }}>
+                        {isCE ? 'code_off' : 'error'}
+                    </span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', fontWeight: 600, color: isCE ? C.secondary : C.error }}>
+                        {isCE ? 'Compilation Error' : 'Runtime Error'}
+                    </span>
                 </div>
+                <pre style={{ backgroundColor: 'rgba(0,0,0,0.4)', border: `1px solid ${C.error}30`, padding: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#fca5a5', whiteSpace: 'pre-wrap', overflowX: 'auto', borderRadius: '2px' }}>
+                    {sub.errorMessage || 'No error details available'}
+                </pre>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: isTestRun ? '#facc1580' : '#7ab3e080' }}>
+                    {isTestRun ? '💡 Test run — not saved' : '✓ Submission saved'}
+                </span>
             </div>
         );
     }
 
+    if (sub.status === 'TLE') {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#facc15', fontVariationSettings: "'FILL' 1" }}>hourglass_empty</span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', fontWeight: 600, color: '#facc15' }}>Time Limit Exceeded</span>
+                </div>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>0 test cases passed — execution exceeded time limit</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: isTestRun ? '#facc1580' : '#7ab3e080' }}>
+                    {isTestRun ? '💡 Test run — not saved' : '✓ Submission saved'}
+                </span>
+            </div>
+        );
+    }
+
+    const testCaseDetails = sub.testCaseDetails ? JSON.parse(sub.testCaseDetails) : [];
+    const visibleTCs   = testCaseDetails.filter(tc => !tc.hidden);
+    const hiddenTCs    = testCaseDetails.filter(tc => tc.hidden);
+    const hiddenPassed = hiddenTCs.filter(tc => tc.status === 'PASS').length;
+    const total  = sub.totalTestCases || 0;
+    const passed = sub.testCasesPassed || 0;
+    const isAC   = sub.status === 'AC';
+    const statusColor = isAC ? C.success : C.error;
+
     return (
-        <div className="flex flex-col md:flex-row gap-4 relative md:h-[calc(100vh-5rem)] md:overflow-hidden">
-            {/* Contest Status Banner */}
-            {showStatusBanner && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                    <div className="bg-gradient-to-br from-red-600 to-red-700 border-2 border-red-400 rounded-2xl p-8 shadow-2xl max-w-3xl w-full mx-4 transform scale-100 animate-pulse">
-                        <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                                <h2 className="text-4xl font-bold text-white mb-4 flex items-center gap-3">
-                                    <span className="text-5xl">⚠️</span>
-                                    {!contestStatus.exists
-                                        ? 'Contest Deleted!'
-                                        : 'Contest Deactivated!'}
-                                </h2>
-                                <p className="text-xl text-white/95 mb-6 leading-relaxed">
-                                    {!contestStatus.exists
-                                        ? 'This contest has been removed by the administrator. Your submissions will not be accepted.'
-                                        : `The contest "${contestStatus.contestName}" has been deactivated by the administrator. Submissions are no longer allowed.`}
-                                </p>
-                                <button
-                                    onClick={() => navigate('/contests')}
-                                    className="px-6 py-3 bg-white text-red-600 rounded-xl text-lg font-bold hover:bg-gray-100 transition-all transform hover:scale-105 shadow-lg"
-                                >
-                                    Go to Contests →
-                                </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Verdict header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px', color: statusColor, fontVariationSettings: "'FILL' 1" }}>
+                        {isAC ? 'check_circle' : 'cancel'}
+                    </span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', fontWeight: 600, color: statusColor }}>
+                        {isAC ? 'Accepted' : 'Wrong Answer'}
+                    </span>
+                </div>
+                {/* Test cases passed count instead of score */}
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', fontWeight: 600, color: statusColor }}>
+                    {passed}/{total} passed
+                </span>
+            </div>
+
+            {/* Progress bar based on test cases */}
+            <div style={{ height: '3px', backgroundColor: C.surfaceHi, borderRadius: '2px' }}>
+                <div style={{ height: '100%', width: `${total > 0 ? (passed / total) * 100 : 0}%`, backgroundColor: statusColor, borderRadius: '2px', transition: 'width 0.8s ease' }} />
+            </div>
+
+            {/* Execution time */}
+            {(sub.timeConsumedMs > 0 || sub.timeConsumed > 0) && (
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
+                    ⏱ Execution time: {sub.timeConsumedMs || sub.timeConsumed}ms
+                </div>
+            )}
+
+            {/* Visible test cases — show each with status */}
+            {visibleTCs.length > 0 && (
+                <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>
+                        Test Cases
+                    </span>
+                    {visibleTCs.map((tc, idx) => (
+                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '6px 10px', backgroundColor: tc.status === 'PASS' ? 'rgba(74,222,128,0.05)' : 'rgba(255,180,171,0.05)', border: `1px solid ${tc.status === 'PASS' ? 'rgba(74,222,128,0.15)' : 'rgba(255,180,171,0.15)'}` }}>
+                            {/* TC header row */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ color: tc.status === 'PASS' ? C.success : C.error, fontWeight: 600, minWidth: '16px' }}>
+                                    {tc.status === 'PASS' ? '✓' : '✗'}
+                                </span>
+                                <span style={{ color: C.muted }}>Test Case {tc.testCase}</span>
+                                <span style={{ marginLeft: 'auto', color: tc.status === 'PASS' ? C.success : C.error, fontSize: '11px' }}>
+                                    {tc.status === 'PASS' ? 'PASS' : 'FAIL'}
+                                </span>
                             </div>
-                            <button
-                                onClick={() => setShowStatusBanner(false)}
-                                className="text-white/80 hover:text-white ml-6 text-2xl font-bold"
-                            >
-                                ✕
+                            {/* Show input/expected/got for failed visible test cases */}
+                            {tc.status !== 'PASS' && (tc.input || tc.expected || tc.got) && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginLeft: '26px', fontSize: '11px', color: C.outline }}>
+                                    {tc.input && <span><span style={{ color: C.muted }}>Input:</span> {tc.input}</span>}
+                                    {tc.expected && <span><span style={{ color: C.success }}>Expected:</span> {tc.expected}</span>}
+                                    {tc.got && <span><span style={{ color: C.error }}>Your Output:</span> {tc.got}</span>}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Hidden test cases */}
+            {hiddenTCs.length > 0 && (
+                <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: '8px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, fontStyle: 'italic' }}>
+                    🔒 {hiddenTCs.length} hidden — <span style={{ color: C.success }}>{hiddenPassed} passed</span>, <span style={{ color: C.error }}>{hiddenTCs.length - hiddenPassed} failed</span>
+                </div>
+            )}
+
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: isTestRun ? '#facc1580' : '#7ab3e080', borderTop: `1px solid ${C.border}`, paddingTop: '8px' }}>
+                {isTestRun ? '💡 Test run — not saved' : '✓ Submission saved'}
+            </span>
+        </div>
+    );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+const ProblemSolve = () => {
+    const { id }     = useParams();
+    const navigate   = useNavigate();
+
+    // ── Core state ────────────────────────────────────────────────────────────
+    const [problem,    setProblem]    = useState(null);
+    const [code,       setCode]       = useState('// Write your code here\n');
+    const [language,   setLanguage]   = useState('JAVA');
+    const [output,     setOutput]     = useState(null);
+    const [loading,    setLoading]    = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [running,    setRunning]    = useState(false);
+    const [hasExistingSubmission, setHasExistingSubmission] = useState(false);
+    const [snippets,   setSnippets]   = useState({});
+
+    // ── Navigation state ──────────────────────────────────────────────────────
+    const [allProblems,   setAllProblems]   = useState([]);
+    const [currentIndex,  setCurrentIndex]  = useState(-1);
+
+    // ── Contest status ────────────────────────────────────────────────────────
+    const [contestStatus, setContestStatus] = useState({ active: true, exists: true, contestName: '', endTime: null });
+    const [showStatusBanner, setShowStatusBanner] = useState(false);
+    const [timeRemaining,    setTimeRemaining]    = useState('');
+
+    // ── UI state ──────────────────────────────────────────────────────────────
+    const [consoleTab,    setConsoleTab]    = useState('output'); // 'output'
+    const [leftWidth,     setLeftWidth]     = useState(42);       // % of total width
+    const [isDragging,    setIsDragging]    = useState(false);
+    const [consoleHeight, setConsoleHeight] = useState(220);      // px
+    const [isDraggingH,   setIsDraggingH]   = useState(false);
+
+    const sseRef       = useRef(null);
+    const dragStartX   = useRef(0);
+    const dragStartW   = useRef(0);
+    const dragStartY   = useRef(0);
+    const dragStartH   = useRef(0);
+    const runningRef   = useRef(false);
+
+    // Keep runningRef in sync
+    useEffect(() => { runningRef.current = running; }, [running]);
+
+    // ── SSE connection ────────────────────────────────────────────────────────
+    useEffect(() => {
+        const user = AuthService.getCurrentUser();
+        if (!user?.token) return;
+
+        // For SSE, always connect directly to backend — Vite proxy buffers SSE events
+        // In production VITE_API_URL is set; in dev we bypass Vite proxy with direct port
+        const API_BASE = import.meta.env.VITE_API_URL
+            ?? (window.location.hostname === 'localhost' ? 'http://localhost:8080/api' : '/api');
+
+        let es = null;
+        let cancelled = false;
+
+        // Fetch a single-use ticket, then open the SSE stream with it.
+        // The ticket lives 60s and is consumed atomically on connect, so a
+        // leaked URL is useless past the first open.
+        api.post('/submissions/sse-ticket')
+            .then(res => {
+                if (cancelled) return;
+                const ticket = res.data?.ticket;
+                if (!ticket) return;
+
+                const url = `${API_BASE}/submissions/stream?ticket=${encodeURIComponent(ticket)}`;
+                es = new EventSource(url);
+                sseRef.current = es;
+
+                es.addEventListener('verdict', (e) => {
+                    try {
+                        const verdict = JSON.parse(e.data);
+                        setSubmitting(false);
+                        setRunning(false);
+                        setOutput(buildVerdictUI(verdict, verdict.testRun === true));
+                    } catch (err) {
+                        console.error('SSE parse error:', err);
+                    }
+                });
+
+                es.addEventListener('connected', () => {
+                    console.log('SSE stream connected for user');
+                });
+
+                es.onerror = (e) => {
+                    // SSE will auto-reconnect — but tickets are single-use,
+                    // so a forced reconnect needs a fresh ticket. The polling
+                    // fallback covers any verdict that arrives during the gap.
+                    console.warn('SSE connection error:', e);
+                };
+            })
+            .catch(err => {
+                console.warn('Failed to issue SSE ticket; relying on polling fallback', err);
+            });
+
+        return () => {
+            cancelled = true;
+            if (es) { try { es.close(); } catch {} }
+            sseRef.current = null;
+        };
+    }, []);
+
+    // ── Load problem + snippets + existing submission ─────────────────────────
+    useEffect(() => {
+        setLoading(true);
+        setHasExistingSubmission(false);
+        setOutput(null);
+        setCode('// Write your code here\n');
+        setLanguage('JAVA');
+        setSnippets({});
+
+        api.get(`/problems/${id}`)
+            .then(res => { setProblem(res.data); setLoading(false); })
+            .catch(() => setLoading(false));
+
+        ProblemService.getSnippets(id)
+            .then(res => {
+                const map = {};
+                res.data.forEach(s => { map[s.language] = s.starterCode; });
+                setSnippets(map);
+
+                SubmissionService.getUserSubmission(id)
+                    .then(subRes => {
+                        if (subRes.data) {
+                            setHasExistingSubmission(true);
+                            setCode(subRes.data.code);
+                            setLanguage(subRes.data.language);
+                            setOutput(
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', backgroundColor: 'rgba(74,222,128,0.1)', border: `1px solid rgba(74,222,128,0.3)` }}>
+                                        <span className="material-symbols-outlined" style={{ fontSize: '16px', color: C.success, fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.success }}>
+                                            Already Submitted — Status: {subRes.data.status}
+                                        </span>
+                                    </div>
+                                    <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#facc1580' }}>
+                                        ⚠ Resubmitting will replace your previous submission.
+                                    </p>
+                                </div>
+                            );
+                        } else {
+                            if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
+                        }
+                    })
+                    .catch(err => {
+                        if (err.response?.status !== 404) console.error(err);
+                        if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
+                    });
+            })
+            .catch(() => {});
+    }, [id]);
+
+    // ── Load all problems for prev/next navigation ────────────────────────────
+    useEffect(() => {
+        api.get('/problems')
+            .then(res => {
+                setAllProblems(res.data);
+                setCurrentIndex(res.data.findIndex(p => p.id === parseInt(id)));
+            })
+            .catch(() => {});
+    }, [id]);
+
+    // ── Contest status polling ────────────────────────────────────────────────
+    useEffect(() => {
+        const check = async () => {
+            try {
+                const res = await api.get(`/problems/${id}/contest-status`);
+                setContestStatus({ ...res.data, checked: true });
+                if (!res.data.exists) { setProblem(null); return; }
+                if (!res.data.active) setShowStatusBanner(true);
+                // If admin disabled this problem while user has it open — show banner instantly
+                if (res.data.problemActive === false) setShowStatusBanner(true);
+            } catch (err) {
+                if (err.response?.status === 404) setProblem(null);
+            }
+        };
+        check();
+        const iv = setInterval(check, 5000); // poll every 5s for faster disable detection
+        return () => clearInterval(iv);
+    }, [id]);
+
+    // ── Contest countdown ─────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!contestStatus.endTime) { setTimeRemaining(''); return; }
+        const tick = () => {
+            const diff = new Date(contestStatus.endTime) - new Date();
+            if (diff <= 0) { setTimeRemaining('Ended'); return; }
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            setTimeRemaining(h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`);
+        };
+        tick();
+        const iv = setInterval(tick, 1000);
+        return () => clearInterval(iv);
+    }, [contestStatus.endTime]);
+
+    // ── Drag: vertical divider ────────────────────────────────────────────────
+    const onDividerMouseDown = useCallback((e) => {
+        e.preventDefault();
+        setIsDragging(true);
+        dragStartX.current = e.clientX;
+        dragStartW.current = leftWidth;
+    }, [leftWidth]);
+
+    useEffect(() => {
+        if (!isDragging) return;
+        const onMove = (e) => {
+            const container = document.getElementById('ps-workspace');
+            if (!container) return;
+            const totalW = container.getBoundingClientRect().width;
+            const delta  = e.clientX - dragStartX.current;
+            const newPct = Math.min(65, Math.max(25, dragStartW.current + (delta / totalW) * 100));
+            setLeftWidth(newPct);
+        };
+        const onUp = () => setIsDragging(false);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    }, [isDragging]);
+
+    // ── Drag: horizontal console divider ─────────────────────────────────────
+    const onConsoleDividerMouseDown = useCallback((e) => {
+        e.preventDefault();
+        setIsDraggingH(true);
+        dragStartY.current = e.clientY;
+        dragStartH.current = consoleHeight;
+    }, [consoleHeight]);
+
+    useEffect(() => {
+        if (!isDraggingH) return;
+        const onMove = (e) => {
+            const delta = dragStartY.current - e.clientY;
+            setConsoleHeight(Math.min(500, Math.max(80, dragStartH.current + delta)));
+        };
+        const onUp = () => setIsDraggingH(false);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    }, [isDraggingH]);
+
+    // ── Handlers ──────────────────────────────────────────────────────────────
+    const handleLanguageChange = (lang) => {
+        setLanguage(lang);
+        if (snippets[lang]) setCode(snippets[lang]);
+        else setCode('');
+    };
+
+    const guardContest = () => {
+        if (!contestStatus.active || !contestStatus.exists || contestStatus.problemActive === false) {
+            setShowStatusBanner(true);
+            setTimeout(() => navigate('/contests'), 2000);
+            return false;
+        }
+        return true;
+    };
+
+    const handleRun = () => {
+        if (!guardContest()) return;
+        setRunning(true);
+        setOutput(
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#facc15' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '16px', animation: 'spin 1s linear infinite' }}>sync</span>
+                Running tests...
+            </div>
+        );
+        SubmissionService.testCode(id, code, language)
+            .then(res => {
+                const submissionId = res.data?.id;
+                if (submissionId) {
+                    pollVerdict(submissionId, true);
+                } else {
+                    setRunning(false);
+                    setOutput(<span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
+                        No submission ID returned from backend. Try again.
+                    </span>);
+                }
+            })
+            .catch(err => {
+                setRunning(false);
+                const msg = err.response?.data?.message || err.message || 'Backend unreachable';
+                setOutput(<span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
+                    Error: {msg}
+                </span>);
+            });
+    };
+
+    const handleSubmit = () => {
+        if (!guardContest()) return;
+        setSubmitting(true);
+        setOutput(
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.secondary }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '16px', animation: 'spin 1s linear infinite' }}>sync</span>
+                Submitting...
+            </div>
+        );
+        SubmissionService.submitCode(id, code, language)
+            .then(res => {
+                const submissionId = res.data?.id;
+                if (submissionId) {
+                    pollVerdict(submissionId, false);
+                } else {
+                    setSubmitting(false);
+                    setOutput(<span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
+                        No submission ID returned from backend. Try again.
+                    </span>);
+                }
+            })
+            .catch(err => {
+                setSubmitting(false);
+                if (err.response?.status === 429) {
+                    setOutput(<span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#fb923c' }}>⚠ {err.response.data?.message || 'Too many submissions. Please wait.'}</span>);
+                } else {
+                    const msg = err.response?.data?.message || err.message || 'Backend unreachable';
+                    setOutput(<span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
+                        Submission failed: {msg}
+                    </span>);
+                }
+            });
+    };
+
+    // ── Polling: walks /submissions/{id}/status until verdict, with proper
+    //    spacing between requests so they don't overlap and pile up.
+    //    Wall-clock cap scales with the problem's time limit so a 10s problem
+    //    can still complete even if SSE drops, and slow links don't see false
+    //    "Timeout" before the worker has had a fair chance.
+    const pollVerdict = (submissionId, isTestRun) => {
+        const baseTimeout = problem?.timeLimit ? Math.ceil(problem.timeLimit) : 5;
+        // Worker queue + judge run + buffer. ~120s ceiling so a never-arrived
+        // verdict eventually surfaces but isn't reported prematurely.
+        const wallClockCapMs = Math.min(120_000, Math.max(45_000, baseTimeout * 5_000 + 30_000));
+        const intervalMs = 1_000;
+        const maxAttempts = Math.ceil(wallClockCapMs / intervalMs);
+        let attempts = 0;
+        let cancelled = false;
+        let consecutiveErrors = 0;
+
+        const tick = async () => {
+            if (cancelled) return;
+            attempts++;
+            try {
+                const res = await api.get(`/submissions/${submissionId}/status`);
+                const sub = res.data;
+                consecutiveErrors = 0;
+                const done = sub.status !== 'PENDING' && sub.status !== 'JUDGING';
+                if (done) {
+                    setSubmitting(false);
+                    setRunning(false);
+                    setOutput(buildVerdictUI({ ...sub, testRun: isTestRun }, isTestRun));
+                    return;
+                }
+            } catch (err) {
+                consecutiveErrors++;
+                console.warn(`Poll attempt ${attempts} failed (${consecutiveErrors} consecutive):`, err.message);
+                // 5 consecutive transport errors → backend is genuinely down,
+                // surface a clear message instead of silent retries.
+                if (consecutiveErrors >= 5) {
+                    setSubmitting(false);
+                    setRunning(false);
+                    setOutput(
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
+                            Lost connection to the judge. Reload the page; your submission is still queued.
+                        </span>
+                    );
+                    return;
+                }
+            }
+
+            if (attempts >= maxAttempts) {
+                setSubmitting(false);
+                setRunning(false);
+                setOutput(
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
+                        Still judging — taking longer than expected. Refresh in a moment to see the verdict.
+                    </span>
+                );
+                return;
+            }
+            setTimeout(tick, intervalMs);
+        };
+
+        // First attempt slightly delayed to give the worker a head start
+        setTimeout(tick, intervalMs);
+
+        return () => { cancelled = true; };
+    };
+
+    const handlePrev = () => {
+        if (!guardContest()) return;
+        if (currentIndex > 0) navigate(`/problems/${allProblems[currentIndex - 1].id}`);
+    };
+
+    const handleNext = () => {
+        if (!guardContest()) return;
+        if (currentIndex < allProblems.length - 1) navigate(`/problems/${allProblems[currentIndex + 1].id}`);
+    };
+
+    // ── Loading / Error states ────────────────────────────────────────────────
+    if (loading) return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: C.bg, color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
+            Loading Arena...
+        </div>
+    );
+
+    if (!problem) return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: C.bg }}>
+            <div style={{ border: `1px solid ${C.border}`, padding: '3rem', maxWidth: '480px', width: '100%', textAlign: 'center', backgroundColor: C.surfaceLow }}>
+                <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', color: C.error, marginBottom: '1rem' }}>Problem Not Found</h1>
+                <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '15px', color: C.outline, marginBottom: '2rem' }}>
+                    Problem ID: <span style={{ fontFamily: "'JetBrains Mono', monospace", color: C.error }}>{id}</span>
+                </p>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                    <button onClick={() => navigate('/contests')} style={{ padding: '10px 24px', border: `1px solid ${C.secondary}`, color: C.secondary, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                        Browse Contests
+                    </button>
+                    <button onClick={() => navigate('/dashboard')} style={{ padding: '10px 24px', border: `1px solid ${C.border}`, color: C.muted, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                        Dashboard
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    const diff = DIFF_CFG[problem.level] || { color: C.outline, label: problem.level || '—' };
+    const letter = currentIndex >= 0 ? String.fromCharCode(65 + currentIndex) : '';
+
+    // ── Main render ───────────────────────────────────────────────────────────
+    return (
+        <div style={{ backgroundColor: C.bg, color: C.onBg, height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'Geist', sans-serif", userSelect: isDragging || isDraggingH ? 'none' : 'auto' }}>
+
+            {/* ── Contest Deactivated Banner ── */}
+            {showStatusBanner && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
+                    <div style={{ border: `2px solid ${C.error}`, backgroundColor: C.surfaceLow, padding: '2.5rem', maxWidth: '520px', width: '100%', position: 'relative' }}>
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', backgroundColor: C.error }} />
+                        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', color: C.error, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}>warning</span>
+                            {!contestStatus.exists ? 'Contest Deleted' : contestStatus.problemActive === false ? 'Problem Disabled' : 'Contest Deactivated'}
+                        </h2>
+                        <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '15px', color: C.muted, lineHeight: 1.6, marginBottom: '2rem' }}>
+                            {!contestStatus.exists
+                                ? 'This contest has been removed. Submissions are no longer accepted.'
+                                : contestStatus.problemActive === false
+                                ? 'This problem has been disabled by the administrator. You cannot submit solutions.'
+                                : `"${contestStatus.contestName}" has been deactivated. Submissions are no longer allowed.`}
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button onClick={() => navigate('/contests')} style={{ padding: '10px 24px', border: `1px solid ${C.secondary}`, color: C.secondary, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                Go to Contests →
+                            </button>
+                            <button onClick={() => setShowStatusBanner(false)} style={{ padding: '10px 24px', border: `1px solid ${C.border}`, color: C.outline, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                Dismiss
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-
-            {/* Left Pane: Problem Description */}
-            <div className={`transition-all duration-300 ease-in-out bg-code-black border border-code-gray rounded-lg overflow-hidden ${isProblemCollapsed ? 'w-12' : 'w-full md:w-1/3'
-                }`}>
-                {/* Collapse Header */}
-                <div className="flex items-center justify-between bg-code-dark border-b border-code-gray p-3">
-                    {!isProblemCollapsed && (
-                        <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">Problem</h2>
-                    )}
+            {/* ── Top Header ── */}
+            <header style={{ height: '56px', flexShrink: 0, borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', zIndex: 10 }}>
+                {/* Left: back + problem title */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                     <button
-                        onClick={() => setIsProblemCollapsed(!isProblemCollapsed)}
-                        className="p-1 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white ml-auto"
-                        title={isProblemCollapsed ? 'Expand Problem' : 'Collapse Problem'}
+                        onClick={() => navigate(-1)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', color: C.outline, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', transition: 'color 0.2s' }}
+                        onMouseEnter={e => e.currentTarget.style.color = C.secondary}
+                        onMouseLeave={e => e.currentTarget.style.color = C.outline}
                     >
-                        {isProblemCollapsed ? (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                        ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                            </svg>
-                        )}
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
+                        Exit Arena
                     </button>
+                    <div style={{ width: '1px', height: '24px', backgroundColor: C.border }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {letter && (
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.outline }}>{letter}.</span>
+                        )}
+                        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', fontWeight: 600, color: C.primary, maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
+                            {problem.title}
+                        </h1>
+                    </div>
                 </div>
 
-                {/* Collapsed Vertical Text */}
-                {isProblemCollapsed && (
-                    <div className="flex items-center justify-center h-full">
-                        <span className="text-gray-400 text-xs font-semibold tracking-wider" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
-                            PROBLEM
-                        </span>
-                    </div>
-                )}
-
-                {/* Problem Content */}
-                {!isProblemCollapsed && (
-                    <div className="p-6 overflow-y-auto scrollbar-thin" style={{ maxHeight: 'calc(100vh - 8rem)' }}>
-                        <h1 className="text-2xl font-bold text-white mb-4">{problem.title}</h1>
-                        <div className="prose prose-invert max-w-none text-gray-300 mb-6 whitespace-pre-wrap">
-                            {problem.description}
+                {/* Right: limits + timer + nav */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    {/* Time + Memory limits */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', border: `1px solid ${C.border}`, padding: '6px 12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px', color: C.outline }}>timer</span>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.muted }}>{problem.timeLimit}s</span>
                         </div>
-
-                        <h3 className="text-lg font-bold text-white mt-6 mb-2">Input Format</h3>
-                        <pre className="bg-code-gray p-3 rounded text-sm text-gray-300 whitespace-pre-wrap">{problem.inputFormat}</pre>
-
-                        <h3 className="text-lg font-bold text-white mt-6 mb-2">Output Format</h3>
-                        <pre className="bg-code-gray p-3 rounded text-sm text-gray-300 whitespace-pre-wrap">{problem.outputFormat}</pre>
-                        {/* Example 1 - Only if exists */}
-                        {problem.example1 && (
-                            <div className="mt-6">
-                                <h3 className="text-lg font-bold text-white mb-2">Example 1:</h3>
-                                <div className="bg-code-gray p-4 rounded border border-gray-700">
-                                    <pre className="text-gray-300 whitespace-pre-wrap font-mono text-sm">
-                                        {problem.example1}
-                                    </pre>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Example 2 - Only if exists */}
-                        {problem.example2 && (
-                            <div className="mt-6">
-                                <h3 className="text-lg font-bold text-white mb-2">Example 2:</h3>
-                                <div className="bg-code-gray p-4 rounded border border-gray-700">
-                                    <pre className="text-gray-300 whitespace-pre-wrap font-mono text-sm">
-                                        {problem.example2}
-                                    </pre>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Example 3 - Only if exists */}
-                        {problem.example3 && (
-                            <div className="mt-6">
-                                <h3 className="text-lg font-bold text-white mb-2">Example 3:</h3>
-                                <div className="bg-code-gray p-4 rounded border border-gray-700">
-                                    <pre className="text-gray-300 whitespace-pre-wrap font-mono text-sm">
-                                        {problem.example3}
-                                    </pre>
-                                </div>
-                            </div>
-                        )}
-
-
-                        <h3 className="text-lg font-bold text-white mt-6 mb-2">Constraints</h3>
-                        <pre className="bg-code-gray p-3 rounded text-sm text-gray-300 whitespace-pre-wrap">{problem.constraints}</pre>
-
-
-                        {/* Images - Only if exists */}
-                        {problem.images && (
-                            <div className="mt-6">
-                                <h3 className="text-lg font-bold text-white mb-2">Images:</h3>
-                                <div className="grid grid-cols-1 gap-4">
-                                    {problem.images.split(',').map((url, index) => {
-                                        const trimmedUrl = url.trim();
-                                        // Convert Google Drive share links to direct image URLs
-                                        let imageUrl = trimmedUrl;
-                                        const driveMatch = trimmedUrl.match(/\/file\/d\/([^\/]+)/);
-                                        if (driveMatch) {
-                                            imageUrl = `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
-                                        }
-
-                                        return (
-                                            <img
-                                                key={index}
-                                                src={imageUrl}
-                                                alt={`Example ${index + 1}`}
-                                                className="rounded-lg border border-gray-700 w-full min-h-[400px] object-contain"
-                                                onError={(e) => {
-                                                    e.target.onerror = null;
-                                                    e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="%23374151"/><text x="50%" y="50%" text-anchor="middle" fill="%239CA3AF" font-family="monospace">Image failed to load</text></svg>';
-                                                }}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* Right Pane: Editor */}
-            <div className={`transition-all duration-300 ease-in-out flex flex-col gap-4 ${isProblemCollapsed ? 'w-full md:w-[calc(100%-4rem)]' : 'w-full md:w-2/3'
-                }`}>
-                <div className="bg-code-black border border-code-gray rounded-lg flex-1 flex flex-col overflow-hidden min-h-[500px] md:min-h-0">
-                    <div className="bg-code-dark border-b border-code-gray p-3 flex flex-wrap gap-3 justify-between items-center">
-                        <select
-                            className="bg-code-gray text-white border-none rounded px-3 py-1 text-sm focus:ring-1 focus:ring-code-green"
-                            value={language}
-                            onChange={(e) => handleLanguageChange(e.target.value)}
-                        >
-                            <option value="JAVA">Java</option>
-                            <option value="PYTHON">Python</option>
-                            <option value="CPP">C++</option>
-                            <option value="C">C</option>
-                            <option value="JAVASCRIPT">JavaScript</option>
-                        </select>
-
-                        <div className="flex flex-wrap gap-2 sm:gap-3 items-center justify-end flex-1">
-                            {/* Countdown Timer - Next to language selector */}
-                            {timeRemaining && contestStatus.endTime && (
-                                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-1.5">
-                                    <div className="flex items-center gap-1.5">
-                                        <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        <span className="text-gray-300 font-medium text-xs whitespace-nowrap">{timeRemaining}</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {hasExistingSubmission && (
-                                <div className="hidden sm:flex bg-linear-to-r from-emerald-500 to-teal-600 text-white text-[10px] font-bold px-3 py-1 rounded shadow-sm cursor-default items-center gap-1 uppercase tracking-wider">
-                                    <span>✓ Submitted</span>
-                                </div>
-                            )}
-
-                            {/* Navigation Buttons */}
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handlePreviousProblem}
-                                    disabled={currentIndex < 0 || currentIndex === 0 || allProblems.length === 0}
-                                    className="relative bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 hover:border-white/30 text-white font-bold px-4 sm:px-6 py-1.5 rounded text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
-                                    title="Previous Problem"
-                                >
-                                    <span className="hidden sm:inline">← Previous</span>
-                                    <span className="sm:hidden">←</span>
-                                </button>
-                                <button
-                                    onClick={handleNextProblem}
-                                    disabled={currentIndex < 0 || currentIndex >= allProblems.length - 1 || allProblems.length === 0}
-                                    className="relative bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 hover:border-white/30 text-white font-bold px-4 sm:px-6 py-1.5 rounded text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
-                                    title="Next Problem"
-                                >
-                                    <span className="hidden sm:inline">Next →</span>
-                                    <span className="sm:hidden">→</span>
-                                </button>
-                            </div>
-
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={handleRun}
-                                    disabled={running || submitting}
-                                    className="relative bg-gradient-to-br from-blue-500 to-blue-700 text-white font-bold px-4 sm:px-6 py-1.5 rounded text-sm hover:from-blue-400 hover:to-blue-600 transition-all disabled:opacity-50 shadow-lg overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/20 before:to-transparent before:opacity-0 hover:before:opacity-100 before:transition-opacity"
-                                >
-                                    {running ? (
-                                        <>
-                                            <span className="hidden sm:inline">Running...</span>
-                                            <span className="sm:hidden">...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span className="hidden sm:inline">▶ Run</span>
-                                            <span className="sm:hidden">▶</span>
-                                        </>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={submitting || running}
-                                    className="relative bg-gradient-to-br from-green-500 to-green-700 text-white font-bold px-4 sm:px-6 py-1.5 rounded text-sm hover:from-green-400 hover:to-green-600 transition-all disabled:opacity-50 shadow-lg overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/20 before:to-transparent before:opacity-0 hover:before:opacity-100 before:transition-opacity"
-                                >
-                                    {submitting ? (
-                                        <>
-                                            <span className="hidden sm:inline">Submitting...</span>
-                                            <span className="sm:hidden">...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <span className="hidden sm:inline">✓ Submit</span>
-                                            <span className="sm:hidden">✓</span>
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-
+                        <div style={{ width: '1px', height: '12px', backgroundColor: C.border }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px', color: C.outline }}>memory</span>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.muted }}>{problem.memoryLimit}MB</span>
                         </div>
                     </div>
 
-                    <Editor
-                        height="100%"
-                        theme="vs-dark"
-                        language={language === 'JAVA' ? 'java' : language === 'CPP' ? 'cpp' : language === 'C' ? 'c' : language === 'PYTHON' ? 'python' : 'javascript'}
-                        value={code}
-                        onChange={(value) => setCode(value)}
-                        options={{
-                            // Visual Enhancements
-                            minimap: { enabled: true, scale: 1, showSlider: 'mouseover' },
-                            fontSize: 15,
-                            fontFamily: "'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace",
-                            fontLigatures: true,
-                            lineHeight: 22,
-                            letterSpacing: 0.5,
-                            scrollBeyondLastLine: false,
-                            automaticLayout: true,
-                            smoothScrolling: true,
-                            cursorBlinking: 'smooth',
-                            cursorSmoothCaretAnimation: true,
+                    {/* Contest countdown */}
+                    {timeRemaining && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.secondary }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>schedule</span>
+                            {timeRemaining}
+                        </div>
+                    )}
 
-                            // Code Folding & Structure
-                            folding: true,
-                            foldingStrategy: 'indentation',
-                            showFoldingControls: 'always',
-
-                            // Bracket Matching & Colorization
-                            matchBrackets: 'always',
-                            bracketPairColorization: {
-                                enabled: true,
-                                independentColorPoolPerBracketType: true
-                            },
-                            guides: {
-                                bracketPairs: true,
-                                indentation: false,
-                                highlightActiveIndentation: false
-                            },
-
-                            // Multi-cursor & Selection
-                            multiCursorModifier: 'ctrlCmd',
-                            selectionHighlight: true,
-                            occurrencesHighlight: true,
-                            renderLineHighlight: 'all',
-                            renderWhitespace: 'selection',
-
-                            // IntelliSense & Autocomplete
-                            suggestOnTriggerCharacters: true,
-                            quickSuggestions: {
-                                other: true,
-                                comments: true,
-                                strings: true
-                            },
-                            parameterHints: {
-                                enabled: true,
-                                cycle: true
-                            },
-                            suggest: {
-                                showKeywords: true,
-                                showSnippets: true,
-                                showClasses: true,
-                                showFunctions: true,
-                                showVariables: true,
-                                showModules: true,
-                                showProperties: true,
-                                showMethods: true,
-                                showConstructors: true,
-                                showFields: true,
-                                showInterfaces: true,
-                                showEnums: true,
-                                showConstants: true,
-                                showStructs: true,
-                                showEvents: true,
-                                showOperators: true,
-                                showTypeParameters: true,
-                                insertMode: 'replace',
-                                snippetsPreventQuickSuggestions: false
-                            },
-                            acceptSuggestionOnCommitCharacter: true,
-                            acceptSuggestionOnEnter: "on",
-                            tabCompletion: "on",
-                            wordBasedSuggestions: true,
-
-                            // Code Formatting
-                            formatOnPaste: true,
-                            formatOnType: true,
-                            autoClosingBrackets: "always",
-                            autoClosingQuotes: "always",
-                            autoClosingOvertype: "always",
-                            autoIndent: "full",
-                            autoSurround: "languageDefined",
-
-                            // Find & Replace
-                            find: {
-                                addExtraSpaceOnTop: true,
-                                autoFindInSelection: 'multiline',
-                                seedSearchStringFromSelection: 'selection'
-                            },
-
-                            // Scrollbars
-                            scrollbar: {
-                                vertical: 'visible',
-                                horizontal: 'visible',
-                                useShadows: true,
-                                verticalHasArrows: false,
-                                horizontalHasArrows: false,
-                                verticalScrollbarSize: 14,
-                                horizontalScrollbarSize: 14
-                            },
-
-                            // Line Numbers & Gutter
-                            lineNumbers: 'on',
-                            lineNumbersMinChars: 3,
-                            glyphMargin: true,
-
-                            // Hover & Links
-                            hover: {
-                                enabled: true,
-                                delay: 300,
-                                sticky: true
-                            },
-                            links: true,
-
-                            // Performance
-                            renderValidationDecorations: 'on',
-                            codeLens: false,
-
-                            // Accessibility
-                            accessibilitySupport: 'auto',
-
-                            // Padding
-                            padding: {
-                                top: 16,
-                                bottom: 16
-                            },
-
-                            // ========== ADDITIONAL ADVANCED FEATURES ==========
-                            // Sticky Scroll (VS Code-like)
-                            stickyScroll: {
-                                enabled: true,
-                                maxLineCount: 5
-                            },
-
-                            // Mouse Features
-                            mouseWheelZoom: true,
-                            fastScrollSensitivity: 5,
-                            mouseWheelScrollSensitivity: 1,
-
-                            // Cursor Enhancements
-                            cursorStyle: 'line',
-                            cursorWidth: 2,
-
-                            // Inline Suggestions (Copilot-like)
-                            inlineSuggest: {
-                                enabled: true,
-                                mode: 'prefix'
-                            },
-
-                            // Word-based Suggestions
-                            wordBasedSuggestionsMode: 'matchingDocuments',
-                            quickSuggestionsDelay: 10,
-
-                            // Folding Enhancements
-                            foldingHighlight: true,
-                            unfoldOnClickAfterEndOfLine: true,
-
-                            // Selection & Highlighting
-                            multiCursorMergeOverlapping: true,
-                            multiCursorPaste: 'spread',
-                            renderLineHighlightOnlyWhenFocus: false,
-                            highlightActiveIndentGuide: true,
-
-                            // Special Characters
-                            renderControlCharacters: true,
-                            renderFinalNewline: true,
-
-                            // Editing Features
-                            emptySelectionClipboard: true,
-                            copyWithSyntaxHighlighting: true,
-                            dragAndDrop: true,
-                            dropIntoEditor: {
-                                enabled: true
-                            },
-
-                            // Comments
-                            comments: {
-                                insertSpace: true,
-                                ignoreEmptyLines: true
-                            },
-
-                            // Auto-closing
-                            autoClosingDelete: "always",
-
-                            // Gutter
-                            lineDecorationsWidth: 10,
-
-                            // Semantic Features
-                            'semanticHighlighting.enabled': true,
-                            colorDecorators: true,
-
-                            // Diff Editor
-                            diffWordWrap: 'on',
-
-                            // Accessibility
-                            accessibilityPageSize: 10,
-
-                            // Rulers (vertical lines)
-                            rulers: [80, 120],
-
-                            // Word Wrap
-                            wordWrap: 'off',
-                            wordWrapColumn: 120,
-                            wrappingIndent: 'indent',
-                            wrappingStrategy: 'advanced',
-
-                            // Snippets
-                            snippetSuggestions: 'top',
-
-                            // Tab Settings
-                            tabSize: 4,
-                            insertSpaces: true,
-                            detectIndentation: true,
-                            trimAutoWhitespace: true,
-
-                            // Selection
-                            selectOnLineNumbers: true,
-                            selectionClipboard: true,
-                            roundedSelection: true,
-
-                            // Overview Ruler
-                            overviewRulerBorder: true,
-                            overviewRulerLanes: 3,
-
-                            // Context Menu
-                            contextmenu: true,
-
-                            // Experimental
-                            experimentalWhitespaceRendering: 'svg',
-
-                            // Unicode Highlighting
-                            unicodeHighlight: {
-                                ambiguousCharacters: true,
-                                invisibleCharacters: true,
-                                nonBasicASCII: true
-                            },
-
-                            // Font Weight
-                            fontWeight: '400'
-                        }}
-                    />
-                </div>
-
-                {/* Output Console */}
-                <div className={`transition-all duration-300 ease-in-out bg-code-black border border-code-gray rounded-lg overflow-hidden ${isConsoleCollapsed ? 'h-12' : 'h-1/3'
-                    }`}>
-                    {/* Console Header */}
-                    <div className="flex items-center justify-between bg-code-dark border-b border-code-gray p-3">
-                        <h3 className="text-gray-500 text-xs font-bold uppercase tracking-widest">Verdict Console</h3>
+                    {/* Prev / Next */}
+                    <div style={{ display: 'flex', gap: '4px' }}>
                         <button
-                            onClick={() => setIsConsoleCollapsed(!isConsoleCollapsed)}
-                            className="p-1 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white"
-                            title={isConsoleCollapsed ? 'Expand Console' : 'Collapse Console'}
+                            onClick={handlePrev}
+                            disabled={currentIndex <= 0 || allProblems.length === 0}
+                            style={{ padding: '6px 8px', border: `1px solid transparent`, color: C.outline, background: 'none', cursor: currentIndex <= 0 ? 'not-allowed' : 'pointer', opacity: currentIndex <= 0 ? 0.3 : 1, transition: 'all 0.2s' }}
+                            onMouseEnter={e => { if (currentIndex > 0) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.secondary; } }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = C.outline; }}
                         >
-                            {isConsoleCollapsed ? (
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                            ) : (
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                </svg>
-                            )}
+                            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>chevron_left</span>
+                        </button>
+                        <button
+                            onClick={handleNext}
+                            disabled={currentIndex >= allProblems.length - 1 || allProblems.length === 0}
+                            style={{ padding: '6px 8px', border: `1px solid transparent`, color: C.outline, background: 'none', cursor: currentIndex >= allProblems.length - 1 ? 'not-allowed' : 'pointer', opacity: currentIndex >= allProblems.length - 1 ? 0.3 : 1, transition: 'all 0.2s' }}
+                            onMouseEnter={e => { if (currentIndex < allProblems.length - 1) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.secondary; } }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = C.outline; }}
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>chevron_right</span>
                         </button>
                     </div>
-
-                    {/* Console Content */}
-                    {!isConsoleCollapsed && (
-                        <div className="p-4 overflow-y-auto font-mono text-sm" style={{ maxHeight: 'calc(33vh - 3rem)' }}>
-                            {output ? output : <span className="text-gray-600 italic">Run your code to see results...</span>}
-                        </div>
-                    )}
                 </div>
-            </div>
+            </header>
+
+            {/* ── Workspace ── */}
+            <main id="ps-workspace" style={{ flex: 1, display: 'flex', overflow: 'hidden', cursor: isDragging ? 'col-resize' : 'auto' }}>
+
+                {/* ── Left Pane: Problem Statement ── */}
+                <section style={{ width: `${leftWidth}%`, flexShrink: 0, backgroundColor: C.surfaceLow, borderRight: `1px solid ${C.border}`, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+
+                        {/* Difficulty + tags */}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ padding: '3px 10px', border: `1px solid ${diff.color}`, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', color: diff.color, textTransform: 'uppercase' }}>
+                                {diff.label}
+                            </span>
+                            {hasExistingSubmission && (
+                                <span style={{ padding: '3px 10px', border: `1px solid ${C.success}`, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', color: C.success, textTransform: 'uppercase' }}>
+                                    ✓ Submitted
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Description */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '16px', lineHeight: 1.7, color: C.onBg, margin: 0 }}>
+                                {problem.description}
+                            </p>
+                        </div>
+
+                        {/* Input / Output format */}
+                        {problem.inputFormat && (
+                            <div>
+                                <h3 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.primary, textTransform: 'uppercase', borderBottom: `1px solid ${C.border}`, paddingBottom: '6px', marginBottom: '10px' }}>
+                                    Input Format
+                                </h3>
+                                <pre style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.muted, whiteSpace: 'pre-wrap', backgroundColor: C.surfaceCon, padding: '12px', border: `1px solid ${C.border}` }}>
+                                    {problem.inputFormat}
+                                </pre>
+                            </div>
+                        )}
+                        {problem.outputFormat && (
+                            <div>
+                                <h3 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.primary, textTransform: 'uppercase', borderBottom: `1px solid ${C.border}`, paddingBottom: '6px', marginBottom: '10px' }}>
+                                    Output Format
+                                </h3>
+                                <pre style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.muted, whiteSpace: 'pre-wrap', backgroundColor: C.surfaceCon, padding: '12px', border: `1px solid ${C.border}` }}>
+                                    {problem.outputFormat}
+                                </pre>
+                            </div>
+                        )}
+
+                        {/* Examples */}
+                        {[problem.example1, problem.example2, problem.example3].filter(Boolean).length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <h3 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.primary, textTransform: 'uppercase', borderBottom: `1px solid ${C.border}`, paddingBottom: '6px' }}>
+                                    Examples
+                                </h3>
+                                {[problem.example1, problem.example2, problem.example3].filter(Boolean).map((ex, i) => (
+                                    <div key={i} style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceCon, padding: '1rem' }}>
+                                        <pre style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.muted, whiteSpace: 'pre-wrap', margin: 0 }}>
+                                            {ex}
+                                        </pre>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Constraints */}
+                        {problem.constraints && (
+                            <div>
+                                <h3 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.primary, textTransform: 'uppercase', borderBottom: `1px solid ${C.border}`, paddingBottom: '6px', marginBottom: '10px' }}>
+                                    Constraints
+                                </h3>
+                                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    {problem.constraints.split('\n').filter(Boolean).map((c, i) => (
+                                        <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: C.border, flexShrink: 0 }} />
+                                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.outline }}>{c}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
+                        {/* Images */}
+                        {problem.images && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {problem.images.split(',').map((url, i) => {
+                                    const trimmed = url.trim();
+                                    const driveMatch = trimmed.match(/\/file\/d\/([^/]+)/);
+                                    const imgUrl = driveMatch ? `https://drive.google.com/uc?export=view&id=${driveMatch[1]}` : trimmed;
+                                    return (
+                                        <img key={i} src={imgUrl} alt={`Example ${i + 1}`}
+                                            style={{ width: '100%', border: `1px solid ${C.border}`, objectFit: 'contain' }}
+                                            onError={e => { e.target.style.display = 'none'; }}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                {/* ── Drag Divider ── */}
+                <div
+                    onMouseDown={onDividerMouseDown}
+                    style={{ width: '4px', flexShrink: 0, backgroundColor: isDragging ? C.secondary : C.border, cursor: 'col-resize', transition: 'background-color 0.2s' }}
+                    onMouseEnter={e => { if (!isDragging) e.currentTarget.style.backgroundColor = C.secondary; }}
+                    onMouseLeave={e => { if (!isDragging) e.currentTarget.style.backgroundColor = C.border; }}
+                />
+
+                {/* ── Right Pane: Editor + Console ── */}
+                <section style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: C.bg, minWidth: 0, cursor: isDraggingH ? 'row-resize' : 'auto' }}>
+
+                    {/* Editor toolbar */}
+                    <div style={{ height: '48px', flexShrink: 0, borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px' }}>
+                        {/* Language selector */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px', color: C.outline }}>code_blocks</span>
+                            <select
+                                value={language}
+                                onChange={e => handleLanguageChange(e.target.value)}
+                                style={{ backgroundColor: 'transparent', border: 'none', color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', outline: 'none', appearance: 'none' }}
+                            >
+                                {Object.entries(LANG_MAP).map(([key, { label }]) => (
+                                    <option key={key} value={key} style={{ backgroundColor: C.surfaceLow }}>{label}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Toolbar actions */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <button
+                                onClick={() => { const lang = language; if (snippets[lang]) setCode(snippets[lang]); }}
+                                title="Reset to starter code"
+                                style={{ padding: '4px', color: C.outline, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.color = C.muted}
+                                onMouseLeave={e => e.currentTarget.style.color = C.outline}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>refresh</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Monaco Editor */}
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <Editor
+                            height="100%"
+                            theme="vs-dark"
+                            language={LANG_MAP[language]?.monaco || 'java'}
+                            value={code}
+                            onChange={v => setCode(v || '')}
+                            options={{
+                                fontSize: 14,
+                                fontFamily: "'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace",
+                                fontLigatures: true,
+                                lineHeight: 22,
+                                minimap: { enabled: false },
+                                scrollBeyondLastLine: false,
+                                automaticLayout: true,
+                                folding: true,
+                                bracketPairColorization: { enabled: true },
+                                matchBrackets: 'always',
+                                autoClosingBrackets: 'always',
+                                autoClosingQuotes: 'always',
+                                autoIndent: 'full',
+                                formatOnPaste: true,
+                                formatOnType: true,
+                                suggestOnTriggerCharacters: true,
+                                quickSuggestions: { other: true, comments: true, strings: true },
+                                tabSize: 4,
+                                insertSpaces: true,
+                                lineNumbers: 'on',
+                                renderLineHighlight: 'all',
+                                scrollbar: { vertical: 'visible', horizontal: 'visible', verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
+                                padding: { top: 16, bottom: 16 },
+                                rulers: [80, 120],
+                                wordWrap: 'off',
+                                stickyScroll: { enabled: true },
+                                mouseWheelZoom: true,
+                                cursorBlinking: 'smooth',
+                                cursorSmoothCaretAnimation: 'on',
+                                snippetSuggestions: 'top',
+                                glyphMargin: false,
+                            }}
+                        />
+                    </div>
+
+                    {/* Console drag handle */}
+                    <div
+                        onMouseDown={onConsoleDividerMouseDown}
+                        style={{ height: '4px', flexShrink: 0, backgroundColor: isDraggingH ? C.secondary : C.border, cursor: 'row-resize', transition: 'background-color 0.2s' }}
+                        onMouseEnter={e => { if (!isDraggingH) e.currentTarget.style.backgroundColor = C.secondary; }}
+                        onMouseLeave={e => { if (!isDraggingH) e.currentTarget.style.backgroundColor = C.border; }}
+                    />
+
+                    {/* Console panel */}
+                    <div style={{ height: `${consoleHeight}px`, flexShrink: 0, backgroundColor: C.surfaceLow, display: 'flex', flexDirection: 'column' }}>
+                        {/* Console tabs */}
+                        <div style={{ height: '40px', flexShrink: 0, borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, display: 'flex', alignItems: 'center', padding: '0 16px', gap: '24px' }}>
+                            <button
+                                onClick={() => setConsoleTab('output')}
+                                style={{ height: '100%', display: 'flex', alignItems: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: consoleTab === 'output' ? C.secondary : C.outline, borderBottom: consoleTab === 'output' ? `2px solid ${C.secondary}` : '2px solid transparent', background: 'none', border: 'none', borderBottom: consoleTab === 'output' ? `2px solid ${C.secondary}` : '2px solid transparent', cursor: 'pointer', paddingTop: '2px' }}
+                            >
+                                Output Console
+                            </button>
+                        </div>
+
+                        {/* Console body */}
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
+                            {output
+                                ? output
+                                : <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline, fontStyle: 'italic' }}>Run your code to see results...</span>
+                            }
+                        </div>
+                    </div>
+
+                    {/* Bottom action bar */}
+                    <div style={{ height: '56px', flexShrink: 0, borderTop: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
+                        {/* Left: console toggle info */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>terminal</span>
+                            Console
+                        </div>
+
+                        {/* Right: Run + Submit */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <button
+                                onClick={handleRun}
+                                disabled={running || submitting}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', border: 'none', borderBottom: `1px solid transparent`, color: running || submitting ? C.outline : C.onBg, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: running || submitting ? 'not-allowed' : 'pointer', opacity: running || submitting ? 0.5 : 1, transition: 'all 0.2s' }}
+                                onMouseEnter={e => { if (!running && !submitting) { e.currentTarget.style.borderBottomColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                                onMouseLeave={e => { e.currentTarget.style.borderBottomColor = 'transparent'; e.currentTarget.style.color = running || submitting ? C.outline : C.onBg; }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
+                                {running ? 'Running...' : 'Run Code'}
+                            </button>
+
+                            <button
+                                onClick={handleSubmit}
+                                disabled={submitting || running}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 24px', border: `1px solid ${C.secondary}`, color: submitting || running ? C.outline : C.secondary, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: submitting || running ? 'not-allowed' : 'pointer', opacity: submitting || running ? 0.5 : 1, transition: 'all 0.2s' }}
+                                onMouseEnter={e => { if (!submitting && !running) { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; } }}
+                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = submitting || running ? C.outline : C.secondary; }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>upload</span>
+                                {submitting ? 'Submitting...' : 'Submit'}
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <style>{`
+                .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                ::-webkit-scrollbar { width: 4px; height: 4px; }
+                ::-webkit-scrollbar-track { background: transparent; }
+                ::-webkit-scrollbar-thumb { background: #50453b; border-radius: 2px; }
+                ::-webkit-scrollbar-thumb:hover { background: #9d8e83; }
+            `}</style>
         </div>
     );
 };

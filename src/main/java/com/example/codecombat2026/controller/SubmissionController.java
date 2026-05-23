@@ -6,6 +6,7 @@ import com.example.codecombat2026.entity.Submission;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
 import com.example.codecombat2026.service.RateLimiterService;
 import com.example.codecombat2026.service.SseEmitterRegistry;
+import com.example.codecombat2026.service.SseTicketService;
 import com.example.codecombat2026.service.SubmissionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/submissions")
@@ -25,6 +27,7 @@ public class SubmissionController {
     @Autowired private SubmissionService submissionService;
     @Autowired private SseEmitterRegistry sseRegistry;
     @Autowired private RateLimiterService rateLimiter;
+    @Autowired private SseTicketService sseTickets;
 
     /**
      * Async submit — returns 202 Accepted immediately (< 10ms).
@@ -34,7 +37,6 @@ public class SubmissionController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> submitCode(@RequestBody SubmissionRequest request,
                                         @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        // Rate limit check
         if (!rateLimiter.allowSubmission(userDetails.getId())) {
             long retryAfter = rateLimiter.getRetryAfterSeconds(userDetails.getId());
             return ResponseEntity.status(429)
@@ -48,23 +50,18 @@ public class SubmissionController {
             request.getCode(),
             request.getLanguage()
         );
-
-        // Return 202 Accepted — verdict comes via SSE
         return ResponseEntity.accepted().body(submission);
     }
 
     /**
-     * Test run — same as submit but NOT saved to DB.
-     * Still async: queued and result pushed via SSE.
-     * For now keeps sync behavior for simplicity.
+     * Test run — executes code but does NOT save to DB, does NOT upsert.
+     * Verdict arrives via SSE with isTestRun=true flag.
      */
     @PostMapping("/test")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Submission> testCode(@RequestBody SubmissionRequest request,
                                                @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        // Test runs bypass rate limiting and don't save to DB
-        // Reuse async submit but mark as test (not saved)
-        Submission submission = submissionService.submitCodeAsync(
+        Submission submission = submissionService.testCodeAsync(
             userDetails.getId(),
             request.getProblemId(),
             request.getCode(),
@@ -74,13 +71,48 @@ public class SubmissionController {
     }
 
     /**
+     * Issue a single-use SSE ticket. The browser exchanges this for an SSE
+     * subscription. Tickets live 60s, are bound to one userId, and are
+     * deleted atomically on consumption — so even if the URL appears in a
+     * proxy log, the credential is already useless.
+     */
+    @PostMapping("/sse-ticket")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> issueSseTicket(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        String ticket = sseTickets.issue(userDetails.getId());
+        return ResponseEntity.ok(Map.of("ticket", ticket));
+    }
+
+    /**
      * SSE stream — client connects once, receives verdict when judging completes.
-     * Replaces polling. Connection stays open for 5 minutes.
+     *
+     * Auth is via a single-use ticket exchanged at /sse-ticket. The endpoint
+     * is permitAll() in SecurityConfig so async dispatch doesn't re-trigger
+     * AuthorizationFilter.
+     *
+     * Returns 401 with no body if the ticket is missing/invalid/used; 200 OK
+     * with an SseEmitter otherwise. We use a custom exception (handled in
+     * GlobalExceptionHandler) to set 401 because returning {@code null} or
+     * {@code ResponseEntity.status(401)} from an SSE-producing endpoint is
+     * silently rewritten to 200 by Spring's emitter return-value handler.
      */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @PreAuthorize("isAuthenticated()")
-    public SseEmitter streamVerdicts(@AuthenticationPrincipal UserDetailsImpl userDetails) {
-        return sseRegistry.register(userDetails.getId());
+    public SseEmitter streamVerdicts(
+            @RequestParam(name = "ticket", required = false) String ticket,
+            jakarta.servlet.http.HttpServletResponse response) {
+        Long userId = sseTickets.consume(ticket);
+        if (userId == null) {
+            throw new SseAuthException();
+        }
+        response.setHeader("X-Accel-Buffering", "no");
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("Connection", "keep-alive");
+        return sseRegistry.register(userId);
+    }
+
+    /** Marker exception → handled in GlobalExceptionHandler with a clean 401. */
+    public static class SseAuthException extends RuntimeException {
+        public SseAuthException() { super("Invalid or expired SSE ticket"); }
     }
 
     /**

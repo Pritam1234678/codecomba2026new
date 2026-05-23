@@ -1,473 +1,343 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { gsap } from 'gsap';
+import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import Editor from '@monaco-editor/react';
 import ProblemService from '../services/problem.service';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api';
 
+const C = {
+    bg:         '#131313',
+    surfaceCon: '#201f1f',
+    surfaceLow: '#1c1b1b',
+    surfaceHi:  '#2a2a2a',
+    surfaceMin: '#0e0e0e',
+    border:     '#50453b',
+    primary:    '#f1bc8b',
+    secondary:  '#e9c176',
+    muted:      '#d4c4b7',
+    outline:    '#9d8e83',
+    onBg:       '#e5e2e1',
+    error:      '#ffb4ab',
+};
+
+const LANGS = ['JAVA', 'CPP', 'PYTHON', 'JAVASCRIPT', 'C'];
+const LANG_LABELS = { JAVA: 'Java', CPP: 'C++', PYTHON: 'Python', JAVASCRIPT: 'JavaScript', C: 'C' };
+const LANG_MONACO = { JAVA: 'java', CPP: 'cpp', PYTHON: 'python', JAVASCRIPT: 'javascript', C: 'c' };
+
 export default function EditProblem() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [contestId, setContestId] = useState(null);
+    const { id }     = useParams();
+    const navigate   = useNavigate();
+    const [loading,  setLoading]  = useState(true);
+    const [saving,   setSaving]   = useState(false);
+    const [error,    setError]    = useState('');
+    const [dirty,    setDirty]    = useState(false);
+    const [toast,    setToast]    = useState(null);
+    const [contestId, setContestId] = useState(null);
+    const [activeTab, setActiveTab] = useState('JAVA');
+    const [editorTab, setEditorTab] = useState('harness'); // harness | template
 
-  const headerRef = useRef(null);
-  const formRef = useRef(null);
+    const [formData, setFormData] = useState({
+        title: '', description: '', inputFormat: '', outputFormat: '',
+        constraints: '', timeLimit: 1000, memoryLimit: 256,
+        example1: '', example2: '', example3: '', images: '', active: true, level: 'MEDIUM'
+    });
 
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    inputFormat: '',
-    outputFormat: '',
-    constraints: '',
-    timeLimit: 1000,
-    memoryLimit: 256,
-    example1: '',
-    example2: '',
-    example3: '',
-    images: '',
-    active: true
-  });
-
-  const [snippets, setSnippets] = useState({
-    JAVA: { solutionTemplate: '' },
-    CPP: { solutionTemplate: '' },
-    PYTHON: { solutionTemplate: '' },
-    JAVASCRIPT: { solutionTemplate: '' },
-    C: { solutionTemplate: '' }
-  });
-
-  const [activeSnippetTab, setActiveSnippetTab] = useState('JAVA');
-
-  useEffect(() => {
-    loadProblem();
-  }, [id]);
-
-  useEffect(() => {
-    if (!loading && headerRef.current && formRef.current) {
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-
-      tl.from(headerRef.current, {
-        opacity: 0,
-        y: 30,
-        duration: 0.8
-      })
-        .from(formRef.current, {
-          opacity: 0,
-          y: 20,
-          duration: 0.6
-        }, '-=0.3');
-    }
-  }, [loading]);
-
-  const loadProblem = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-
-      const response = await axios.get(`${API_URL}/problems/${id}`, { headers });
-      const problem = response.data;
-
-      setFormData({
-        title: problem.title || '',
-        description: problem.description || '',
-        inputFormat: problem.inputFormat || '',
-        outputFormat: problem.outputFormat || '',
-        constraints: problem.constraints || '',
-        timeLimit: problem.timeLimit || 1000,
-        memoryLimit: problem.memoryLimit || 256,
-        example1: problem.example1 || '',
-        example2: problem.example2 || '',
-        example3: problem.example3 || '',
-        images: problem.images || '',
-        active: problem.active !== undefined ? problem.active : true
-      });
-
-      if (problem.contestId) {
-        setContestId(problem.contestId);
-      }
-
-      // Fetch code snippets (admin endpoint — includes full harness)
-      try {
-        const snippetsRes = await ProblemService.getSnippetsAdmin(id);
-        const snippetMap = {
-          JAVA: { solutionTemplate: '' },
-          CPP: { solutionTemplate: '' },
-          PYTHON: { solutionTemplate: '' },
-          JAVASCRIPT: { solutionTemplate: '' },
-          C: { solutionTemplate: '' }
-        };
-
-        snippetsRes.data.forEach(snippet => {
-          snippetMap[snippet.language] = {
-            solutionTemplate: snippet.solutionTemplate || ''
-          };
-        });
-
-        setSnippets(snippetMap);
-      } catch (err) {
-        console.log('No snippets found or error loading snippets');
-      }
-
-      setLoading(false);
-    } catch (err) {
-      setError('Failed to load problem');
-      setLoading(false);
-    }
-  };
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : (type === 'number' ? parseInt(value) : value)
-    }));
-  };
-
-  const handleSnippetChange = (language, field, value) => {
-    setSnippets(prev => ({
-      ...prev,
-      [language]: {
-        ...prev[language],
-        [field]: value
-      }
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setError('');
-
-    try {
-      const token = localStorage.getItem('token');
-
-      // Convert empty strings to null for optional fields
-      const problemData = {
-        ...formData,
-        example1: formData.example1?.trim() || null,
-        example2: formData.example2?.trim() || null,
-        example3: formData.example3?.trim() || null,
-        images: formData.images?.trim() || null
-      };
-
-      await axios.put(`${API_URL}/admin/problems/${id}`, problemData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      // Save snippets (only solutionTemplate stored)
-      const snippetsArray = Object.entries(snippets).map(([lang, data]) => ({
-        language: lang,
-        solutionTemplate: data.solutionTemplate
-      }));
-
-      await ProblemService.saveAllSnippets(id, snippetsArray);
-
-      if (contestId) {
-        navigate(`/admin/contests/${contestId}/problems`);
-      } else {
-        navigate('/admin/contests');
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update problem');
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-400 text-lg">Loading...</div>
-      </div>
+    const [snippets, setSnippets] = useState(
+        Object.fromEntries(LANGS.map(l => [l, { solutionTemplate: '' }]))
     );
-  }
 
-  return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
-      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">Edit Problem</h1>
-            <p className="text-xs sm:text-sm text-gray-500">Update problem details</p>
-          </div>
-          <button
-            onClick={() => contestId ? navigate(`/admin/contests/${contestId}/problems`) : navigate('/admin/contests')}
-            className="w-full sm:w-auto px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 rounded-lg transition-all text-gray-300 text-center"
-          >
-            ← Back
-          </button>
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const h = { Authorization: `Bearer ${token}` };
+                const res = await axios.get(`${API_URL}/problems/${id}`, { headers: h });
+                const p = res.data;
+                setFormData({ title: p.title || '', description: p.description || '', inputFormat: p.inputFormat || '', outputFormat: p.outputFormat || '', constraints: p.constraints || '', timeLimit: p.timeLimit || 1000, memoryLimit: p.memoryLimit || 256, example1: p.example1 || '', example2: p.example2 || '', example3: p.example3 || '', images: p.images || '', active: p.active !== undefined ? p.active : true, level: p.level || 'MEDIUM' });
+                if (p.contestId) setContestId(p.contestId);
+                try {
+                    const sRes = await ProblemService.getSnippetsAdmin(id);
+                    const map = Object.fromEntries(LANGS.map(l => [l, { solutionTemplate: '' }]));
+                    sRes.data.forEach(s => { map[s.language] = { solutionTemplate: s.solutionTemplate || '' }; });
+                    setSnippets(map);
+                } catch {}
+            } catch { setError('Failed to load problem'); }
+            finally { setLoading(false); }
+        };
+        load();
+    }, [id]);
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(p => ({ ...p, [name]: type === 'checkbox' ? checked : (type === 'number' ? parseInt(value) : value) }));
+        setDirty(true);
+    };
+
+    const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        setError('');
+        try {
+            const token = localStorage.getItem('token');
+            const data = { ...formData, example1: formData.example1?.trim() || null, example2: formData.example2?.trim() || null, example3: formData.example3?.trim() || null, images: formData.images?.trim() || null };
+            await axios.put(`${API_URL}/admin/problems/${id}`, data, { headers: { Authorization: `Bearer ${token}` } });
+            await ProblemService.saveAllSnippets(id, LANGS.map(l => ({ language: l, solutionTemplate: snippets[l].solutionTemplate })));
+            setDirty(false);
+            showToast('Problem saved successfully.');
+            setTimeout(() => contestId ? navigate(`/admin/contests/${contestId}/problems`) : navigate('/admin/contests'), 1500);
+        } catch (err) { setError(err.response?.data?.message || 'Failed to update problem'); setSaving(false); }
+    };
+
+    if (loading) return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>Loading...</div>
+    );
+
+    return (
+        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+            {/* ── Task Header ── */}
+            <header style={{ height: '72px', flexShrink: 0, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', backgroundColor: C.bg, zIndex: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                    <button
+                        onClick={() => contestId ? navigate(`/admin/contests/${contestId}/problems`) : navigate('/admin/contests')}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', border: `1px solid transparent`, color: C.outline, background: 'none', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.secondary; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = C.outline; }}
+                    >
+                        <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>arrow_back</span>
+                    </button>
+                    <div style={{ width: '1px', height: '32px', backgroundColor: C.border }} />
+                    <div>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Editing Problem</span>
+                        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 600, color: C.onBg, maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {formData.title || 'Problem'}
+                        </h1>
+                    </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                    {dirty && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: C.secondary, display: 'inline-block' }} />
+                            Unsaved Changes
+                        </div>
+                    )}
+                    <div style={{ width: '1px', height: '32px', backgroundColor: C.border }} />
+                    <button
+                        onClick={() => navigate(`/admin/problems/${id}/testcases`)}
+                        style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: C.outline, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
+                        onMouseEnter={e => e.currentTarget.style.color = C.secondary}
+                        onMouseLeave={e => e.currentTarget.style.color = C.outline}
+                    >
+                        Manage Test Cases
+                    </button>
+                    <button
+                        form="edit-problem-form"
+                        type="submit"
+                        disabled={saving}
+                        style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', border: `1px solid ${C.primary}`, color: saving ? C.outline : C.primary, backgroundColor: 'transparent', padding: '10px 24px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.5 : 1, transition: 'all 0.2s' }}
+                        onMouseEnter={e => { if (!saving) { e.currentTarget.style.backgroundColor = C.primary; e.currentTarget.style.color = C.bg; } }}
+                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = saving ? C.outline : C.primary; }}
+                    >
+                        {saving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                </div>
+            </header>
+
+            {/* ── Split Workspace ── */}
+            <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+
+                {/* ── Left: Form ── */}
+                <section style={{ width: '42%', borderRight: `1px solid ${C.border}`, overflowY: 'auto', backgroundColor: C.bg, display: 'flex', flexDirection: 'column' }}>
+                    {error && (
+                        <div style={{ margin: '1rem 2rem 0', padding: '10px 14px', border: `1px solid ${C.error}`, borderLeft: `3px solid ${C.error}`, backgroundColor: 'rgba(255,180,171,0.06)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
+                            {error}
+                        </div>
+                    )}
+                    <form id="edit-problem-form" onSubmit={handleSubmit} style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+
+                        {/* Core Metadata */}
+                        <div>
+                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase', borderBottom: `1px solid ${C.border}`, paddingBottom: '8px', marginBottom: '1.5rem' }}>Core Metadata</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <UField label="Problem Title" name="title" type="text" value={formData.title} onChange={handleChange} required />
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Time Limit (ms)</label>
+                                        <input type="number" name="timeLimit" value={formData.timeLimit} onChange={handleChange} min="100" step="100"
+                                            style={{ width: '100%', backgroundColor: 'transparent', border: 'none', borderBottom: `1px solid ${C.border}`, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '14px', padding: '8px 0', outline: 'none', boxSizing: 'border-box' }}
+                                            onFocus={e => e.target.style.borderBottomColor = C.secondary} onBlur={e => e.target.style.borderBottomColor = C.border}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Memory Limit (MB)</label>
+                                        <input type="number" name="memoryLimit" value={formData.memoryLimit} onChange={handleChange} min="64" step="64"
+                                            style={{ width: '100%', backgroundColor: 'transparent', border: 'none', borderBottom: `1px solid ${C.border}`, color: C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '14px', padding: '8px 0', outline: 'none', boxSizing: 'border-box' }}
+                                            onFocus={e => e.target.style.borderBottomColor = C.secondary} onBlur={e => e.target.style.borderBottomColor = C.border}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Statement Editor */}
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${C.border}`, paddingBottom: '8px', marginBottom: '1rem' }}>
+                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase' }}>Statement Editor</span>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    {['format_bold', 'format_italic', 'code', 'functions'].map(icon => (
+                                        <button key={icon} type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.outline, transition: 'color 0.2s', padding: '2px' }}
+                                            onMouseEnter={e => e.currentTarget.style.color = C.primary} onMouseLeave={e => e.currentTarget.style.color = C.outline}
+                                        >
+                                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{icon}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <textarea name="description" value={formData.description} onChange={handleChange} required rows={6}
+                                style={{ width: '100%', backgroundColor: 'transparent', border: 'none', borderBottom: `1px solid ${C.border}`, color: C.onBg, fontFamily: "'Geist', sans-serif", fontSize: '15px', lineHeight: 1.6, padding: '8px 0', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                                onFocus={e => e.target.style.borderBottomColor = C.secondary} onBlur={e => e.target.style.borderBottomColor = C.border}
+                            />
+                        </div>
+
+                        {/* I/O + Constraints */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <UField label="Input Format" name="inputFormat" type="textarea" value={formData.inputFormat} onChange={handleChange} />
+                            <UField label="Output Format" name="outputFormat" type="textarea" value={formData.outputFormat} onChange={handleChange} />
+                            <UField label="Constraints" name="constraints" type="textarea" value={formData.constraints} onChange={handleChange} codeFont />
+                        </div>
+
+                        {/* Examples */}
+                        <div>
+                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase', borderBottom: `1px solid ${C.border}`, paddingBottom: '8px', marginBottom: '1.5rem' }}>Optional Examples</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <UField label="Example 1" name="example1" type="textarea" value={formData.example1} onChange={handleChange} codeFont />
+                                <UField label="Example 2" name="example2" type="textarea" value={formData.example2} onChange={handleChange} codeFont />
+                                <UField label="Example 3" name="example3" type="textarea" value={formData.example3} onChange={handleChange} codeFont />
+                                <UField label="Images (comma-separated URLs)" name="images" type="text" value={formData.images} onChange={handleChange} />
+                            </div>
+                        </div>
+
+                        {/* Difficulty Level */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase' }}>
+                                Difficulty Level
+                            </label>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                {['EASY', 'MEDIUM', 'HARD'].map(lv => {
+                                    const colors = { EASY: { c:'#66bb6a', b:'#66bb6a', bg:'rgba(102,187,106,0.12)' }, MEDIUM: { c:'#e9c176', b:'#e9c176', bg:'rgba(233,193,118,0.12)' }, HARD: { c:'#ffb4ab', b:'#ffb4ab', bg:'rgba(255,180,171,0.12)' } };
+                                    const lc = colors[lv];
+                                    const sel = formData.level === lv;
+                                    return (
+                                        <button key={lv} type="button"
+                                            onClick={() => { setFormData(p => ({ ...p, level: lv })); setDirty(true); }}
+                                            style={{ flex: 1, padding: '10px', border: `1px solid ${sel ? lc.b : C.border}`, backgroundColor: sel ? lc.bg : 'transparent', color: sel ? lc.c : C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s' }}
+                                        >{lv}</button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Active */}
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                            <input type="checkbox" name="active" checked={formData.active} onChange={handleChange} style={{ accentColor: C.primary, width: '16px', height: '16px' }} />
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Active (visible to users)</span>
+                        </label>
+                    </form>
+                </section>
+
+                {/* ── Right: Code Editor ── */}
+                <section style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: C.surfaceMin }}>
+                    {/* Editor Tabs */}
+                    <div style={{ display: 'flex', borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceLow, flexShrink: 0, paddingTop: '8px', paddingLeft: '8px', gap: '4px' }}>
+                        {[
+                            { key: 'harness', label: 'Validator / Harness' },
+                        ].map(t => (
+                            <button key={t.key} type="button" onClick={() => setEditorTab(t.key)}
+                                style={{ padding: '10px 24px', borderBottom: editorTab === t.key ? `2px solid ${C.primary}` : '2px solid transparent', color: editorTab === t.key ? C.primary : C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', background: editorTab === t.key ? C.surfaceHi : 'transparent', border: 'none', cursor: 'pointer', transition: 'all 0.2s' }}
+                            >{t.label}</button>
+                        ))}
+                        <div style={{ flex: 1 }} />
+                        <button type="button" style={{ padding: '10px 16px', color: C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', background: 'none', border: 'none', borderLeft: `1px solid ${C.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>visibility</span>
+                            Preview
+                        </button>
+                    </div>
+
+                    {/* Lang Tabs + Toolbar */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', borderBottom: `1px solid ${C.border}`, flexShrink: 0, backgroundColor: C.surfaceMin }}>
+                        <div style={{ display: 'flex', gap: '1px', backgroundColor: C.border }}>
+                            {LANGS.map(l => (
+                                <button key={l} type="button" onClick={() => setActiveTab(l)}
+                                    style={{ padding: '6px 16px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', border: 'none', cursor: 'pointer', backgroundColor: activeTab === l ? C.secondary : C.surfaceMin, color: activeTab === l ? C.bg : C.outline, transition: 'all 0.2s' }}
+                                >{LANG_LABELS[l]}</button>
+                            ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            {['settings', 'subject'].map(icon => (
+                                <button key={icon} type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.outline, transition: 'color 0.2s' }}
+                                    onMouseEnter={e => e.currentTarget.style.color = C.onBg} onMouseLeave={e => e.currentTarget.style.color = C.outline}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{icon}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Monaco */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <div style={{ padding: '6px 16px', backgroundColor: C.surfaceMin, borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', flexShrink: 0 }}>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
+                                {LANG_LABELS[activeTab]} — Solution Harness
+                            </span>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.border }}>
+                                Mark editable zone with USER_CODE_START / USER_CODE_END
+                            </span>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <Editor
+                                height="100%"
+                                theme="vs-dark"
+                                language={LANG_MONACO[activeTab]}
+                                value={snippets[activeTab].solutionTemplate}
+                                onChange={v => { setSnippets(p => ({ ...p, [activeTab]: { solutionTemplate: v || '' } })); setDirty(true); }}
+                                options={{ fontSize: 13, fontFamily: "'Fira Code', 'Cascadia Code', monospace", fontLigatures: true, minimap: { enabled: false }, scrollBeyondLastLine: false, automaticLayout: true, lineNumbers: 'on', folding: true, bracketPairColorization: { enabled: true }, autoClosingBrackets: 'always', autoClosingQuotes: 'always', tabSize: 4, insertSpaces: true, wordWrap: 'off', padding: { top: 12, bottom: 12 } }}
+                            />
+                        </div>
+                        {/* Status bar */}
+                        <div style={{ height: '28px', borderTop: `1px solid ${C.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', backgroundColor: C.surfaceLow, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                            <span>UTF-8</span>
+                            <span>{LANG_LABELS[activeTab]}</span>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            {/* ── Toast ── */}
+            <AnimatePresence>
+                {toast && (
+                    <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
+                        style={{ position: 'fixed', bottom: '2rem', right: '2rem', backgroundColor: C.surfaceLow, borderLeft: `2px solid ${toast.type === 'success' ? C.secondary : C.error}`, padding: '1rem 1.5rem', zIndex: 100, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: toast.type === 'success' ? C.secondary : C.error, letterSpacing: '0.05em' }}
+                    >{toast.msg}</motion.div>
+                )}
+            </AnimatePresence>
+
+            <style>{`.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; }`}</style>
         </div>
-      </div>
-
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg">
-          {error}
-        </div>
-      )}
-
-      <form ref={formRef} onSubmit={handleSubmit} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 shadow-xl">
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Title *</label>
-          <input
-            type="text"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-            required
-            className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 text-white"
-            placeholder="e.g., Two Sum"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Description *</label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            required
-            rows={6}
-            className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 text-white resize-none"
-            placeholder="Problem description..."
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Input Format</label>
-            <textarea
-              name="inputFormat"
-              value={formData.inputFormat}
-              onChange={handleChange}
-              rows={3}
-              className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 text-white resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Output Format</label>
-            <textarea
-              name="outputFormat"
-              value={formData.outputFormat}
-              onChange={handleChange}
-              rows={3}
-              className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 text-white resize-none"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Constraints</label>
-          <textarea
-            name="constraints"
-            value={formData.constraints}
-            onChange={handleChange}
-            rows={3}
-            className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 text-white resize-none"
-            placeholder="e.g., 1 <= n <= 10^5"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Time Limit (ms)</label>
-            <input
-              type="number"
-              name="timeLimit"
-              value={formData.timeLimit}
-              onChange={handleChange}
-              min="100"
-              step="100"
-              className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 text-white"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Memory Limit (MB)</label>
-            <input
-              type="number"
-              name="memoryLimit"
-              value={formData.memoryLimit}
-              onChange={handleChange}
-              min="64"
-              step="64"
-              className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 text-white"
-            />
-          </div>
-        </div>
-
-        {/* Optional Examples Section */}
-        <div className="border-t border-[#3a3a3a] pt-6 mt-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Optional Examples</h3>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Example 1 (Optional)
-            </label>
-            <textarea
-              name="example1"
-              value={formData.example1}
-              onChange={handleChange}
-              rows={4}
-              placeholder="Input: nums = [3,2,1,4,5], k = 4&#10;Output: 3&#10;Explanation: The subarrays that have a median equal to 4 are: [4], [4,5] and [1,4,5]."
-              className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 text-white resize-none font-mono text-sm"
-            />
-          </div>
-
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Example 2 (Optional)
-            </label>
-            <textarea
-              name="example2"
-              value={formData.example2}
-              onChange={handleChange}
-              rows={4}
-              placeholder="Input: nums = [2,3,1], k = 3&#10;Output: 1&#10;Explanation: [3] is the only subarray that has a median equal to 3."
-              className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 text-white resize-none font-mono text-sm"
-            />
-          </div>
-
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Example 3 (Optional)
-            </label>
-            <textarea
-              name="example3"
-              value={formData.example3}
-              onChange={handleChange}
-              rows={4}
-              placeholder="Input: nums = [1,2,3], k = 2&#10;Output: 0&#10;Explanation: There are no subarrays with median equal to 2."
-              className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 text-white resize-none font-mono text-sm"
-            />
-          </div>
-
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Images (Optional)
-              <span className="text-xs text-gray-500 ml-2">Comma-separated URLs</span>
-            </label>
-            <input
-              type="text"
-              name="images"
-              value={formData.images}
-              onChange={handleChange}
-              placeholder="https://example.com/image1.png, https://example.com/image2.png"
-              className="w-full px-4 py-3 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 text-white"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            name="active"
-            checked={formData.active}
-            onChange={handleChange}
-            className="w-5 h-5 text-green-500 bg-[#2a2a2a] border-[#3a3a3a] rounded focus:ring-green-500/50"
-          />
-          <label className="ml-3 text-sm font-medium text-gray-300">Active (visible to users)</label>
-        </div>
-
-        {/* Code Harness Section */}
-        <div className="mt-6 border-t border-[#3a3a3a] pt-6">
-          <h3 className="text-lg font-semibold text-white mb-1">Code Harness</h3>
-          <p className="text-xs text-gray-500 mb-4">
-            Write the <strong className="text-gray-300">complete runnable file</strong> for each language.
-            Mark the user-editable zone with{' '}
-            <code className="text-green-400">// USER_CODE_START</code> and{' '}
-            <code className="text-green-400">// USER_CODE_END</code>{' '}
-            (use <code className="text-green-400"># USER_CODE_START/END</code> for Python).
-            Embed all test cases in the harness — print{' '}
-            <code className="text-green-400">TC:N:PASS</code> or{' '}
-            <code className="text-green-400">TC:N:FAIL</code> for each test.
-            Append <code className="text-green-400">:hidden</code> for hidden tests.
-          </p>
-
-          {/* Language Tabs */}
-          <div className="flex gap-2 mb-3 overflow-x-auto">
-            {['JAVA', 'CPP', 'PYTHON', 'JAVASCRIPT', 'C'].map(lang => (
-              <button
-                key={lang}
-                type="button"
-                onClick={() => setActiveSnippetTab(lang)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${activeSnippetTab === lang
-                  ? 'bg-green-500 text-white'
-                  : 'bg-[#2a2a2a] text-gray-400 hover:bg-[#3a3a3a]'
-                  }`}
-              >
-                {lang === 'CPP' ? 'C++' : lang === 'JAVASCRIPT' ? 'JavaScript' : lang}
-              </button>
-            ))}
-          </div>
-
-          {/* Monaco Editor for harness */}
-          <div className="border border-[#3a3a3a] rounded-lg overflow-hidden">
-            <div className="bg-[#1e1e1e] px-4 py-2 border-b border-[#3a3a3a] flex items-center justify-between">
-              <span className="text-xs text-gray-400 font-mono">
-                {activeSnippetTab === 'CPP' ? 'C++' : activeSnippetTab === 'JAVASCRIPT' ? 'JavaScript' : activeSnippetTab} — Solution Harness
-              </span>
-              <span className="text-xs text-gray-600">
-                Mark editable zone with USER_CODE_START / USER_CODE_END
-              </span>
-            </div>
-            <Editor
-              height="500px"
-              theme="vs-dark"
-              language={
-                activeSnippetTab === 'JAVA' ? 'java' :
-                activeSnippetTab === 'CPP' ? 'cpp' :
-                activeSnippetTab === 'C' ? 'c' :
-                activeSnippetTab === 'PYTHON' ? 'python' : 'javascript'
-              }
-              value={snippets[activeSnippetTab].solutionTemplate}
-              onChange={(value) => handleSnippetChange(activeSnippetTab, 'solutionTemplate', value || '')}
-              options={{
-                fontSize: 13,
-                fontFamily: "'Fira Code', 'Cascadia Code', monospace",
-                fontLigatures: true,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                lineNumbers: 'on',
-                folding: true,
-                bracketPairColorization: { enabled: true },
-                autoClosingBrackets: 'always',
-                autoClosingQuotes: 'always',
-                formatOnPaste: true,
-                tabSize: 4,
-                insertSpaces: true,
-                wordWrap: 'off',
-                padding: { top: 12, bottom: 12 },
-              }}
-            />
-          </div>
-          <p className="text-xs text-gray-600 mt-2">
-            The code between <code className="text-green-400/70">USER_CODE_START</code> and <code className="text-green-400/70">USER_CODE_END</code> is what users see and edit. Everything else runs hidden.
-          </p>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-white/10">
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-green-500/30 transition-all transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
-          <button
-            type="button"
-            onClick={() => contestId ? navigate(`/admin/contests/${contestId}/problems`) : navigate('/admin/contests')}
-            className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-gray-300 hover:text-red-400 rounded-lg transition-all"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+    );
 }
+
+const UField = ({ label, name, type, value, onChange, placeholder, required, codeFont }) => {
+    const [f, setF] = useState(false);
+    const isTA = type === 'textarea';
+    const style = { width: '100%', backgroundColor: 'transparent', border: 'none', borderBottom: `1px solid ${f ? '#e9c176' : '#50453b'}`, color: '#e5e2e1', fontFamily: codeFont ? "'JetBrains Mono', monospace" : "'Geist', sans-serif", fontSize: '14px', padding: '8px 0', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box', resize: isTA ? 'vertical' : undefined };
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: '#9d8e83', textTransform: 'uppercase' }}>{label}</label>
+            {isTA ? <textarea name={name} value={value} onChange={onChange} rows={3} style={style} onFocus={() => setF(true)} onBlur={() => setF(false)} /> : <input type={type} name={name} value={value} onChange={onChange} placeholder={placeholder} required={required} style={style} onFocus={() => setF(true)} onBlur={() => setF(false)} />}
+        </div>
+    );
+};

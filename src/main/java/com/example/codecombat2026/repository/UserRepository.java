@@ -12,11 +12,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Boolean existsByUsername(String username);
     Boolean existsByEmail(String email);
-    Boolean existsByPhoneNumber(String phoneNumber);
-    Boolean existsByRollNumber(String rollNumber);
 
     Long countByEnabled(Boolean enabled);
 
-    // Proper indexed query — replaces findAll() + Java filter in forgotUsername
-    Optional<User> findByEmailAndPhoneNumber(String email, String phoneNumber);
+    Optional<User> findByEmail(String email);
 }

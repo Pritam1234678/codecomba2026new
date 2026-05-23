@@ -44,9 +44,9 @@ public class User {
     private Set<Role> roles = new HashSet<>();
 
     private String fullName;
-    private String rollNumber;
-    private String branch;
-    private String phoneNumber;
+
+    @Column(name = "total_points", nullable = false)
+    private Integer totalPoints = 0;
 
     @Column(nullable = false)
     private Boolean enabled = true;

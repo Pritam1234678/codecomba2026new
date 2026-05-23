@@ -1,38 +1,204 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;450;500&display=swap');
 
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+/* ── Design System CSS Variables ─────────────────────────────────────────── */
+:root {
+  /* Color Palette */
+  --color-primary: #7a4a4a;
+  --color-primary-container: #5f3334;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #fdbdbc;
+
+  --color-secondary: #4a6a8a;
+  --color-secondary-container: #badaff;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #40607f;
+
+  --color-tertiary: #a67c52;
+  --color-tertiary-container: #74502a;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #f6c595;
+
+  --color-background: #131313;
+  --color-surface: #201f1f;
+  --color-surface-variant: #2a2828;
+  --color-surface-container: #252323;
+  --color-surface-container-high: #2e2c2c;
+  --color-surface-container-low: #1c1b1b;
+  --color-surface-bright: #2e2c2c;
+
+  --color-on-background: #e5e2e1;
+  --color-on-surface: #e5e2e1;
+  --color-on-surface-variant: #a09898;
+
+  --color-outline: #5a4f4f;
+  --color-outline-variant: #3a3232;
+
+  --color-error: #f2b8b8;
+  --color-error-container: #8c1d18;
+  --color-on-error: #601410;
+  --color-on-error-container: #f9dedc;
+
+  /* Typography */
+  --font-headline: 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-code: 'JetBrains Mono', monospace;
+
+  /* Spacing */
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+}
+
+/* ── Base Styles ─────────────────────────────────────────────────────────── */
 body {
-    @apply bg-code-black text-gray-200 font-sans antialiased;
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Prevent layout shift while fonts load */
+  font-synthesis: none;
 }
 
+/* ── Utility Classes ─────────────────────────────────────────────────────── */
 .code-font {
-    @apply font-mono;
+  font-family: var(--font-code);
 }
 
-/* Scrollbar */
+.surface {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-lg);
+}
+
+.surface-container {
+  background-color: var(--color-surface-container);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-lg);
+}
+
+/* Primary button */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  border-radius: var(--radius);
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  border-top: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 4px 20px rgba(122, 74, 74, 0.25);
+}
+.btn-primary:hover {
+  background-color: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
+
+/* Secondary button */
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-secondary);
+  border: 1px solid var(--color-secondary);
+  border-radius: var(--radius);
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.btn-secondary:hover {
+  background-color: rgba(74, 106, 138, 0.1);
+}
+
+/* Input fields */
+.input-field {
+  background-color: var(--color-surface-container);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius);
+  color: var(--color-on-surface);
+  padding: 0.75rem 1rem;
+  width: 100%;
+  transition: all 0.2s ease;
+  font-family: var(--font-body);
+}
+.input-field:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(122, 74, 74, 0.2);
+}
+.input-field::placeholder {
+  color: var(--color-on-surface-variant);
+}
+
+/* Card / Surface */
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Status badges */
+.badge-live {
+  background-color: rgba(74, 106, 138, 0.15);
+  color: #7ab3e0;
+  border: 1px solid rgba(74, 106, 138, 0.3);
+}
+.badge-upcoming {
+  background-color: rgba(166, 124, 82, 0.15);
+  color: #c9a06a;
+  border: 1px solid rgba(166, 124, 82, 0.3);
+}
+.badge-ended {
+  background-color: rgba(160, 152, 152, 0.1);
+  color: var(--color-on-surface-variant);
+  border: 1px solid var(--color-outline-variant);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-    @apply bg-code-black;
-    border-radius: 10px;
+  background: var(--color-background);
+  border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #031801, #0a0a0a);
-    border-radius: 10px;
+  background: var(--color-outline);
+  border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #021702, #131313);
-    box-shadow: 0 0 8px rgba(3, 26, 11, 0.4);
+  background: var(--color-primary);
 }
 
-/* Firefox scrollbar */
 * {
-    scrollbar-width: thin;
-    scrollbar-color: #031801 #0a0a0a;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-outline) var(--color-background);
 }
 
+/* ── Label caps ──────────────────────────────────────────────────────────── */
+.label-caps {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  text-transform: uppercase;
+}
 
+/* ── Inner light border (button highlight) ───────────────────────────────── */
+.inner-light-border {
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* ── Shadow tokens ───────────────────────────────────────────────────────── */
+.shadow-diffused {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+.shadow-primary {
+  box-shadow: 0 4px 20px rgba(122, 74, 74, 0.25);
+}
+.shadow-bronze {
+  box-shadow: 0 4px 20px rgba(166, 124, 82, 0.2);
+}

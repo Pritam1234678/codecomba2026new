@@ -1,46 +1,127 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
-const Support = () => {
-    const [formData, setFormData] = useState({
-        fullName: '',
-        email: '',
-        phone: '',
-        message: ''
-    });
-    const [submitted, setSubmitted] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
+const C = {
+    bg:        '#131313',
+    surfaceLow:'#1c1b1b',
+    surfaceCon:'#201f1f',
+    border:    '#50453b',
+    primary:   '#f1bc8b',
+    secondary: '#e9c176',
+    muted:     '#d4c4b7',
+    outline:   '#9d8e83',
+    error:     '#ffb4ab',
+    onBg:      '#e5e2e1',
+};
 
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+// ── Underline input ───────────────────────────────────────────────────────────
+const UInput = ({ type = 'text', placeholder, name, value, onChange, required }) => (
+    <input
+        type={type} placeholder={placeholder} name={name}
+        value={value} onChange={onChange} required={required}
+        style={{
+            width: '100%', backgroundColor: 'transparent',
+            border: 'none', borderBottom: `1px solid ${C.border}`,
+            color: C.onBg, fontFamily: "'Geist', sans-serif",
+            fontSize: '16px', lineHeight: 1.5,
+            padding: '16px 0', outline: 'none',
+            transition: 'border-color 0.2s', boxSizing: 'border-box',
+        }}
+        onFocus={e => e.target.style.borderBottomColor = C.secondary}
+        onBlur={e => e.target.style.borderBottomColor = C.border}
+    />
+);
+
+// ── FAQ accordion item ────────────────────────────────────────────────────────
+const FaqItem = ({ question, answer, isLast }) => {
+    const [open, setOpen] = useState(false);
+    return (
+        <div style={{ borderTop: `1px solid ${C.border}`, ...(isLast ? { borderBottom: `1px solid ${C.border}` } : {}) }}>
+            <button
+                onClick={() => setOpen(!open)}
+                style={{
+                    width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '24px 0', background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: "'Geist', sans-serif", fontSize: '18px', lineHeight: 1.6,
+                    color: C.onBg, textAlign: 'left',
+                }}
+            >
+                <span>{question}</span>
+                <span style={{
+                    color: C.secondary, fontSize: '20px', fontWeight: 300,
+                    transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.3s',
+                    flexShrink: 0, marginLeft: '16px',
+                }}>
+                    ∨
+                </span>
+            </button>
+            {open && (
+                <p style={{
+                    fontFamily: "'Geist', sans-serif", fontSize: '16px', lineHeight: 1.5,
+                    color: C.muted, paddingBottom: '24px', paddingRight: '32px', margin: 0,
+                }}>
+                    {answer}
+                </p>
+            )}
+        </div>
+    );
+};
+
+// ── Category card ─────────────────────────────────────────────────────────────
+const CategoryCard = ({ label }) => {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <div
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                display: 'flex', alignItems: 'center', gap: '16px',
+                border: `1px solid ${hovered ? C.secondary : C.border}`,
+                padding: '16px',
+                backgroundColor: hovered ? C.surfaceLow : 'transparent',
+                transition: 'all 0.2s', cursor: 'pointer',
+            }}
+        >
+            <span style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '12px', letterSpacing: '0.1em',
+                color: C.onBg, textTransform: 'uppercase',
+            }}>
+                {label}
+            </span>
+        </div>
+    );
+};
+
+const Support = () => {
+    const [formData, setFormData] = useState({ fullName: '', email: '', phone: '', message: '' });
+    const [submitted, setSubmitted] = useState(false);
+    const [loading, setLoading]     = useState(false);
+    const [error, setError]         = useState('');
+
+    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
-        setMessage('');
-
+        setLoading(true); setError('');
         try {
-            const response = await fetch('/api/support/send', {
+            const res = await fetch('/api/support/send', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData),
             });
-
-            if (response.ok) {
+            if (res.ok) {
                 setSubmitted(true);
                 setTimeout(() => {
                     setSubmitted(false);
                     setFormData({ fullName: '', email: '', phone: '', message: '' });
-                }, 3000);
+                }, 4000);
             } else {
-                setMessage('Failed to send message. Please try again.');
+                setError('Failed to send message. Please try again.');
             }
-        } catch (error) {
-            setMessage('Error sending message. Please try again later.');
+        } catch {
+            setError('Error sending message. Please try again later.');
         } finally {
             setLoading(false);
         }
@@ -48,244 +129,225 @@ const Support = () => {
 
     const faqs = [
         {
+            question: 'What is the standard response time?',
+            answer: 'Standard inquiries are processed within 24-48 hours. Active contest disputes are routed to high-priority channels for immediate architectural review.',
+        },
+        {
+            question: 'How do I report a platform bug?',
+            answer: "Use the support form and describe the issue in detail. Include reproduction steps, environment details, and any relevant error messages.",
+        },
+        {
+            question: 'Can I appeal a submission verdict?',
+            answer: 'Verdict appeals are only considered if a proven issue exists with the test cases or execution environment. Logic errors are final.',
+        },
+        {
             question: 'What programming languages are supported?',
-            answer: 'We support all major programming languages including C, C++, Java, Python, and JavaScript. Choose the language you\'re most comfortable with.'
-        },
-        {
-            question: 'How do I participate in a contest?',
-            answer: 'Navigate to the Contests page, select an active contest, and click "Participate". You can then solve problems and submit your solutions during the contest duration.'
-        },
-        {
-            question: 'What should I do if my code doesn\'t compile?',
-            answer: 'Make sure your code follows the correct syntax for the selected language. Check for common errors like missing semicolons, brackets, or incorrect function signatures. You can also test your code locally before submitting.'
+            answer: 'We support C, C++, Java, Python, and JavaScript. Choose the language you\'re most comfortable with.',
         },
         {
             question: 'Is there a registration fee?',
-            answer: 'No, CodeCombat is completely free to participate! This is our way of giving back to the programming community.'
+            answer: 'No, Code Combat is completely free to participate. This is our way of giving back to the programming community.',
         },
-        {
-            question: 'How is the leaderboard calculated?',
-            answer: 'The leaderboard is based on the number of problems solved correctly and the time taken to solve them. Faster and more accurate solutions rank higher.'
-        },
-        {
-            question: 'Can I edit my submission after submitting?',
-            answer: 'Once submitted, you cannot edit a submission. However, you can submit multiple times for the same problem, and your best submission will be considered.'
-        }
     ];
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-black via-green-950/20 to-black py-8 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto">
-                {/* Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="text-center mb-12"
-                >
-                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-green-400 mb-4">
-                        Need Support?
-                    </h1>
-                    <p className="text-gray-400 text-sm sm:text-base max-w-2xl mx-auto">
-                        We're here to help! Whether you have technical issues, registration questions, or just want to know more about the competition, reach out to us.
-                    </p>
-                </motion.div>
+        <div style={{
+            backgroundColor: C.bg, color: C.onBg,
+            minHeight: '100vh', fontFamily: "'Geist', sans-serif",
+        }}>
+            <main style={{ padding: '2rem 64px 4rem' }}>
 
-                {/* Contact Form */}
-                <motion.div
+                {/* ── Header ── */}
+                <motion.header
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                    className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8 lg:p-10 mb-12"
+                    transition={{ duration: 0.6 }}
+                    style={{ marginBottom: '2rem', maxWidth: '66%' }}
                 >
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-green-400 mb-6 text-center">
-                        Send us a Message
-                    </h2>
+                    <h1 style={{
+                        fontFamily: "'Playfair Display', serif",
+                        fontSize: '48px', fontWeight: 700,
+                        lineHeight: 1.1, letterSpacing: '-0.02em',
+                        color: C.onBg, marginBottom: '1rem',
+                    }}>
+                        Command<br />Assistance.
+                    </h1>
+                    <p style={{ fontSize: '18px', lineHeight: 1.6, color: C.muted, maxWidth: '640px', margin: 0 }}>
+                        Submit an inquiry directly to the command center. Architectural issues, account anomalies, and contest disputes are prioritized.
+                    </p>
+                </motion.header>
 
-                    {submitted && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="bg-green-500/10 border border-green-500/50 text-green-300 px-4 py-3 rounded-xl mb-6 text-center"
-                        >
-                            ✓ Message sent successfully! We'll get back to you soon.
-                        </motion.div>
-                    )}
-
-                    {message && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="bg-red-500/10 border border-red-500/50 text-red-300 px-4 py-3 rounded-xl mb-6 text-center"
-                        >
-                            {message}
-                        </motion.div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Full Name */}
-                            <div>
-                                <label className="block text-gray-300 text-sm font-medium mb-2">
-                                    Full Name <span className="text-green-400">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="fullName"
-                                    value={formData.fullName}
-                                    onChange={handleChange}
-                                    required
-                                    className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-                                    placeholder="Enter your full name"
-                                />
-                            </div>
-
-                            {/* Email */}
-                            <div>
-                                <label className="block text-gray-300 text-sm font-medium mb-2">
-                                    Email Address <span className="text-green-400">*</span>
-                                </label>
-                                <input
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    required
-                                    className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-                                    placeholder="Enter your email address"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Phone */}
-                        <div>
-                            <label className="block text-gray-300 text-sm font-medium mb-2">
-                                Phone Number
-                            </label>
-                            <input
-                                type="tel"
-                                name="phone"
-                                value={formData.phone}
-                                onChange={handleChange}
-                                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-                                placeholder="Enter your phone number (optional)"
-                            />
-                        </div>
-
-                        {/* Message */}
-                        <div>
-                            <label className="block text-gray-300 text-sm font-medium mb-2">
-                                Message <span className="text-green-400">*</span>
-                            </label>
-                            <textarea
-                                name="message"
-                                value={formData.message}
-                                onChange={handleChange}
-                                required
-                                rows="5"
-                                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500 resize-none"
-                                placeholder="Type your message here..."
-                            ></textarea>
-                        </div>
-
-                        {/* Submit Button */}
-                        <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            type="submit"
-                            className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-green-500/30 transition-all"
-                        >
-                            Send Message
-                        </motion.button>
-                    </form>
-                </motion.div>
-
-                {/* Help Sections */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-                    {/* Registration Help */}
+                {/* ── 12-col grid ── */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(12, 1fr)',
+                    gap: '32px',
+                }}>
+                    {/* ── Left: Form (8 cols) ── */}
                     <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.5, delay: 0.3 }}
-                        className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.1 }}
+                        style={{
+                            gridColumn: 'span 8',
+                            borderTop: `1px solid ${C.border}`,
+                            paddingTop: '3rem',
+                            display: 'flex', flexDirection: 'column', gap: '3rem',
+                        }}
                     >
-                        <div className="flex items-center justify-center w-12 h-12 bg-green-500/10 rounded-xl mb-4 mx-auto">
-                            <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                            </svg>
-                        </div>
-                        <h3 className="text-xl font-semibold text-green-400 mb-3 text-center">
-                            Registration Help
-                        </h3>
-                        <p className="text-gray-400 text-sm text-center mb-4">
-                            Having trouble with registration, team formation, or need to update your information?
-                        </p>
-                        <a
-                            href="mailto:support@codecombat.live"
-                            className="block text-center text-green-400 hover:text-green-300 font-medium transition-colors"
-                        >
-                            support@codecombat.live
-                        </a>
+                        {/* Success state */}
+                        {submitted && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                                style={{
+                                    backgroundColor: C.surfaceLow,
+                                    borderLeft: `2px solid ${C.primary}`,
+                                    padding: '24px',
+                                    display: 'flex', alignItems: 'flex-start', gap: '16px',
+                                }}
+                            >
+                                <div>
+                                    <h4 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', color: C.primary, textTransform: 'uppercase', marginBottom: '8px' }}>
+                                        Ticket Created
+                                    </h4>
+                                    <p style={{ fontSize: '16px', color: C.muted, margin: 0, lineHeight: 1.5 }}>
+                                        Your transmission has been logged. An architect will respond within standard operational cycles.
+                                    </p>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {/* Error */}
+                        {error && (
+                            <div style={{ padding: '12px 16px', border: `1px solid ${C.error}`, borderLeft: `3px solid ${C.error}`, backgroundColor: 'rgba(255,180,171,0.08)' }}>
+                                <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error, margin: 0 }}>{error}</p>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '768px' }}>
+                            {/* Name + Email row */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', color: C.muted, textTransform: 'uppercase' }}>
+                                        Operative Name
+                                    </label>
+                                    <UInput name="fullName" placeholder="Enter designation" value={formData.fullName} onChange={handleChange} required />
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', color: C.muted, textTransform: 'uppercase' }}>
+                                        Comm Link (Email)
+                                    </label>
+                                    <UInput name="email" type="email" placeholder="user@domain.com" value={formData.email} onChange={handleChange} required />
+                                </div>
+                            </div>
+
+                            {/* Message */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '1rem' }}>
+                                <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', color: C.muted, textTransform: 'uppercase' }}>
+                                    Message Payload
+                                </label>
+                                <textarea
+                                    name="message"
+                                    placeholder="Detail your inquiry..."
+                                    rows={6}
+                                    value={formData.message}
+                                    onChange={handleChange}
+                                    required
+                                    style={{
+                                        width: '100%', backgroundColor: 'transparent',
+                                        border: `1px solid ${C.border}`,
+                                        color: C.onBg, fontFamily: "'Geist', sans-serif",
+                                        fontSize: '16px', lineHeight: 1.5,
+                                        padding: '16px', outline: 'none', resize: 'none',
+                                        transition: 'border-color 0.2s', boxSizing: 'border-box',
+                                        marginTop: '8px',
+                                    }}
+                                    onFocus={e => e.target.style.borderColor = C.secondary}
+                                    onBlur={e => e.target.style.borderColor = C.border}
+                                />
+                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.muted, opacity: 0.5, textAlign: 'right', marginTop: '8px' }}>
+                                    Target: support@codecombat.live
+                                </span>
+                            </div>
+
+                            {/* Submit */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                                <TransmitButton disabled={loading}>
+                                    {loading ? 'Transmitting...' : 'Transmit Log'}
+                                </TransmitButton>
+                            </div>
+                        </form>
                     </motion.div>
 
-                    {/* General Inquiries */}
+                    {/* ── Right: Info & FAQ (4 cols) ── */}
                     <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.5, delay: 0.4 }}
-                        className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                        style={{
+                            gridColumn: 'span 4',
+                            borderLeft: `1px solid ${C.border}`,
+                            paddingLeft: '32px',
+                            display: 'flex', flexDirection: 'column', gap: '4rem',
+                        }}
                     >
-                        <div className="flex items-center justify-center w-12 h-12 bg-green-500/10 rounded-xl mb-4 mx-auto">
-                            <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <h3 className="text-xl font-semibold text-green-400 mb-3 text-center">
-                            General Inquiries
-                        </h3>
-                        <p className="text-gray-400 text-sm text-center mb-4">
-                            Questions about rules, prizes, event schedule, or anything else about CodeCombat?
-                        </p>
-                        <a
-                            href="mailto:support@codecombat.live"
-                            className="block text-center text-green-400 hover:text-green-300 font-medium transition-colors"
-                        >
-                            support@codecombat.live
-                        </a>
+                        {/* Categories */}
+                        <section style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '32px', fontWeight: 600, color: C.onBg, margin: 0 }}>
+                                Categories
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <CategoryCard label="Technical" />
+                                <CategoryCard label="Account" />
+                                <CategoryCard label="Contests" />
+                            </div>
+                        </section>
+
+                        {/* FAQ */}
+                        <section style={{ display: 'flex', flexDirection: 'column' }}>
+                            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '32px', fontWeight: 600, color: C.onBg, marginBottom: '2rem', marginTop: 0 }}>
+                                FAQ
+                            </h3>
+                            {faqs.map((faq, i) => (
+                                <FaqItem key={i} question={faq.question} answer={faq.answer} isLast={i === faqs.length - 1} />
+                            ))}
+                        </section>
                     </motion.div>
                 </div>
-
-                {/* FAQs */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.5 }}
-                    className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8 lg:p-10"
-                >
-                    <h2 className="text-2xl sm:text-3xl font-semibold text-green-400 mb-8 text-center">
-                        Frequently Asked Questions
-                    </h2>
-                    <div className="space-y-4">
-                        {faqs.map((faq, index) => (
-                            <motion.div
-                                key={index}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.3, delay: 0.6 + index * 0.1 }}
-                                className="bg-white/5 border border-white/10 rounded-xl p-4 sm:p-6 hover:border-green-500/30 transition-all"
-                            >
-                                <h3 className="text-base sm:text-lg font-semibold text-green-400 mb-2">
-                                    {faq.question}
-                                </h3>
-                                <p className="text-gray-400 text-sm">
-                                    {faq.answer}
-                                </p>
-                            </motion.div>
-                        ))}
-                    </div>
-                </motion.div>
-            </div>
+            </main>
         </div>
+    );
+};
+
+// ── Transmit button ───────────────────────────────────────────────────────────
+const TransmitButton = ({ children, disabled }) => {
+    const [hovered, setHovered] = React.useState(false);
+    return (
+        <button
+            type="submit"
+            disabled={disabled}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                display: 'flex', alignItems: 'center', gap: '12px',
+                border: `1px solid ${C.secondary}`,
+                padding: '16px 32px',
+                backgroundColor: hovered && !disabled ? C.secondary : 'transparent',
+                color: hovered && !disabled ? '#131313' : C.secondary,
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '12px', letterSpacing: '0.1em',
+                fontWeight: 500, textTransform: 'uppercase',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                opacity: disabled ? 0.5 : 1,
+                transition: 'all 0.3s',
+            }}
+        >
+            {children}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+        </button>
     );
 };
 

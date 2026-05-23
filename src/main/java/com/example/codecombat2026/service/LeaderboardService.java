@@ -8,6 +8,20 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+/**
+ * Admin batch leaderboard.
+ *
+ * Contract (matches the live ZSET in {@link LeaderboardCacheService}):
+ *   - per (user, problem) → take the best score across all submissions
+ *   - per user → totalScore = SUM of those best-per-problem scores
+ *   - problemsSolved = number of problems where best score == 100
+ *
+ * The live ZSET aggregates by INCRBY-ing the score on each AC. Test runs and
+ * non-AC submissions don't update the ZSET. To match that semantics here we
+ * also drop test runs (handled at the worker level — practice/test rows still
+ * land in the table when they save) and only count submissions whose status is
+ * a final verdict.
+ */
 @Service
 public class LeaderboardService {
 
@@ -15,57 +29,55 @@ public class LeaderboardService {
     private SubmissionRepository submissionRepository;
 
     public List<LeaderboardEntry> getContestLeaderboard(Long contestId) {
-        // Fetch all submissions for the contest with user data
         List<Submission> submissions = submissionRepository.findByContestIdWithUser(contestId);
 
-        // Group submissions by user and problem, keeping only the best score for each
-        // problem
-        Map<Long, Map<Long, Integer>> userProblemScores = new HashMap<>();
-        Map<Long, Submission> userSubmissionMap = new HashMap<>(); // To get user details
+        // (userId, problemId) → best score
+        Map<Long, Map<Long, Integer>> bestPerProblem = new HashMap<>();
+        Map<Long, Submission> userSamples = new HashMap<>();
 
         for (Submission submission : submissions) {
-            Long userId = submission.getUserId();
+            // Skip in-flight rows; they have no score yet
+            Submission.SubmissionStatus s = submission.getStatus();
+            if (s == null || s == Submission.SubmissionStatus.PENDING
+                          || s == Submission.SubmissionStatus.JUDGING) continue;
+
+            Long userId    = submission.getUserId();
             Long problemId = submission.getProblemId();
-            Integer score = submission.getScore() != null ? submission.getScore() : 0;
+            int  score     = submission.getScore() != null ? submission.getScore() : 0;
+            if (userId == null || problemId == null) continue;
 
-            // Store submission for user details
-            userSubmissionMap.putIfAbsent(userId, submission);
-
-            // Track best score per problem per user
-            userProblemScores.putIfAbsent(userId, new HashMap<>());
-            Map<Long, Integer> problemScores = userProblemScores.get(userId);
-
-            // Keep the best score for this problem
-            problemScores.put(problemId, Math.max(problemScores.getOrDefault(problemId, 0), score));
+            userSamples.putIfAbsent(userId, submission);
+            bestPerProblem
+                .computeIfAbsent(userId, k -> new HashMap<>())
+                .merge(problemId, score, Math::max);
         }
 
-        // Calculate total scores and create leaderboard entries
         List<LeaderboardEntry> leaderboard = new ArrayList<>();
+        for (Map.Entry<Long, Map<Long, Integer>> e : bestPerProblem.entrySet()) {
+            Long userId = e.getKey();
+            Map<Long, Integer> perProblem = e.getValue();
 
-        for (Map.Entry<Long, Map<Long, Integer>> userEntry : userProblemScores.entrySet()) {
-            Long userId = userEntry.getKey();
-            Map<Long, Integer> problemScores = userEntry.getValue();
+            // Sum of best-per-problem (matches ZSET aggregation)
+            int totalScore = perProblem.values().stream().mapToInt(Integer::intValue).sum();
+            int solved     = (int) perProblem.values().stream().filter(v -> v == 100).count();
 
-            // Calculate average score across all problems
-            int numProblems = problemScores.size();
-            int sumScores = problemScores.values().stream().mapToInt(Integer::intValue).sum();
-            double averageScore = numProblems > 0 ? (double) sumScores / numProblems : 0.0;
+            Submission sample = userSamples.get(userId);
+            String userName = sample != null && sample.getUser() != null
+                ? sample.getUser().getFullName() : "Unknown";
+            String userRoll = sample != null && sample.getUser() != null
+                ? sample.getUser().getUsername() : "N/A";
 
-            int problemsSolved = (int) problemScores.values().stream().filter(score -> score == 100).count();
-
-            // Get user details from a submission
-            Submission sampleSubmission = userSubmissionMap.get(userId);
-            String userName = sampleSubmission.getUser() != null ? sampleSubmission.getUser().getFullName() : "Unknown";
-            String userRoll = sampleSubmission.getUser() != null ? sampleSubmission.getUser().getRollNumber() : "N/A";
-
-            LeaderboardEntry entry = new LeaderboardEntry(userId, userName, userRoll, averageScore, problemsSolved, 0);
-            leaderboard.add(entry);
+            leaderboard.add(new LeaderboardEntry(userId, userName, userRoll,
+                (double) totalScore, solved, 0));
         }
 
-        // Sort by total score descending
-        leaderboard.sort((a, b) -> b.getTotalScore().compareTo(a.getTotalScore()));
+        // Sort by totalScore desc, tiebreak by problemsSolved desc
+        leaderboard.sort((a, b) -> {
+            int cmp = Double.compare(b.getTotalScore(), a.getTotalScore());
+            if (cmp != 0) return cmp;
+            return Integer.compare(b.getProblemsSolved(), a.getProblemsSolved());
+        });
 
-        // Assign ranks
         for (int i = 0; i < leaderboard.size(); i++) {
             leaderboard.get(i).setRank(i + 1);
         }

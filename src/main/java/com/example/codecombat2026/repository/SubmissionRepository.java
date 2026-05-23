@@ -30,7 +30,17 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     List<Submission> findByProblem_Id(Long problemId);
 
-    Submission findByUser_IdAndProblem_Id(Long userId, Long problemId);
+    /**
+     * Returns the most recent non-test submission for a user+problem.
+     * Uses ORDER BY submittedAt DESC + LIMIT 1 to avoid NonUniqueResultException
+     * when multiple test-run submissions exist for the same user+problem.
+     */
+    @Query("SELECT s FROM Submission s WHERE s.user.id = :userId AND s.problem.id = :problemId ORDER BY s.submittedAt DESC")
+    List<Submission> findByUser_IdAndProblem_IdOrderBySubmittedAtDesc(
+        @Param("userId") Long userId,
+        @Param("problemId") Long problemId,
+        org.springframework.data.domain.Pageable pageable
+    );
 
     void deleteByUser_Id(Long userId);
 

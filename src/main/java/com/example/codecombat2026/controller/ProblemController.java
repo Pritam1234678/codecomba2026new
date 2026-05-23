@@ -21,11 +21,15 @@ public class ProblemController {
     @Autowired
     private com.example.codecombat2026.service.ContestService contestService;
 
+    @Autowired
+    private com.example.codecombat2026.repository.ProblemRepository problemRepository;
+
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public List<ProblemDTO> getAllProblems() {
         List<Problem> problems = problemService.getAllProblems();
         return problems.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActive()))
                 .map(p -> new ProblemDTO(
                         p.getId(),
                         p.getTitle(),
@@ -48,6 +52,10 @@ public class ProblemController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ProblemDTO> getProblemById(@PathVariable Long id) {
         Problem p = problemService.getProblemById(id);
+        // Return 404 if problem is disabled — user should not access it
+        if (!Boolean.TRUE.equals(p.getActive())) {
+            return ResponseEntity.notFound().build();
+        }
         ProblemDTO dto = new ProblemDTO(
                 p.getId(),
                 p.getTitle(),
@@ -71,6 +79,7 @@ public class ProblemController {
     public List<ProblemDTO> getProblemsByContest(@PathVariable Long contestId) {
         List<Problem> problems = problemService.getProblemsByContestId(contestId);
         return problems.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActive()))
                 .map(p -> new ProblemDTO(
                         p.getId(),
                         p.getTitle(),
@@ -99,25 +108,27 @@ public class ProblemController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ContestStatusDTO> getContestStatusByProblem(@PathVariable Long problemId) {
         try {
-            Problem problem = problemService.getProblemById(problemId);
+            // Use direct DB query (not cache) so disable takes effect instantly
+            Problem problem = problemRepository.findById(problemId)
+                .orElseThrow(() -> new com.example.codecombat2026.exception.ResourceNotFoundException("Problem not found"));
+            boolean problemActive = Boolean.TRUE.equals(problem.getActive());
             Long contestId = problem.getContestId();
 
             if (contestId == null) {
-                return ResponseEntity.ok(new ContestStatusDTO(false, false, null, null, null));
+                return ResponseEntity.ok(new ContestStatusDTO(false, false, null, null, null, problemActive));
             }
 
-            // Use ContestService — hits Valkey cache instead of direct DB call
             try {
                 com.example.codecombat2026.entity.Contest contest = contestService.getContestById(contestId);
                 return ResponseEntity.ok(new ContestStatusDTO(
                         contest.getActive(), true,
-                        contest.getName(), contest.getStartTime(), contest.getEndTime()));
+                        contest.getName(), contest.getStartTime(), contest.getEndTime(),
+                        problemActive));
             } catch (Exception e) {
-                // Contest deleted
-                return ResponseEntity.ok(new ContestStatusDTO(false, false, null, null, null));
+                return ResponseEntity.ok(new ContestStatusDTO(false, false, null, null, null, problemActive));
             }
         } catch (Exception e) {
-            return ResponseEntity.ok(new ContestStatusDTO(false, false, null, null, null));
+            return ResponseEntity.ok(new ContestStatusDTO(false, false, null, null, null, false));
         }
     }
 }

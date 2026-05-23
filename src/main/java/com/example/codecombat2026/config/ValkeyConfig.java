@@ -52,8 +52,13 @@ public class ValkeyConfig {
         RedisStandaloneConfiguration cfg = new RedisStandaloneConfiguration();
         cfg.setHostName(host);
         cfg.setPort(port);
-        cfg.setUsername(username);
-        cfg.setPassword(password);
+        // Only set username if non-empty (local Redis doesn't use ACL username)
+        if (username != null && !username.isBlank()) {
+            cfg.setUsername(username);
+        }
+        if (password != null && !password.isBlank()) {
+            cfg.setPassword(password);
+        }
         return cfg;
     }
 
@@ -84,7 +89,6 @@ public class ValkeyConfig {
                 .poolConfig(pool)
                 .clientOptions(clientOptions(3000))
                 .commandTimeout(Duration.ofMillis(2000)) // fast fail for API
-                .useSsl()
                 .build();
 
         return new LettuceConnectionFactory(serverConfig(), cfg);
@@ -107,7 +111,6 @@ public class ValkeyConfig {
                 .poolConfig(pool)
                 .clientOptions(clientOptions(3000))
                 .commandTimeout(Duration.ofSeconds(10)) // allows BRPOP 3s block + overhead
-                .useSsl()
                 .build();
 
         return new LettuceConnectionFactory(serverConfig(), cfg);

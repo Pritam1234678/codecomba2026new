@@ -1,554 +1,238 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { gsap } from 'gsap';
-import axios from 'axios';
-import Editor from '@monaco-editor/react';
-import ProblemService from '../services/problem.service';
+import { motion, AnimatePresence } from 'framer-motion';
+import api from '../services/api';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api';
+const C = {
+    bg:'#131313', surfaceCon:'#201f1f', surfaceLow:'#1c1b1b', surfaceHi:'#2a2a2a', surfaceMin:'#0e0e0e',
+    border:'#50453b', primary:'#f1bc8b', secondary:'#e9c176', muted:'#d4c4b7', outline:'#9d8e83',
+    onBg:'#e5e2e1', error:'#ffb4ab', success:'#66bb6a',
+};
+
+const LEVEL_CFG = {
+    EASY:   { color:'#66bb6a', border:'#66bb6a', bg:'rgba(102,187,106,0.12)' },
+    MEDIUM: { color:'#e9c176', border:'#e9c176', bg:'rgba(233,193,118,0.12)' },
+    HARD:   { color:'#ffb4ab', border:'#ffb4ab', bg:'rgba(255,180,171,0.12)' },
+};
 
 export default function ManageContestProblems() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [contest, setContest] = useState(null);
-  const [problems, setProblems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [deleteModal, setDeleteModal] = useState({ show: false, problemId: null, problemTitle: '' });
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const [contest,  setContest]  = useState(null);
+    const [problems, setProblems] = useState([]);
+    const [loading,  setLoading]  = useState(true);
+    const [delModal, setDelModal] = useState({ show:false, problemId:null, problemTitle:'' });
+    const [toast,    setToast]    = useState(null);
 
-  const headerRef = useRef(null);
+    useEffect(() => { load(); }, [id]);
 
-  const [newProblem, setNewProblem] = useState({
-    title: '',
-    description: '',
-    inputFormat: '',
-    outputFormat: '',
-    constraints: '',
-    timeLimit: 1000,
-    memoryLimit: 256,
-    example1: '',
-    example2: '',
-    example3: '',
-    images: '',
-    active: true
-  });
+    const load = async () => {
+        try {
+            const [cRes, pRes] = await Promise.all([
+                api.get(`/contests/${id}`),
+                api.get(`/admin/problems/contest/${id}`),
+            ]);
+            setContest(cRes.data);
+            setProblems(pRes.data);
+        } catch (err) {
+            console.error('Load error:', err);
+        }
+        finally { setLoading(false); }
+    };
 
-  const [snippets, setSnippets] = useState({
-    JAVA: { solutionTemplate: '' },
-    CPP: { solutionTemplate: '' },
-    PYTHON: { solutionTemplate: '' },
-    JAVASCRIPT: { solutionTemplate: '' },
-    C: { solutionTemplate: '' }
-  });
+    const showToast = (msg, type = 'success') => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 3000);
+    };
 
-  const [activeSnippetTab, setActiveSnippetTab] = useState('JAVA');
+    const handleToggleActive = async (problem) => {
+        try {
+            await api.patch(`/admin/problems/${problem.id}/toggle-active`);
+            showToast(problem.active ? 'Problem disabled.' : 'Problem enabled.');
+            load();
+        } catch { showToast('Failed to update.', 'error'); }
+    };
 
-  useEffect(() => {
-    loadContestAndProblems();
-  }, [id]);
+    const confirmDelete = async () => {
+        try {
+            await api.delete(`/admin/problems/${delModal.problemId}`);
+            setDelModal({ show: false });
+            showToast('Problem removed.');
+            load();
+        } catch { showToast('Failed to delete.', 'error'); setDelModal({ show: false }); }
+    };
 
-  useEffect(() => {
-    if (!loading && headerRef.current) {
-      gsap.from(headerRef.current, {
-        opacity: 0,
-        y: 30,
-        duration: 0.8,
-        ease: 'power3.out'
-      });
-    }
-  }, [loading]);
-
-  const loadContestAndProblems = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-
-      const contestRes = await axios.get(`${API_URL}/contests/${id}`, { headers });
-      setContest(contestRes.data);
-
-      const problemsRes = await axios.get(`${API_URL}/problems/contest/${id}`, { headers });
-      setProblems(problemsRes.data);
-
-      setLoading(false);
-    } catch (err) {
-      console.error('Failed to load data:', err);
-      setLoading(false);
-    }
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setNewProblem(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  const handleSnippetChange = (language, field, value) => {
-    setSnippets(prev => ({
-      ...prev,
-      [language]: {
-        ...prev[language],
-        [field]: value
-      }
-    }));
-  };
-
-  const handleAddProblem = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-
-      // 1. Create problem first - Convert empty strings to null
-      const problemData = {
-        ...newProblem,
-        example1: newProblem.example1.trim() || null,
-        example2: newProblem.example2.trim() || null,
-        example3: newProblem.example3.trim() || null,
-        images: newProblem.images.trim() || null
-      };
-
-      const problemRes = await axios.post(`${API_URL}/admin/problems/contest/${id}`, problemData, { headers });
-      const problemId = problemRes.data.id;
-
-      // 2. Save snippets for the new problem (only solutionTemplate)
-      const snippetsArray = Object.entries(snippets).map(([lang, data]) => ({
-        language: lang,
-        solutionTemplate: data.solutionTemplate
-      }));
-
-      await ProblemService.saveAllSnippets(problemId, snippetsArray);
-
-      // 3. Reset form
-      setNewProblem({
-        title: '',
-        description: '',
-        inputFormat: '',
-        outputFormat: '',
-        constraints: '',
-        timeLimit: 1000,
-        memoryLimit: 256,
-        example1: '',
-        example2: '',
-        example3: '',
-        images: '',
-        active: true
-      });
-
-      setSnippets({
-        JAVA: { solutionTemplate: '' },
-        CPP: { solutionTemplate: '' },
-        PYTHON: { solutionTemplate: '' },
-        JAVASCRIPT: { solutionTemplate: '' },
-        C: { solutionTemplate: '' }
-      });
-
-      setShowAddForm(false);
-      loadContestAndProblems();
-    } catch (err) {
-      alert('Failed to add problem: ' + (err.response?.data?.message || err.message));
-    }
-  };
-
-  const showDeleteConfirmation = (problemId, problemTitle) => {
-    setDeleteModal({ show: true, problemId, problemTitle });
-  };
-
-  const confirmDelete = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/admin/problems/${deleteModal.problemId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setDeleteModal({ show: false, problemId: null, problemTitle: '' });
-      loadContestAndProblems();
-    } catch (err) {
-      console.error('Delete error:', err);
-      setDeleteModal({ show: false, problemId: null, problemTitle: '' });
-    }
-  };
-
-  const cancelDelete = () => {
-    setDeleteModal({ show: false, problemId: null, problemTitle: '' });
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-400 text-lg">Loading...</div>
-      </div>
+    if (loading) return (
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh',
+            color: C.outline, fontFamily:"'JetBrains Mono', monospace", fontSize:'13px' }}>
+            Loading...
+        </div>
     );
-  }
 
-  return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">Manage Problems</h1>
-            <p className="text-xs sm:text-sm text-gray-500">{contest?.name}</p>
-          </div>
-          <button
-            onClick={() => navigate('/admin/contests')}
-            className="w-full sm:w-auto px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 rounded-lg transition-all text-gray-300 text-center"
-          >
-            ← Back to Contests
-          </button>
-        </div>
-      </div>
+    return (
+        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily:"'Geist', sans-serif", minHeight:'100vh' }}>
 
-      {/* Add Problem Button */}
-      <div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className={`w-full sm:w-auto px-6 py-3 font-semibold rounded-xl shadow-lg transition-all transform hover:scale-105 ${showAddForm
-            ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-red-500/30'
-            : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-green-500/30'
-            }`}
-        >
-          {showAddForm ? '✕ Cancel' : '+ Add New Problem'}
-        </button>
-      </div>
-
-      {/* Add Problem Form */}
-      {showAddForm && (
-        <form onSubmit={handleAddProblem} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-4 shadow-xl">
-          <h3 className="text-lg sm:text-xl font-semibold text-green-400 mb-4">New Problem</h3>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Title *</label>
-            <input
-              type="text"
-              name="title"
-              value={newProblem.title}
-              onChange={handleInputChange}
-              required
-              className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white focus:ring-2 focus:ring-green-500/50"
-              placeholder="e.g., Two Sum"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Description *</label>
-            <textarea
-              name="description"
-              value={newProblem.description}
-              onChange={handleInputChange}
-              required
-              rows={4}
-              className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white focus:ring-2 focus:ring-green-500/50 resize-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Input Format</label>
-              <textarea
-                name="inputFormat"
-                value={newProblem.inputFormat}
-                onChange={handleInputChange}
-                rows={2}
-                className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white focus:ring-2 focus:ring-green-500/50 resize-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Output Format</label>
-              <textarea
-                name="outputFormat"
-                value={newProblem.outputFormat}
-                onChange={handleInputChange}
-                rows={2}
-                className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white focus:ring-2 focus:ring-green-500/50 resize-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Constraints</label>
-            <textarea
-              name="constraints"
-              value={newProblem.constraints}
-              onChange={handleInputChange}
-              rows={2}
-              className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white focus:ring-2 focus:ring-green-500/50 resize-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Time Limit (ms)</label>
-              <input
-                type="number"
-                name="timeLimit"
-                value={newProblem.timeLimit}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white focus:ring-2 focus:ring-green-500/50"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Memory Limit (MB)</label>
-              <input
-                type="number"
-                name="memoryLimit"
-                value={newProblem.memoryLimit}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white focus:ring-2 focus:ring-green-500/50"
-              />
-            </div>
-          </div>
-
-          {/* Optional Examples Section */}
-          <div className="border-t border-[#3a3a3a] pt-6 mt-6">
-            <h3 className="text-lg font-semibold text-white mb-4">Optional Examples</h3>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Example 1 (Optional)
-              </label>
-              <textarea
-                name="example1"
-                value={newProblem.example1}
-                onChange={handleInputChange}
-                rows={4}
-                placeholder="Input: nums = [3,2,1,4,5], k = 4&#10;Output: 3&#10;Explanation: The subarrays that have a median equal to 4 are: [4], [4,5] and [1,4,5]."
-                className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white focus:ring-2 focus:ring-green-500/50 resize-none font-mono text-sm"
-              />
-            </div>
-
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Example 2 (Optional)
-              </label>
-              <textarea
-                name="example2"
-                value={newProblem.example2}
-                onChange={handleInputChange}
-                rows={4}
-                placeholder="Input: nums = [2,3,1], k = 3&#10;Output: 1&#10;Explanation: [3] is the only subarray that has a median equal to 3."
-                className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white focus:ring-2 focus:ring-green-500/50 resize-none font-mono text-sm"
-              />
-            </div>
-
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Example 3 (Optional)
-              </label>
-              <textarea
-                name="example3"
-                value={newProblem.example3}
-                onChange={handleInputChange}
-                rows={4}
-                placeholder="Input: nums = [1,2,3], k = 2&#10;Output: 0&#10;Explanation: There are no subarrays with median equal to 2."
-                className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white focus:ring-2 focus:ring-green-500/50 resize-none font-mono text-sm"
-              />
-            </div>
-
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Images (Optional)
-                <span className="text-xs text-gray-500 ml-2">Comma-separated URLs</span>
-              </label>
-              <input
-                type="text"
-                name="images"
-                value={newProblem.images}
-                onChange={handleInputChange}
-                placeholder="https://example.com/image1.png, https://example.com/image2.png"
-                className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white focus:ring-2 focus:ring-green-500/50"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              name="active"
-              checked={newProblem.active}
-              onChange={handleInputChange}
-              className="w-5 h-5 text-green-500 bg-[#2a2a2a] border-[#3a3a3a] rounded focus:ring-green-500/50"
-            />
-            <label className="ml-2 text-sm text-gray-300">Active</label>
-          </div>
-
-          {/* Code Harness Section */}
-          <div className="mt-6 border-t border-[#3a3a3a] pt-6">
-            <h3 className="text-lg font-semibold text-white mb-1">Code Harness (Required for all languages)</h3>
-            <p className="text-xs text-gray-500 mb-4">
-              Write the <strong className="text-gray-300">complete runnable file</strong> for each language.
-              Mark the user-editable zone with{' '}
-              <code className="text-green-400">// USER_CODE_START</code> and{' '}
-              <code className="text-green-400">// USER_CODE_END</code>{' '}
-              (use <code className="text-green-400"># USER_CODE_START/END</code> for Python).
-              Embed all test cases — print{' '}
-              <code className="text-green-400">TC:N:PASS</code> or{' '}
-              <code className="text-green-400">TC:N:FAIL</code> for each.
-              Append <code className="text-green-400">:hidden</code> for hidden tests.
-            </p>
-
-            {/* Language Tabs */}
-            <div className="flex gap-2 mb-3 overflow-x-auto">
-              {['JAVA', 'CPP', 'PYTHON', 'JAVASCRIPT', 'C'].map(lang => (
-                <button
-                  key={lang}
-                  type="button"
-                  onClick={() => setActiveSnippetTab(lang)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${activeSnippetTab === lang
-                    ? 'bg-green-500 text-white'
-                    : 'bg-[#2a2a2a] text-gray-400 hover:bg-[#3a3a3a]'
-                    }`}
-                >
-                  {lang === 'CPP' ? 'C++' : lang === 'JAVASCRIPT' ? 'JavaScript' : lang}
-                </button>
-              ))}
-            </div>
-
-            {/* Monaco Editor for harness */}
-            <div className="border border-[#3a3a3a] rounded-lg overflow-hidden">
-              <div className="bg-[#1e1e1e] px-4 py-2 border-b border-[#3a3a3a] flex items-center justify-between">
-                <span className="text-xs text-gray-400 font-mono">
-                  {activeSnippetTab === 'CPP' ? 'C++' : activeSnippetTab === 'JAVASCRIPT' ? 'JavaScript' : activeSnippetTab} — Solution Harness
+            {/* ── Hero Header ── */}
+            <header style={{ backgroundColor: C.surfaceLow, borderBottom:`1px solid ${C.border}`, padding:'48px 64px 40px' }}>
+                <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', letterSpacing:'0.2em', color: C.secondary, textTransform:'uppercase', display:'block', marginBottom:'16px' }}>
+                    Contest ID: CC-{String(id).padStart(4,'0')}
                 </span>
-                <span className="text-xs text-gray-600">
-                  USER_CODE_START / USER_CODE_END marks the editable zone
-                </span>
-              </div>
-              <Editor
-                height="500px"
-                theme="vs-dark"
-                language={
-                  activeSnippetTab === 'JAVA' ? 'java' :
-                  activeSnippetTab === 'CPP' ? 'cpp' :
-                  activeSnippetTab === 'C' ? 'c' :
-                  activeSnippetTab === 'PYTHON' ? 'python' : 'javascript'
-                }
-                value={snippets[activeSnippetTab].solutionTemplate}
-                onChange={(value) => handleSnippetChange(activeSnippetTab, 'solutionTemplate', value || '')}
-                options={{
-                  fontSize: 13,
-                  fontFamily: "'Fira Code', 'Cascadia Code', monospace",
-                  fontLigatures: true,
-                  minimap: { enabled: false },
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  lineNumbers: 'on',
-                  folding: true,
-                  bracketPairColorization: { enabled: true },
-                  autoClosingBrackets: 'always',
-                  autoClosingQuotes: 'always',
-                  formatOnPaste: true,
-                  tabSize: 4,
-                  insertSpaces: true,
-                  wordWrap: 'off',
-                  padding: { top: 12, bottom: 12 },
-                }}
-              />
-            </div>
-            <p className="text-xs text-gray-600 mt-2">
-              The code between <code className="text-green-400/70">USER_CODE_START</code> and <code className="text-green-400/70">USER_CODE_END</code> is what users see and edit. Everything else runs hidden.
-            </p>
-          </div>
-
-          <button
-            type="submit"
-            className="w-full bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 hover:border-green-500/50 text-green-400 font-medium py-3 rounded-lg transition-all"
-          >
-            Add Problem
-          </button>
-        </form>
-      )}
-
-      {/* Problems List */}
-      <div className="space-y-4">
-        <h3 className="text-xl font-semibold text-gray-200">
-          Problems ({problems.length})
-        </h3>
-
-        <div className="space-y-4">
-          {problems.length === 0 ? (
-            <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-12 text-center shadow-xl">
-              <p className="text-gray-500">No problems added yet</p>
-            </div>
-          ) : (
-            problems.map((problem, index) => (
-              <motion.div
-                key={problem.id}
-                whileHover={{ y: -2, scale: 1.01 }}
-                transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 hover:border-white/30 transition-all shadow-xl hover:shadow-2xl"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-green-400 font-bold text-lg">#{index + 1}</span>
-                      <h4 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">{problem.title}</h4>
-                      {problem.active && (
-                        <span className="px-2.5 py-1 bg-green-500/20 text-green-400 text-xs rounded">ACTIVE</span>
-                      )}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
+                    <div>
+                        <h1 style={{ fontFamily:"'Playfair Display', serif", fontSize:'72px', fontWeight:700, lineHeight:1.05, letterSpacing:'-0.02em', color: C.onBg, marginBottom:'12px' }}>
+                            Problem<br/>Assembly
+                        </h1>
+                        <p style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'13px', color: C.outline }}>
+                            {contest?.name || '—'}
+                        </p>
                     </div>
-                    <p className="text-gray-400 mb-3">{problem.description}</p>
-                    <div className="flex gap-4 text-sm text-gray-500">
-                      <span>⏱️ {problem.timeLimit}ms</span>
-                      <span>💾 {problem.memoryLimit}MB</span>
+                    <div style={{ display:'flex', gap:'12px', flexShrink:0 }}>
+                        <button onClick={() => navigate(`/admin/contests/${id}/edit`)}
+                            style={{ display:'flex', alignItems:'center', gap:'8px', padding:'12px 20px', border:`1px solid ${C.border}`, color: C.muted, backgroundColor: C.surfaceCon, fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', letterSpacing:'0.1em', textTransform:'uppercase', cursor:'pointer', transition:'all 0.2s' }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
+                        >
+                            ← Edit Contest
+                        </button>
+                        <button onClick={() => navigate(`/admin/contests/${id}/problems/add`)}
+                            style={{ display:'flex', alignItems:'center', gap:'8px', padding:'12px 24px', border:`1px solid ${C.secondary}`, color: C.secondary, backgroundColor: C.surfaceCon, fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', letterSpacing:'0.1em', textTransform:'uppercase', cursor:'pointer', transition:'all 0.2s' }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = C.surfaceCon; e.currentTarget.style.color = C.secondary; }}
+                        >
+                            + Add Problem
+                        </button>
                     </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2 ml-4">
-                    <button
-                      onClick={() => navigate(`/admin/problems/${problem.id}/edit`)}
-                      className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-gray-300 hover:text-blue-400 rounded-lg transition-all font-medium"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => showDeleteConfirmation(problem.id, problem.title)}
-                      className="px-4 py-2 bg-white/5 hover:bg-red-500/10 border border-white/20 hover:border-red-500/30 text-gray-300 hover:text-red-400 rounded-lg transition-all font-medium"
-                    >
-                      Delete
-                    </button>
-                  </div>
                 </div>
-              </motion.div>
-            ))
-          )}
-        </div>
-      </div>
+            </header>
 
-      {/* Delete Modal */}
-      {deleteModal.show && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-red-500/30 rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl"
-          >
-            <h3 className="text-2xl font-semibold text-red-400 mb-4">Confirm Delete</h3>
-            <p className="text-gray-300 mb-6">
-              Are you sure you want to delete <span className="font-semibold text-green-400">"{deleteModal.problemTitle}"</span>?
-              <br />
-              <span className="text-red-400 text-sm mt-2 block">This action cannot be undone.</span>
-            </p>
-            <div className="flex gap-4">
-              <button
-                onClick={confirmDelete}
-                className="flex-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 text-red-400 font-medium py-3 px-6 rounded-lg transition-all"
-              >
-                Delete
-              </button>
-              <button
-                onClick={cancelDelete}
-                className="flex-1 bg-[#2a2a2a] hover:bg-[#3a3a3a] border border-[#3a3a3a] hover:border-[#4a4a4a] text-gray-300 font-medium py-3 px-6 rounded-lg transition-all"
-              >
-                Cancel
-              </button>
+            {/* ── Stats Strip ── */}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'1px', backgroundColor: C.border, borderBottom:`1px solid ${C.border}` }}>
+                {[
+                    { icon:'{}', label:'Total Problems', value: String(problems.length).padStart(2,'0') },
+                    { icon:'⚡', label:'Contest Name',   value: contest?.name || '—', large: true },
+                    { icon:'⚙', label:'System Health',  value:'OPTIMAL' },
+                ].map(({ icon, label, value, large }) => (
+                    <div key={label} style={{ backgroundColor: C.surfaceCon, padding:'1.5rem 2rem', display:'flex', alignItems:'center', gap:'1.5rem' }}>
+                        <div style={{ width:'48px', height:'48px', borderRadius:'50%', border:`1px solid ${C.border}`, backgroundColor: C.surfaceMin, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                            <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'18px', color: C.primary }}>{icon}</span>
+                        </div>
+                        <div>
+                            <p style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'10px', letterSpacing:'0.15em', color: C.outline, textTransform:'uppercase', marginBottom:'4px' }}>{label}</p>
+                            <p style={{ fontFamily: large ? "'Geist', sans-serif" : "'Playfair Display', serif", fontSize: large ? '22px' : '32px', fontWeight: large ? 400 : 300, color: C.onBg, lineHeight:1 }}>{value}</p>
+                        </div>
+                    </div>
+                ))}
             </div>
-          </motion.div>
+
+            {/* ── Roster Label ── */}
+            <div style={{ padding:'24px 64px 0', borderBottom:`1px solid ${C.border}` }}>
+                <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'10px', letterSpacing:'0.2em', color: C.outline, textTransform:'uppercase' }}>
+                    Current Roster — {problems.length} Problems
+                </span>
+            </div>
+
+            {/* ── Problems List ── */}
+            <div style={{ padding:'24px 64px 48px' }}>
+                {problems.length === 0 ? (
+                    <div style={{ border:`1px solid ${C.border}`, padding:'4rem', textAlign:'center', fontFamily:"'JetBrains Mono', monospace", fontSize:'13px', color: C.outline, marginTop:'16px' }}>
+                        No problems yet. Click "+ Add Problem" to begin.
+                    </div>
+                ) : (
+                    <div style={{ display:'flex', flexDirection:'column', gap:'1px', backgroundColor: C.border, marginTop:'16px' }}>
+                        {problems.map((problem, i) => {
+                            const lc = LEVEL_CFG[problem.level] || LEVEL_CFG.MEDIUM;
+                            return (
+                                <motion.div key={problem.id}
+                                    initial={{ opacity:0, x:-8 }} animate={{ opacity:1, x:0 }} transition={{ delay: i * 0.04 }}
+                                    style={{ backgroundColor: C.surfaceCon, padding:'1.25rem 2rem', display:'flex', alignItems:'center', gap:'1.5rem', opacity: problem.active ? 1 : 0.55 }}
+                                >
+                                    {/* Letter */}
+                                    <span style={{ fontFamily:"'Playfair Display', serif", fontSize:'20px', fontWeight:700, color: C.primary, flexShrink:0, minWidth:'32px' }}>
+                                        {String.fromCharCode(65 + i)}.
+                                    </span>
+                                    {/* Info */}
+                                    <div style={{ flex:1 }}>
+                                        <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'6px' }}>
+                                            <span style={{ fontFamily:"'Geist', sans-serif", fontSize:'17px', fontWeight:500, color: C.onBg }}>{problem.title}</span>
+                                            {/* Active badge */}
+                                            <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'9px', letterSpacing:'0.12em', color: problem.active ? C.success : C.outline, border:`1px solid ${problem.active ? C.success : C.border}`, backgroundColor: problem.active ? 'rgba(102,187,106,0.1)' : 'transparent', padding:'2px 8px', textTransform:'uppercase' }}>
+                                                {problem.active ? 'Active' : 'Disabled'}
+                                            </span>
+                                            {/* Level badge */}
+                                            <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'9px', letterSpacing:'0.12em', color: lc.color, border:`1px solid ${lc.border}`, backgroundColor: lc.bg, padding:'2px 8px', textTransform:'uppercase' }}>
+                                                {problem.level || 'MEDIUM'}
+                                            </span>
+                                        </div>
+                                        <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', color: C.outline }}>
+                                            ID: PRB-{String(problem.id).padStart(3,'0')} &nbsp;•&nbsp; {problem.timeLimit}ms &nbsp;•&nbsp; {problem.memoryLimit}MB
+                                        </span>
+                                    </div>
+                                    {/* Actions */}
+                                    <div style={{ display:'flex', alignItems:'center', gap:'20px', flexShrink:0 }}>
+                                        <ActionBtn icon="edit" label="Edit" color={C.outline} hoverColor={C.secondary} onClick={() => navigate(`/admin/problems/${problem.id}/edit`)} />
+                                        <ActionBtn icon={problem.active ? 'block' : 'check_circle'} label={problem.active ? 'Disable' : 'Enable'} color={C.outline} hoverColor={problem.active ? C.error : C.success} onClick={() => handleToggleActive(problem)} />
+                                        <ActionBtn icon="close" label="Remove" color={C.outline} hoverColor={C.error} onClick={() => setDelModal({ show:true, problemId:problem.id, problemTitle:problem.title })} />
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* ── Delete Modal ── */}
+            <AnimatePresence>
+                {delModal.show && (
+                    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+                        style={{ position:'fixed', inset:0, zIndex:70, display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'rgba(0,0,0,0.7)', backdropFilter:'blur(8px)' }}
+                    >
+                        <motion.div initial={{scale:0.95,y:16}} animate={{scale:1,y:0}}
+                            style={{ backgroundColor: C.surfaceCon, border:`1px solid ${C.error}`, maxWidth:'420px', width:'100%', padding:'2.5rem', position:'relative' }}
+                        >
+                            <div style={{ position:'absolute', top:0, left:0, right:0, height:'2px', backgroundColor: C.error }} />
+                            <h3 style={{ fontFamily:"'Playfair Display', serif", fontSize:'24px', color: C.error, marginBottom:'1rem' }}>Remove Problem</h3>
+                            <p style={{ fontFamily:"'Geist', sans-serif", fontSize:'14px', color: C.muted, lineHeight:1.6, marginBottom:'2rem' }}>
+                                Permanently remove <span style={{ fontFamily:"'JetBrains Mono', monospace", color: C.onBg }}>{delModal.problemTitle}</span> from this contest?
+                            </p>
+                            <div style={{ display:'flex', justifyContent:'flex-end', gap:'16px' }}>
+                                <button onClick={() => setDelModal({show:false})}
+                                    style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', letterSpacing:'0.1em', textTransform:'uppercase', color: C.outline, background:'none', border:'none', cursor:'pointer', padding:'10px 20px', transition:'color 0.2s' }}
+                                    onMouseEnter={e=>e.currentTarget.style.color=C.secondary} onMouseLeave={e=>e.currentTarget.style.color=C.outline}
+                                >Cancel</button>
+                                <button onClick={confirmDelete}
+                                    style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', letterSpacing:'0.1em', textTransform:'uppercase', border:`1px solid ${C.error}`, color: C.error, backgroundColor:'transparent', padding:'10px 24px', cursor:'pointer', transition:'all 0.2s' }}
+                                    onMouseEnter={e=>{e.currentTarget.style.backgroundColor=C.error;e.currentTarget.style.color=C.bg;}}
+                                    onMouseLeave={e=>{e.currentTarget.style.backgroundColor='transparent';e.currentTarget.style.color=C.error;}}
+                                >Delete</button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ── Toast ── */}
+            <AnimatePresence>
+                {toast && (
+                    <motion.div initial={{opacity:0,x:40}} animate={{opacity:1,x:0}} exit={{opacity:0,x:40}}
+                        style={{ position:'fixed', bottom:'2rem', right:'2rem', backgroundColor: C.surfaceLow, borderLeft:`2px solid ${toast.type==='success'?C.secondary:C.error}`, padding:'1rem 1.5rem', zIndex:100, fontFamily:"'JetBrains Mono', monospace", fontSize:'12px', color: toast.type==='success'?C.secondary:C.error, letterSpacing:'0.05em' }}
+                    >{toast.msg}</motion.div>
+                )}
+            </AnimatePresence>
+
+            <style>{`.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 300;}`}</style>
         </div>
-      )}
-    </div>
-  );
+    );
 }
+
+/* ── Action button with icon + label ── */
+const ActionBtn = ({ icon, label, color, hoverColor, onClick }) => {
+    const [h, setH] = useState(false);
+    return (
+        <button onClick={onClick} onMouseEnter={() => setH(true)} onMouseLeave={() => setH(false)}
+            style={{ display:'flex', alignItems:'center', gap:'4px', background:'none', border:'none', cursor:'pointer', color: h ? hoverColor : color, fontFamily:"'JetBrains Mono', monospace", fontSize:'10px', letterSpacing:'0.1em', textTransform:'uppercase', transition:'color 0.2s', padding:'4px 0' }}
+        >
+            <span className="material-symbols-outlined" style={{ fontSize:'15px' }}>{icon}</span>
+            {label}
+        </button>
+    );
+};

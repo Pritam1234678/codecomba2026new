@@ -1,6 +1,8 @@
 package com.example.codecombat2026.service;
 
 import com.example.codecombat2026.dto.LeaderboardEntry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -21,6 +23,8 @@ import java.util.*;
 @Service
 public class LeaderboardCacheService {
 
+    private static final Logger log = LoggerFactory.getLogger(LeaderboardCacheService.class);
+
     @Autowired
     private StringRedisTemplate redis;
 
@@ -37,8 +41,8 @@ public class LeaderboardCacheService {
             redis.opsForZSet().incrementScore(key, userId.toString(), scoreToAdd);
             redis.expire(key, TTL);
         } catch (Exception e) {
-            // Log but don't fail — MySQL is the source of truth
-            System.err.println("Leaderboard update failed for user " + userId + ": " + e.getMessage());
+            // Log but don't fail — DB is the source of truth
+            log.warn("Leaderboard update failed for contest {} user {}: {}", contestId, userId, e.getMessage());
         }
     }
 

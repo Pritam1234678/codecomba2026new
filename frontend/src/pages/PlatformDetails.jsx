@@ -1,269 +1,250 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { gsap } from 'gsap';
 
-const PlatformDetails = () => {
-    const navigate = useNavigate();
-    const [loading, setLoading] = useState(true);
-    const headerRef = useRef(null);
-    const overviewRef = useRef(null);
-    const featuresRef = useRef(null);
-    const techStackRef = useRef(null);
-    const statsRef = useRef(null);
-    const systemRef = useRef(null);
+const C = {
+    bg:         '#131313',
+    surfaceCon: '#201f1f',
+    surfaceLow: '#1c1b1b',
+    surfaceMin: '#0e0e0e',
+    border:     '#50453b',
+    primary:    '#f1bc8b',
+    secondary:  '#e9c176',
+    tertiary:   '#f4bb92',
+    muted:      '#d4c4b7',
+    outline:    '#9d8e83',
+    onBg:       '#e5e2e1',
+};
 
-    const platformInfo = {
-        name: 'CodeCombat 2026',
-        version: '1.0.0',
-        description: 'A competitive programming platform for coding contests and problem solving',
-        features: [
-            'Real-time code execution',
-            'Multiple programming languages support',
-            'Contest management system',
-            'Leaderboard and rankings',
-            'Problem submission and evaluation',
-            'User profile management'
-        ],
-        techStack: {
-            frontend: ['React', 'Vite', 'TailwindCSS', 'Framer Motion', 'GSAP'],
-            backend: ['Spring Boot', 'Java', 'MySQL', 'Spring Security', 'JWT'],
-            deployment: ['Docker', 'Nginx', 'AWS']
-        },
-        statistics: {
-            totalProblems: '50+',
-            supportedLanguages: 'C, C++, Java, Python',
-            maxSubmissionSize: '5MB',
-            executionTimeout: '10 seconds'
-        }
-    };
+const fade = (delay = 0) => ({
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.5, delay },
+});
 
-    useEffect(() => {
-        // Simulate loading
-        const timer = setTimeout(() => {
-            setLoading(false);
-        }, 800);
-        return () => clearTimeout(timer);
-    }, []);
+const PlatformDetails = () => (
+    <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: '48px 64px', maxWidth: '1200px', margin: '0 auto' }}>
 
-    useEffect(() => {
-        if (!loading) {
-            // GSAP animations - slide from left to center
-            const elements = [
-                headerRef.current,
-                overviewRef.current,
-                featuresRef.current,
-                techStackRef.current,
-                statsRef.current,
-                systemRef.current
-            ].filter(Boolean);
+        {/* ── Hero Manifesto ── */}
+        <motion.section {...fade(0)} style={{ marginBottom: '4rem', paddingBottom: '3rem', borderBottom: `1px solid ${C.border}` }}>
+            <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '56px', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.02em', color: C.primary, marginBottom: '1.5rem' }}>
+                The Architectural Arena
+            </h1>
+            <p style={{ fontSize: '18px', color: C.muted, lineHeight: 1.7, maxWidth: '720px', fontWeight: 300 }}>
+                Code Combat is not a game. It is a cinematic command center designed for the quiet intensity of algorithmic warfare. Every execution cycle, every memory allocation is treated as high-stakes literature within our un-decorated, precision-engineered environment. Built from scratch by a single architect — every layer deliberate, every dependency justified.
+            </p>
+        </motion.section>
 
-            gsap.fromTo(
-                elements,
+        {/* ── Main Grid: Editor + Tech Stack ── */}
+        <motion.section {...fade(0.1)} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1px', marginBottom: '1px', backgroundColor: C.border }}>
+            {/* Monaco Editor Panel */}
+            <div style={{ backgroundColor: C.surfaceCon, padding: '2.5rem', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: `1px solid ${C.border}` }}>
+                    <span className="material-symbols-outlined" style={{ color: C.primary, fontSize: '20px' }}>code</span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Monaco Editor Integration</span>
+                </div>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 600, color: C.primary, marginBottom: '1rem' }}>
+                    The Canvas of Combat
+                </h2>
+                <p style={{ fontSize: '15px', color: C.muted, lineHeight: 1.7, marginBottom: '2rem', flexGrow: 1 }}>
+                    Powered by the same core as VS Code, our Monaco implementation provides semantic highlighting, intelligent autocompletion, and a pristine typographical environment using JetBrains Mono. Distractions are eliminated; only logic remains. Supports C, C++, Java, Python, and JavaScript with full harness injection.
+                </p>
+                {/* Code block */}
+                <div style={{ backgroundColor: C.surfaceMin, border: `1px solid ${C.border}`, padding: '1.5rem', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', lineHeight: 1.6 }}>
+                    <div style={{ color: C.primary }}>{'// USER_CODE_START'}</div>
+                    <div style={{ color: C.secondary, marginTop: '4px' }}>{'int twoSum(int* nums, int numsSize, int target, int* returnSize) {'}</div>
+                    <div style={{ paddingLeft: '24px', color: C.muted }}>{'// write your solution here'}</div>
+                    <div style={{ paddingLeft: '24px', color: C.muted }}>{'*returnSize = 0;'}</div>
+                    <div style={{ paddingLeft: '24px', color: C.muted }}>{'return NULL;'}</div>
+                    <div style={{ color: C.secondary }}>{'}'}</div>
+                    <div style={{ color: C.primary, marginTop: '4px' }}>{'// USER_CODE_END'}</div>
+                    <div style={{ color: C.primary, animation: 'blink 1s infinite', display: 'inline-block', marginTop: '8px' }}>█</div>
+                </div>
+            </div>
+
+            {/* Tech Stack Panel */}
+            <div style={{ backgroundColor: C.surfaceCon, padding: '2.5rem', borderTop: `2px solid ${C.secondary}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
+                    <span className="material-symbols-outlined" style={{ color: C.secondary, fontSize: '20px' }}>memory</span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Tech Stack</span>
+                </div>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '24px', fontWeight: 600, color: C.primary, marginBottom: '1.5rem' }}>
+                    Precision Engineered
+                </h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {[
+                        { dot: C.primary,    text: 'React 19 + Vite + TailwindCSS' },
+                        { dot: C.secondary,  text: 'Spring Boot 3.5 + Java 21' },
+                        { dot: C.tertiary,   text: 'PostgreSQL + Redis (Valkey)' },
+                        { dot: C.primary,    text: 'Oracle Cloud VM (ARM64)' },
+                        { dot: C.secondary,  text: 'ProcessBuilder Judge Engine' },
+                        { dot: C.tertiary,   text: 'JWT + Spring Security' },
+                        { dot: C.outline,    text: 'SSE Real-time Verdicts' },
+                        { dot: C.primary,    text: 'Framer Motion + GSAP' },
+                    ].map(({ dot, text }) => (
+                        <div key={text} style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingBottom: '10px', borderBottom: `1px solid rgba(80,69,59,0.3)` }}>
+                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: dot, flexShrink: 0 }} />
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.muted }}>{text}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </motion.section>
+
+        {/* ── Judge Engine Architecture ── */}
+        <motion.section {...fade(0.2)} style={{ backgroundColor: C.surfaceLow, border: `1px solid ${C.border}`, padding: '3rem', marginBottom: '1px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, right: 0, width: '400px', height: '400px', background: 'radial-gradient(circle at 100% 0%, rgba(233,193,118,0.06) 0%, transparent 60%)', pointerEvents: 'none' }} />
+            <div style={{ maxWidth: '640px', marginBottom: '3rem', position: 'relative', zIndex: 1 }}>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '32px', fontWeight: 600, color: C.primary, marginBottom: '1rem' }}>
+                    Judge Engine Architecture
+                </h2>
+                <p style={{ fontSize: '15px', color: C.muted, lineHeight: 1.7 }}>
+                    Our execution engine isolates submissions using Java's <code style={{ color: C.secondary, fontFamily: "'JetBrains Mono', monospace" }}>ProcessBuilder</code> with strict resource limits. Verdicts are streamed in real-time via Server-Sent Events (SSE), ensuring a fluid, instantaneous feedback loop without polling latency. The queue is backed by Redis for durability across restarts.
+                </p>
+            </div>
+
+            {/* Architecture diagram */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0', position: 'relative', zIndex: 1, overflowX: 'auto' }}>
+                {[
+                    { label: 'CLIENT', sub: 'Monaco Editor', icon: 'terminal', color: C.primary },
+                    null, // arrow
+                    { label: 'API GATEWAY', sub: 'Spring Boot', icon: 'router', color: C.secondary },
+                    null,
+                    { label: 'REDIS QUEUE', sub: 'Valkey / Redis', icon: 'queue', color: C.tertiary },
+                    null,
+                    { label: 'JUDGE WORKERS', sub: 'ProcessBuilder × 4', icon: 'code', color: C.primary },
+                ].map((item, i) => {
+                    if (!item) return (
+                        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 8px', flexShrink: 0 }}>
+                            <div style={{ width: '48px', height: '1px', backgroundColor: C.border, position: 'relative' }}>
+                                <div style={{ position: 'absolute', top: '-8px', left: '50%', transform: 'translateX(-50%)', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: C.outline, whiteSpace: 'nowrap', backgroundColor: C.surfaceLow, padding: '0 4px' }}>
+                                    {i === 1 ? 'HTTP' : i === 3 ? 'PUSH' : 'BRPOP'}
+                                </div>
+                            </div>
+                            <span style={{ color: C.outline, fontSize: '16px', marginTop: '4px' }}>→</span>
+                        </div>
+                    );
+                    return (
+                        <div key={i} style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceCon, padding: '1.5rem', textAlign: 'center', minWidth: '160px', flexShrink: 0, borderTop: `2px solid ${item.color}` }}>
+                            <span className="material-symbols-outlined" style={{ color: item.color, fontSize: '28px', display: 'block', marginBottom: '8px' }}>{item.icon}</span>
+                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.12em', color: item.color, textTransform: 'uppercase', marginBottom: '4px' }}>{item.label}</div>
+                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline }}>{item.sub}</div>
+                        </div>
+                    );
+                })}
+                {/* SSE back arrow */}
+                <div style={{ marginLeft: '16px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.secondary, letterSpacing: '0.1em', textTransform: 'uppercase', writingMode: 'vertical-rl', transform: 'rotate(180deg)', opacity: 0.7 }}>
+                    ← SSE STREAM BACK TO CLIENT
+                </div>
+            </div>
+        </motion.section>
+
+        {/* ── Infrastructure ── */}
+        <motion.section {...fade(0.3)} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px', backgroundColor: C.border, marginBottom: '1px' }}>
+            {[
                 {
-                    x: -100,
-                    opacity: 0
+                    icon: 'cloud',
+                    label: 'Cloud Infrastructure',
+                    title: 'Oracle Cloud VM',
+                    color: C.primary,
+                    items: [
+                        'ARM64 Ampere A1 (4 vCPU, 24GB RAM)',
+                        'Always Free Tier — zero cost',
+                        'Ubuntu 22.04 LTS',
+                        'Nginx reverse proxy',
+                        'SSL/TLS via Let\'s Encrypt',
+                    ],
                 },
                 {
-                    x: 0,
-                    opacity: 1,
-                    duration: 0.8,
-                    stagger: 0.15,
-                    ease: 'power3.out'
-                }
-            );
-        }
-    }, [loading]);
-
-    if (loading) {
-        return (
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
-                {/* Header Skeleton */}
-                <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl animate-pulse">
-                    <div className="h-8 bg-white/10 rounded-lg w-1/3 mb-2"></div>
-                    <div className="h-4 bg-white/5 rounded w-1/2"></div>
+                    icon: 'storage',
+                    label: 'Data Layer',
+                    title: 'PostgreSQL + Redis',
+                    color: C.secondary,
+                    items: [
+                        'PostgreSQL 15 — primary datastore',
+                        'HikariCP connection pooling (20 max)',
+                        'Redis (Valkey) — submission queue',
+                        'Redis — contest & problem cache',
+                        'Cache-aside pattern, 30s TTL',
+                    ],
+                },
+                {
+                    icon: 'security',
+                    label: 'Security Layer',
+                    title: 'JWT + Spring Security',
+                    color: C.tertiary,
+                    items: [
+                        'Stateless JWT authentication',
+                        'BCrypt password hashing (strength 10)',
+                        'Role-based access control (RBAC)',
+                        'CORS configured per environment',
+                        'Account enable/disable controls',
+                    ],
+                },
+            ].map(({ icon, label, title, color, items }) => (
+                <div key={label} style={{ backgroundColor: C.surfaceCon, padding: '2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+                        <span className="material-symbols-outlined" style={{ color, fontSize: '20px' }}>{icon}</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>{label}</span>
+                    </div>
+                    <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 600, color, marginBottom: '1.5rem' }}>{title}</h3>
+                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {items.map(item => (
+                            <li key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.muted, lineHeight: 1.5 }}>
+                                <span style={{ color, flexShrink: 0, marginTop: '2px' }}>›</span>
+                                {item}
+                            </li>
+                        ))}
+                    </ul>
                 </div>
+            ))}
+        </motion.section>
 
-                {/* Content Skeleton */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                    {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl p-4 sm:p-6 animate-pulse">
-                            <div className="h-6 bg-white/10 rounded w-1/2 mb-4"></div>
-                            <div className="space-y-2">
-                                <div className="h-4 bg-white/5 rounded"></div>
-                                <div className="h-4 bg-white/5 rounded w-5/6"></div>
-                                <div className="h-4 bg-white/5 rounded w-4/6"></div>
-                            </div>
-                        </div>
-                    ))}
+        {/* ── Platform Stats ── */}
+        <motion.section {...fade(0.4)} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', backgroundColor: C.border, marginBottom: '1px' }}>
+            {[
+                { label: 'Languages Supported', value: '5', sub: 'C, C++, Java, Python, JS' },
+                { label: 'Judge Workers', value: '4', sub: 'Parallel execution threads' },
+                { label: 'Execution Timeout', value: '10s', sub: 'Configurable per problem' },
+                { label: 'Max Submission', value: '5MB', sub: 'Code + harness combined' },
+            ].map(({ label, value, sub }) => (
+                <div key={label} style={{ backgroundColor: C.surfaceCon, padding: '2rem', textAlign: 'center' }}>
+                    <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase', marginBottom: '12px' }}>{label}</p>
+                    <p style={{ fontFamily: "'Playfair Display', serif", fontSize: '40px', fontWeight: 300, color: C.primary, margin: 0 }}>{value}</p>
+                    <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, marginTop: '8px' }}>{sub}</p>
                 </div>
+            ))}
+        </motion.section>
+
+        {/* ── Features ── */}
+        <motion.section {...fade(0.5)} style={{ backgroundColor: C.surfaceLow, border: `1px solid ${C.border}`, padding: '2.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '2rem', paddingBottom: '1rem', borderBottom: `1px solid ${C.border}` }}>
+                <span className="material-symbols-outlined" style={{ color: C.secondary, fontSize: '20px' }}>verified</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Platform Capabilities</span>
             </div>
-        );
-    }
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6"
-        >
-            {/* Header */}
-            <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-2">
-                            Platform Details
-                        </h1>
-                        <p className="text-gray-500 text-xs sm:text-sm">Complete information about the platform</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                {[
+                    { icon: 'bolt',           text: 'Real-time SSE verdict streaming — no polling' },
+                    { icon: 'code',           text: 'Code harness injection with USER_CODE_START/END markers' },
+                    { icon: 'leaderboard',    text: 'Elo-based contest leaderboard with live updates' },
+                    { icon: 'military_tech',  text: 'Full contest lifecycle — create, manage, judge' },
+                    { icon: 'group',          text: 'Admin user management with account controls' },
+                    { icon: 'lock',           text: 'JWT stateless auth with role-based routing' },
+                    { icon: 'cached',         text: 'Redis cache-aside for problems, contests, profiles' },
+                    { icon: 'email',          text: 'Gmail SMTP — password reset & username recovery' },
+                    { icon: 'terminal',       text: 'Monaco editor with multi-language syntax support' },
+                ].map(({ icon, text }) => (
+                    <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '1rem', border: `1px solid ${C.border}`, backgroundColor: C.surfaceCon }}>
+                        <span className="material-symbols-outlined" style={{ color: C.secondary, fontSize: '18px', flexShrink: 0, marginTop: '2px' }}>{icon}</span>
+                        <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: C.muted, lineHeight: 1.5 }}>{text}</span>
                     </div>
-                    <button
-                        onClick={() => navigate('/admin/dashboard')}
-                        className="w-full sm:w-auto px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/20 hover:border-white/30 text-gray-300 rounded-xl transition-all text-center"
-                    >
-                        ← Back to Dashboard
-                    </button>
-                </div>
+                ))}
             </div>
+        </motion.section>
 
-            {/* Platform Overview */}
-            <div ref={overviewRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
-                <h2 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Platform Overview</h2>
-                <div className="space-y-4">
-                    <div>
-                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Platform Name</div>
-                        <div className="text-lg font-semibold text-gray-200">{platformInfo.name}</div>
-                    </div>
-                    <div>
-                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Version</div>
-                        <div className="text-gray-300">{platformInfo.version}</div>
-                    </div>
-                    <div>
-                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Description</div>
-                        <div className="text-gray-300">{platformInfo.description}</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Features */}
-            <div ref={featuresRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
-                <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Key Features</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {platformInfo.features.map((feature, index) => (
-                        <div key={index} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-green-500/10">
-                            <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span className="text-gray-300">{feature}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Tech Stack */}
-            <div ref={techStackRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-                <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Technology Stack</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                        <div className="text-sm font-semibold text-gray-400 mb-3">Frontend</div>
-                        <div className="space-y-2">
-                            {platformInfo.techStack.frontend.map((tech, index) => (
-                                <div key={index} className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-300 text-sm">
-                                    {tech}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <div>
-                        <div className="text-sm font-semibold text-gray-400 mb-3">Backend</div>
-                        <div className="space-y-2">
-                            {platformInfo.techStack.backend.map((tech, index) => (
-                                <div key={index} className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-300 text-sm">
-                                    {tech}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <div>
-                        <div className="text-sm font-semibold text-gray-400 mb-3">Deployment</div>
-                        <div className="space-y-2">
-                            {platformInfo.techStack.deployment.map((tech, index) => (
-                                <div key={index} className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-300 text-sm">
-                                    {tech}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Platform Statistics */}
-            <div ref={statsRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-                <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">Platform Statistics</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Total Problems</div>
-                        <div className="text-2xl font-bold text-green-400">{platformInfo.statistics.totalProblems}</div>
-                    </div>
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Supported Languages</div>
-                        <div className="text-sm font-semibold text-gray-300">{platformInfo.statistics.supportedLanguages}</div>
-                    </div>
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Max Submission Size</div>
-                        <div className="text-sm font-semibold text-gray-300">{platformInfo.statistics.maxSubmissionSize}</div>
-                    </div>
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Execution Timeout</div>
-                        <div className="text-sm font-semibold text-gray-300">{platformInfo.statistics.executionTimeout}</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* System Information */}
-            <div ref={systemRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-2xl">
-                <h2 className="text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4">System Information</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                        <div className="flex items-center gap-3 mb-2">
-                            <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <div className="text-sm font-semibold text-gray-400">Server Status</div>
-                        </div>
-                        <div className="text-green-400 font-medium">Online & Operational</div>
-                    </div>
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                        <div className="flex items-center gap-3 mb-2">
-                            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-                            </svg>
-                            <div className="text-sm font-semibold text-gray-400">Database</div>
-                        </div>
-                        <div className="text-gray-300 font-medium">MySQL 8.0</div>
-                    </div>
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                        <div className="flex items-center gap-3 mb-2">
-                            <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
-                            <div className="text-sm font-semibold text-gray-400">Security</div>
-                        </div>
-                        <div className="text-gray-300 font-medium">JWT + Spring Security</div>
-                    </div>
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                        <div className="flex items-center gap-3 mb-2">
-                            <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            <div className="text-sm font-semibold text-gray-400">Performance</div>
-                        </div>
-                        <div className="text-gray-300 font-medium">Optimized</div>
-                    </div>
-                </div>
-            </div>
-        </motion.div>
-    );
-};
+        <style>{`
+            @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+            .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; }
+        `}</style>
+    </div>
+);
 
 export default PlatformDetails;

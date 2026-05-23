@@ -2,196 +2,357 @@ package com.example.codecombat2026.service.judge;
 
 import com.example.codecombat2026.dto.ExecutionResult;
 import com.example.codecombat2026.entity.Submission;
+import com.example.codecombat2026.service.judge.SandboxRunner.SandboxLimits;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import jakarta.annotation.PostConstruct;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Comparator;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.io.*;
+import java.nio.file.*;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Executes user code in isolated OS processes (not Docker containers despite the name).
+ * Local judge service — executes user code under a security sandbox
+ * (see {@link SandboxRunner}). All compile + run steps are wrapped in
+ * bwrap + prlimit, so a hostile submission cannot read the JVM's
+ * environment, escape its work directory, or open network sockets.
  *
- * Each execution:
- *   1. Writes source to a temp directory
- *   2. Compiles (Java/C/C++) or skips (Python/JS)
- *   3. Runs with a time limit
- *   4. Reads stdout/stderr via a shared thread pool (not per-job threads)
- *   5. Cleans up temp directory
+ * Supported languages: JAVA, CPP, C, PYTHON, JAVASCRIPT
  *
- * Thread safety: stateless — safe to call from multiple workers concurrently.
+ * Hardening (against hung user code):
+ *   - stdin closed BEFORE waitFor → unblocks code stuck on Scanner.nextInt() etc.
+ *   - destroyForcibly() + waitFor(2s) → confirms subprocess actually died
+ *   - Reader threads are daemon → don't prevent JVM exit
+ *   - Memory + CPU + nproc + fsize limits enforced by prlimit
+ *   - Filesystem and network isolated by bwrap namespaces
  */
 @Service
 public class DockerJudgeService {
 
     private static final Logger log = LoggerFactory.getLogger(DockerJudgeService.class);
+    private static final String TEMP_DIR = System.getProperty("java.io.tmpdir") + "/judge";
 
-    @Value("${codecombat.docker.host:unix:///var/run/docker.sock}")
-    private String dockerHost;
+    /** Default memory budget when problem doesn't specify (MB). */
+    private static final int DEFAULT_MEMORY_MB = 256;
 
-    // Shared thread pool for stdout/stderr readers — avoids spawning 2 threads per job
-    // Size = 2 × max workers (8) = 16 reader threads max
-    private static final ExecutorService IO_POOL = Executors.newFixedThreadPool(16, r -> {
-        Thread t = new Thread(r, "io-reader-" + System.nanoTime());
-        t.setDaemon(true);
-        return t;
-    });
-
-    private final boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
-
-    @PostConstruct
-    public void init() {
-        log.info("DockerJudgeService initialized (host: {}, OS: {})",
-            dockerHost, isWindows ? "Windows" : "Unix");
+    /**
+     * Virtual address space (RLIMIT_AS) overhead required to host the
+     * language runtime, on top of the user-visible problem memory budget.
+     *
+     * Important: RLIMIT_AS limits virtual memory, not resident memory. Modern
+     * JVMs reserve 3+ GB of virtual address space at startup (compressed
+     * class space, code cache, GC reserves, thread stacks) regardless of how
+     * small -Xmx is. If RLIMIT_AS < what the JVM wants to reserve, the VM
+     * fails to initialise and exits before the user's code runs. The numbers
+     * below are minimum virtual reservations observed in practice on JDK 21
+     * and Node 20+; they're orders of magnitude above actual RSS so do not
+     * loosen real-memory enforcement (handled by -Xmx / --max-old-space-size).
+     */
+    private static int runtimePaddingMB(Submission.ProgrammingLanguage lang) {
+        return switch (lang) {
+            case JAVA       -> 4096;
+            case JAVASCRIPT -> 1024;
+            case PYTHON     -> 256;
+            case CPP, C     -> 32;
+        };
     }
 
-    public ExecutionResult execute(String code, Submission.ProgrammingLanguage language, double timeLimit) {
-        String fileName;
-        String[] compileArgs;
-        String[] runArgs;
+    @Autowired
+    private SandboxRunner sandbox;
 
-        switch (language) {
-            case JAVA:
-                fileName = "Main.java";
-                compileArgs = new String[]{"javac", fileName};
-                runArgs = new String[]{"java", "-Xmx256m", "Main"};
-                break;
-            case CPP:
-                fileName = "main.cpp";
-                compileArgs = new String[]{"g++", "-O2", "-o", "main", fileName};
-                runArgs = new String[]{isWindows ? "main.exe" : "./main"};
-                break;
-            case PYTHON:
-                fileName = "main.py";
-                compileArgs = null;
-                runArgs = new String[]{isWindows ? "python" : "python3", "-u", fileName};
-                break;
-            case C:
-                fileName = "main.c";
-                compileArgs = new String[]{"gcc", "-O2", "-o", "main", fileName};
-                runArgs = new String[]{isWindows ? "main.exe" : "./main"};
-                break;
-            case JAVASCRIPT:
-                fileName = "main.js";
-                compileArgs = null;
-                runArgs = new String[]{"node", "--max-old-space-size=256", fileName};
-                break;
-            default:
-                return error("Unsupported language: " + language);
-        }
+    public ExecutionResult execute(String code, Submission.ProgrammingLanguage language, double timeLimitSeconds) {
+        return execute(code, language, timeLimitSeconds, DEFAULT_MEMORY_MB, null);
+    }
 
-        Path tempDir = null;
+    public ExecutionResult execute(String code, Submission.ProgrammingLanguage language,
+                                   double timeLimitSeconds, String stdin) {
+        return execute(code, language, timeLimitSeconds, DEFAULT_MEMORY_MB, stdin);
+    }
+
+    /**
+     * Execute code under sandbox with explicit memory budget.
+     *
+     * @param memoryMB user-visible memory limit from the problem; runtime padding
+     *                 is added internally for JVM/Node/Python.
+     */
+    public ExecutionResult execute(String code, Submission.ProgrammingLanguage language,
+                                   double timeLimitSeconds, int memoryMB, String stdin) {
+        String jobId = UUID.randomUUID().toString().substring(0, 8);
+        Path workDir = Paths.get(TEMP_DIR, jobId);
+
         try {
-            tempDir = Files.createTempDirectory("judge_");
-            Path sourceFile = tempDir.resolve(fileName);
-            Files.write(sourceFile, code.getBytes(StandardCharsets.UTF_8));
+            Files.createDirectories(workDir);
+            // Owner-only permissions — defence in depth even with sandbox
+            try { workDir.toFile().setReadable(true, true); } catch (Exception ignored) {}
 
-            // ── Compile ──────────────────────────────────────────────────────
-            if (compileArgs != null) {
-                ProcessBuilder pb = new ProcessBuilder(compileArgs);
-                pb.directory(tempDir.toFile());
-                pb.redirectErrorStream(true);
+            int totalMemMB = memoryMB + runtimePaddingMB(language);
+            int cpuSec     = (int) Math.ceil(timeLimitSeconds) + 1; // +1 wallclock-vs-CPU buffer
+            log.debug("[{}] Executing {} (timeLimit={}s, userMem={}MB, asLimit={}MB)",
+                jobId, language, timeLimitSeconds, memoryMB, totalMemMB);
 
-                Process proc = pb.start();
-                String compileOut = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-                boolean ok = proc.waitFor(30, TimeUnit.SECONDS);
-
-                if (!ok) {
-                    proc.destroyForcibly();
-                    return compilationError("Compilation timeout");
-                }
-                if (proc.exitValue() != 0) {
-                    return compilationError(compileOut);
-                }
-
-                // Resolve absolute path for C/C++ executable
-                if (language == Submission.ProgrammingLanguage.CPP
-                        || language == Submission.ProgrammingLanguage.C) {
-                    Path exePath = tempDir.resolve(isWindows ? "main.exe" : "main");
-                    if (!Files.exists(exePath)) {
-                        return compilationError("Executable not found after compilation");
-                    }
-                    runArgs = new String[]{exePath.toAbsolutePath().toString()};
-                }
-            }
-
-            // ── Execute ──────────────────────────────────────────────────────
-            long execStart = System.currentTimeMillis();
-            ProcessBuilder execPb = new ProcessBuilder(runArgs);
-            execPb.directory(tempDir.toFile());
-
-            Process proc = execPb.start();
-            proc.getOutputStream().close(); // no stdin needed
-
-            // Use shared IO pool — avoids spawning 2 new threads per job
-            final StringBuilder stdoutBuf = new StringBuilder();
-            final StringBuilder stderrBuf = new StringBuilder();
-
-            Future<?> stdoutFuture = IO_POOL.submit(() -> {
-                try {
-                    stdoutBuf.append(new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8));
-                } catch (Exception ignored) {}
-            });
-            Future<?> stderrFuture = IO_POOL.submit(() -> {
-                try {
-                    stderrBuf.append(new String(proc.getErrorStream().readAllBytes(), StandardCharsets.UTF_8));
-                } catch (Exception ignored) {}
-            });
-
-            long timeLimitMs = (long) (timeLimit * 1000);
-            boolean finished = proc.waitFor(timeLimitMs, TimeUnit.MILLISECONDS);
-            long execTime = System.currentTimeMillis() - execStart;
-
-            if (!finished) {
-                proc.destroyForcibly();
-                stdoutFuture.cancel(true);
-                stderrFuture.cancel(true);
-                return new ExecutionResult("", "Time Limit Exceeded", execTime, 0, 124, true, false, false);
-            }
-
-            // Wait for IO readers to drain (max 2s)
-            try { stdoutFuture.get(2, TimeUnit.SECONDS); } catch (Exception ignored) {}
-            try { stderrFuture.get(2, TimeUnit.SECONDS); } catch (Exception ignored) {}
-
-            return new ExecutionResult(
-                stdoutBuf.toString(),
-                stderrBuf.toString(),
-                execTime,
-                0, // memory tracking not reliable per-process
-                proc.exitValue(),
-                false, false, false
-            );
+            // Two memory numbers flow into the language runners:
+            //   userMemMB  : enforced as -Xmx / --max-old-space-size — the
+            //                limit the user sees (MLE triggers here)
+            //   totalMemMB : enforced as RLIMIT_AS — virtual address space,
+            //                must be high enough for the runtime to start
+            return switch (language) {
+                case JAVA       -> executeJava(code, workDir, jobId, timeLimitSeconds, memoryMB, totalMemMB, cpuSec, stdin);
+                case CPP        -> executeCpp(code, workDir, jobId, timeLimitSeconds, totalMemMB, cpuSec, stdin);
+                case C          -> executeC(code, workDir, jobId, timeLimitSeconds, totalMemMB, cpuSec, stdin);
+                case PYTHON     -> executePython(code, workDir, jobId, timeLimitSeconds, totalMemMB, cpuSec, stdin);
+                case JAVASCRIPT -> executeJavaScript(code, workDir, jobId, timeLimitSeconds, memoryMB, totalMemMB, cpuSec, stdin);
+            };
 
         } catch (Exception e) {
-            log.error("Execution error for language {}: {}", language, e.getMessage());
-            return error("Execution error: " + e.getMessage());
+            log.error("[{}] Unexpected error: {}", jobId, e.getMessage());
+            return error("Internal judge error: " + e.getMessage());
         } finally {
-            // Always clean up temp directory
-            if (tempDir != null) cleanup(tempDir);
+            cleanup(workDir);
         }
     }
 
-    private void cleanup(Path dir) {
+    // ─── Language Runners ─────────────────────────────────────────────────────
+
+    private ExecutionResult executeJava(String code, Path workDir, String jobId,
+                                        double timeLimitSeconds, int userMemMB, int asMemMB,
+                                        int cpuSec, String stdin) throws Exception {
+        String className = extractJavaClassName(code);
+        Path sourceFile = workDir.resolve(className + ".java");
+        Files.writeString(sourceFile, code);
+
+        ExecutionResult compileResult = runProcess(
+            List.of("javac", sourceFile.toString()),
+            workDir, 30, false, null, SandboxLimits.forCompile()
+        );
+        if (compileResult.getExitCode() != 0) {
+            return new ExecutionResult("", compileResult.getStderr(), 0, 0, 1, false, false, true);
+        }
+
+        return runProcess(
+            List.of("java", "-Xmx" + userMemMB + "m", "-cp", workDir.toString(), className),
+            workDir, (int) Math.ceil(timeLimitSeconds), true, stdin,
+            SandboxLimits.forRun(asMemMB, cpuSec)
+        );
+    }
+
+    private ExecutionResult executeCpp(String code, Path workDir, String jobId,
+                                       double timeLimitSeconds, int memMB, int cpuSec, String stdin) throws Exception {
+        Path sourceFile = workDir.resolve("solution.cpp");
+        Path binary     = workDir.resolve("solution");
+        Files.writeString(sourceFile, code);
+
+        ExecutionResult compileResult = runProcess(
+            List.of("g++", "-O2", "-o", binary.toString(), sourceFile.toString()),
+            workDir, 30, false, null, SandboxLimits.forCompile()
+        );
+        if (compileResult.getExitCode() != 0) {
+            return new ExecutionResult("", compileResult.getStderr(), 0, 0, 1, false, false, true);
+        }
+
+        return runProcess(List.of(binary.toString()),
+            workDir, (int) Math.ceil(timeLimitSeconds), true, stdin,
+            SandboxLimits.forRun(memMB, cpuSec));
+    }
+
+    private ExecutionResult executeC(String code, Path workDir, String jobId,
+                                     double timeLimitSeconds, int memMB, int cpuSec, String stdin) throws Exception {
+        Path sourceFile = workDir.resolve("solution.c");
+        Path binary     = workDir.resolve("solution");
+        Files.writeString(sourceFile, code);
+
+        ExecutionResult compileResult = runProcess(
+            List.of("gcc", "-O2", "-o", binary.toString(), sourceFile.toString()),
+            workDir, 30, false, null, SandboxLimits.forCompile()
+        );
+        if (compileResult.getExitCode() != 0) {
+            return new ExecutionResult("", compileResult.getStderr(), 0, 0, 1, false, false, true);
+        }
+
+        return runProcess(List.of(binary.toString()),
+            workDir, (int) Math.ceil(timeLimitSeconds), true, stdin,
+            SandboxLimits.forRun(memMB, cpuSec));
+    }
+
+    private ExecutionResult executePython(String code, Path workDir, String jobId,
+                                          double timeLimitSeconds, int memMB, int cpuSec, String stdin) throws Exception {
+        Path sourceFile = workDir.resolve("solution.py");
+        Files.writeString(sourceFile, code);
+
+        // python3 is assumed to exist in /usr/bin (sandbox prevents shelling
+        // out via `which`, so we don't probe like the unsandboxed path did).
+        return runProcess(
+            List.of("python3", sourceFile.toString()),
+            workDir, (int) Math.ceil(timeLimitSeconds), true, stdin,
+            SandboxLimits.forRun(memMB, cpuSec)
+        );
+    }
+
+    private ExecutionResult executeJavaScript(String code, Path workDir, String jobId,
+                                              double timeLimitSeconds, int userMemMB, int asMemMB,
+                                              int cpuSec, String stdin) throws Exception {
+        Path sourceFile = workDir.resolve("solution.js");
+        Files.writeString(sourceFile, code);
+
+        // --max-old-space-size enforces V8's heap limit (real RSS budget).
+        // RLIMIT_AS only constrains virtual address space; Node 20+ reserves
+        // ~700 MB virtual at startup so the AS limit must be higher.
+        int v8Heap = Math.max(64, userMemMB);
+        return runProcess(
+            List.of("node", "--max-old-space-size=" + v8Heap, sourceFile.toString()),
+            workDir, (int) Math.ceil(timeLimitSeconds), true, stdin,
+            SandboxLimits.forRun(asMemMB, cpuSec)
+        );
+    }
+
+    // ─── Core Process Runner ──────────────────────────────────────────────────
+
+    private ExecutionResult runProcess(List<String> command, Path workDir,
+                                       int timeLimitSeconds, boolean enforceTimeLimit,
+                                       String stdin, SandboxLimits limits) throws Exception {
+        List<String> wrapped = sandbox.wrap(command, workDir, limits);
+        ProcessBuilder pb = new ProcessBuilder(wrapped);
+        pb.directory(workDir.toFile());
+        pb.redirectErrorStream(false);
+
+        long startMs = System.currentTimeMillis();
+        Process process = pb.start();
+
+        // CRITICAL: write stdin (if any) and close. If user code calls Scanner.nextInt()
+        // or cin >> or sys.stdin.read(), they get the input or EOF instead of hanging forever.
         try {
-            Files.walk(dir)
-                .sorted(Comparator.reverseOrder())
-                .forEach(p -> { try { Files.delete(p); } catch (Exception ignored) {} });
-        } catch (Exception ignored) {}
+            if (stdin != null && !stdin.isEmpty()) {
+                process.getOutputStream().write(stdin.getBytes());
+                process.getOutputStream().flush();
+            }
+            process.getOutputStream().close();
+        } catch (IOException ignored) {}
+
+        // Read stdout and stderr concurrently to avoid blocking on full pipe buffer.
+        // Use daemon threads so they never prevent JVM shutdown.
+        StringBuilder stdout = new StringBuilder();
+        StringBuilder stderr = new StringBuilder();
+
+        Thread stdoutReader = new Thread(() -> {
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = r.readLine()) != null) {
+                    synchronized (stdout) { stdout.append(line).append("\n"); }
+                }
+            } catch (IOException ignored) {}
+        }, "judge-stdout-reader");
+        stdoutReader.setDaemon(true);
+
+        Thread stderrReader = new Thread(() -> {
+            try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
+                String line;
+                while ((line = r.readLine()) != null) {
+                    synchronized (stderr) { stderr.append(line).append("\n"); }
+                }
+            } catch (IOException ignored) {}
+        }, "judge-stderr-reader");
+        stderrReader.setDaemon(true);
+
+        stdoutReader.start();
+        stderrReader.start();
+
+        boolean finished = process.waitFor(timeLimitSeconds + 5L, TimeUnit.SECONDS);
+        long elapsed = System.currentTimeMillis() - startMs;
+
+        if (!finished) {
+            // Process exceeded limit. Kill it and CONFIRM death.
+            killProcessTree(process);
+            log.warn("Process killed after {}ms (limit={}s)", elapsed, timeLimitSeconds);
+
+            // Give readers brief time to drain any final bytes after kill
+            stdoutReader.join(500);
+            stderrReader.join(500);
+
+            return new ExecutionResult(stdout.toString(), "Time Limit Exceeded",
+                elapsed, 0, 1, true, false, false);
+        }
+
+        // Process exited normally — wait briefly for readers to flush
+        stdoutReader.join(1000);
+        stderrReader.join(1000);
+
+        int exitCode = process.exitValue();
+        boolean isTle = enforceTimeLimit && elapsed > (timeLimitSeconds * 1000L);
+
+        if (isTle) {
+            return new ExecutionResult(stdout.toString(), "Time Limit Exceeded",
+                elapsed, 0, exitCode, true, false, false);
+        }
+
+        // 137 = 128 + SIGKILL, 152 = 128 + SIGXCPU — both indicate kernel kill
+        // due to resource limit (memory or CPU)
+        if (exitCode == 137 || exitCode == 152 || exitCode == 153) {
+            String stderrStr = stderr.toString();
+            boolean isMle = stderrStr.toLowerCase().contains("killed")
+                         || stderrStr.toLowerCase().contains("memoryerror")
+                         || stderrStr.toLowerCase().contains("outofmemory")
+                         || exitCode == 137;
+            if (isMle) {
+                return new ExecutionResult(stdout.toString(),
+                    "Memory Limit Exceeded", elapsed, 0, exitCode, false, true, false);
+            }
+            return new ExecutionResult(stdout.toString(), "Time Limit Exceeded",
+                elapsed, 0, exitCode, true, false, false);
+        }
+
+        return new ExecutionResult(stdout.toString(), stderr.toString(),
+            elapsed, 0, exitCode, false, false, false);
+    }
+
+    /**
+     * Aggressive kill: destroyForcibly() + waitFor(2s) + verify dead.
+     * On Linux, destroyForcibly() sends SIGKILL but is async — the OS
+     * may keep the process around briefly. We wait until it's actually gone.
+     * With bwrap, killing the bwrap parent kills the entire namespace
+     * (--die-with-parent + new PID namespace), so descendants die automatically.
+     */
+    private void killProcessTree(Process process) {
+        try {
+            process.destroyForcibly();
+            if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                log.error("Process {} survived destroyForcibly after 2s — leaking", process.pid());
+            }
+            // Belt-and-suspenders for non-sandboxed dev mode
+            process.descendants().forEach(d -> {
+                try { d.destroyForcibly(); } catch (Exception ignored) {}
+            });
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            log.warn("Error killing process: {}", e.getMessage());
+        }
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    private String extractJavaClassName(String code) {
+        java.util.regex.Matcher m = java.util.regex.Pattern
+            .compile("public\\s+class\\s+(\\w+)")
+            .matcher(code);
+        return m.find() ? m.group(1) : "Main";
+    }
+
+    private void cleanup(Path workDir) {
+        try {
+            if (Files.exists(workDir)) {
+                Files.walk(workDir)
+                    .sorted(java.util.Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+            }
+        } catch (Exception e) {
+            log.warn("Cleanup failed for {}: {}", workDir, e.getMessage());
+        }
     }
 
     private ExecutionResult error(String msg) {
         return new ExecutionResult("", msg, 0, 0, 1, false, false, false);
-    }
-
-    private ExecutionResult compilationError(String msg) {
-        return new ExecutionResult("", msg, 0, 0, 1, false, false, true);
     }
 }

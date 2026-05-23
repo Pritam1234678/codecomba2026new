@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/problems")
@@ -23,6 +24,11 @@ public class AdminProblemController {
     @Autowired private ProblemService problemService;   // for cache eviction
     @Autowired private CacheService cacheService;       // for snippet cache eviction
 
+    @GetMapping("/contest/{contestId}")
+    public List<Problem> getProblemsByContest(@PathVariable Long contestId) {
+        return problemRepository.findByContestId(contestId);
+    }
+
     @PostMapping("/contest/{contestId}")
     public Problem createProblem(@PathVariable Long contestId, @RequestBody Problem problem) {
         Contest contest = contestRepository.findById(contestId)
@@ -31,8 +37,10 @@ public class AdminProblemController {
         if (problem.getActive() == null) {
             problem.setActive(true);
         }
+        if (problem.getLevel() == null || problem.getLevel().isBlank()) {
+            problem.setLevel("MEDIUM");
+        }
         Problem saved = problemRepository.save(problem);
-        // Evict contest problems list cache
         problemService.evictContestProblems(contestId);
         return saved;
     }
@@ -53,16 +61,34 @@ public class AdminProblemController {
         problem.setExample2(problemDetails.getExample2());
         problem.setExample3(problemDetails.getExample3());
         problem.setImages(problemDetails.getImages());
+        if (problemDetails.getActive() != null) {
+            problem.setActive(problemDetails.getActive());
+        }
+        if (problemDetails.getLevel() != null && !problemDetails.getLevel().isBlank()) {
+            problem.setLevel(problemDetails.getLevel());
+        }
 
         Problem saved = problemRepository.save(problem);
-
-        // Evict all caches for this problem
         problemService.evictProblem(id);
-        cacheService.evictProblem(id); // also evicts snippet cache
+        cacheService.evictProblem(id);
         if (problem.getContestId() != null) {
             problemService.evictContestProblems(problem.getContestId());
         }
+        return saved;
+    }
 
+    /** Toggle active/inactive for a problem */
+    @PatchMapping("/{id}/toggle-active")
+    public Problem toggleActive(@PathVariable Long id) {
+        Problem problem = problemRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Problem not found"));
+        problem.setActive(!Boolean.TRUE.equals(problem.getActive()));
+        Problem saved = problemRepository.save(problem);
+        problemService.evictProblem(id);
+        cacheService.evictProblem(id);
+        if (problem.getContestId() != null) {
+            problemService.evictContestProblems(problem.getContestId());
+        }
         return saved;
     }
 

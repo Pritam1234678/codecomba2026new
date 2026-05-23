@@ -136,8 +136,7 @@ public class AdminDashboardController {
 
         UserController.UserProfileResponse profile = new UserController.UserProfileResponse(
                 user.getId(), user.getUsername(), user.getEmail(),
-                user.getFullName(), user.getRollNumber(), user.getBranch(),
-                user.getPhoneNumber(), photoUrl);
+                user.getFullName(), photoUrl);
 
         // Cache using same format as UserController
         try {

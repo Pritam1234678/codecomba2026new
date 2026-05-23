@@ -1,15 +1,12 @@
 import api from './api';
 import cache from './cache';
 
-const register = (username, email, password, fullName, rollNumber, branch, phoneNumber) => {
+const register = (username, email, password, fullName) => {
   return api.post('/auth/signup', {
     username,
     email,
     password,
-    fullName,
-    rollNumber,
-    branch,
-    phoneNumber
+    fullName
   });
 };
 

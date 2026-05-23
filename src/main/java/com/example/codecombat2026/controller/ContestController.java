@@ -60,6 +60,7 @@ public class ContestController {
         List<Problem> problems = problemsFuture.join();
 
         List<ProblemDTO> problemDTOs = problems.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActive())) // hide disabled problems from users
                 .map(p -> new ProblemDTO(
                         p.getId(), p.getTitle(), p.getDescription(),
                         p.getInputFormat(), p.getOutputFormat(), p.getConstraints(),

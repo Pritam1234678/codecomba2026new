@@ -20,8 +20,36 @@ frontend/node_modules/
 .DS_Store
 Thumbs.db
 
-# Keys
+# ─── Secrets / credentials ──────────────────────────────────────────────────
+# Catch-all patterns for any cert / key file that may land in the repo.
+# These are intentionally aggressive — false positives are easier to fix
+# than a single leaked credential.
 *.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.cert
+*.der
+*.jks
+*.keystore
+*.truststore
+*.asc
+*.gpg
+*.kdbx
+id_rsa*
+id_ed25519*
+id_ecdsa*
+id_dsa*
+*-key.pem
+*_key.pem
+*-cert.pem
+*_cert.pem
+*.ssh
+ssh-key-*
+*authorized_keys*
+*known_hosts*
 codecombat-key.pem
 
 # Sensitive configuration files
@@ -35,3 +63,6 @@ frontend/.env.production
 
 # Uploaded user files — not for git
 uploads/
+oci_vm_key
+uploads/
+stitch_code_combat_ultimate_arena_design/

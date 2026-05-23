@@ -3,168 +3,252 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 
-const ForgotUsername = () => {
-    const [formData, setFormData] = useState({
-        email: '',
-        phoneNumber: ''
-    });
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
-    const [success, setSuccess] = useState(false);
+const C = {
+    bg:        '#131313',
+    surfaceLow:'#1c1b1b',
+    surfaceCon:'#201f1f',
+    border:    '#50453b',
+    primary:   '#f1bc8b',
+    secondary: '#e9c176',
+    muted:     '#d4c4b7',
+    outline:   '#9d8e83',
+    error:     '#ffb4ab',
+    onBg:      '#e5e2e1',
+};
 
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+const ForgotUsername = () => {
+    const [formData, setFormData] = useState({ email: '' });
+    const [loading, setLoading]   = useState(false);
+    const [message, setMessage]   = useState('');
+    const [success, setSuccess]   = useState(false);
+
+    const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setMessage('');
-        setLoading(true);
-
+        setMessage(''); setLoading(true);
         try {
-            const response = await api.post('/auth/forgot-username', formData);
+            const res = await api.post('/auth/forgot-username', formData);
             setSuccess(true);
-            setMessage(response.data.message);
-        } catch (error) {
+            setMessage(res.data.message);
+        } catch (err) {
             setSuccess(false);
-            const errorMessage = error.response?.data?.message || 'An error occurred. Please try again.';
-            setMessage(errorMessage);
+            setMessage(err.response?.data?.message || 'An error occurred. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center px-4 py-12">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5 }}
-                className="bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-xl border border-white/10 p-8 md:p-12 rounded-2xl shadow-2xl w-full max-w-md"
-            >
-                {/* Header */}
+        <div style={{
+            flex: 1, display: 'flex',
+            backgroundColor: C.bg, color: C.onBg,
+            fontFamily: "'Geist', sans-serif",
+        }}>
+            {/* ── Left cinematic panel ── */}
+            <div style={{
+                flex: '0 0 50%',
+                backgroundColor: C.surfaceCon,
+                borderRight: `1px solid ${C.border}`,
+                position: 'relative',
+                overflow: 'hidden',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+                {/* Grid overlay */}
+                <div style={{
+                    position: 'absolute', inset: 0, zIndex: 1,
+                    backgroundImage: `linear-gradient(to right,rgba(80,69,59,0.15) 1px,transparent 1px),linear-gradient(to bottom,rgba(80,69,59,0.15) 1px,transparent 1px)`,
+                    backgroundSize: '64px 64px',
+                }} />
+                {/* Radial glow */}
+                <div style={{
+                    position: 'absolute', inset: 0, zIndex: 2,
+                    background: 'radial-gradient(ellipse 60% 60% at 50% 50%, rgba(241,188,139,0.06) 0%, transparent 70%)',
+                }} />
+                {/* Wordmark image */}
+                <img
+                    src="/codecombat-wordmark.png"
+                    alt="Code Combat"
+                    style={{
+                        position: 'absolute', inset: 0,
+                        width: '100%', height: '100%',
+                        objectFit: 'cover',
+                        zIndex: 0,
+                    }}
+                />
+            </div>
+
+            {/* ── Right form panel ── */}
+            <div style={{
+                flex: 1,
+                display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                padding: '64px 48px',
+                backgroundColor: C.bg,
+                position: 'relative', zIndex: 10,
+            }}>
                 <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.2 }}
-                    className="text-center mb-8"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                    style={{ width: '100%', maxWidth: '360px', margin: '0 auto' }}
                 >
-                    <h2 className="text-4xl font-bold mb-2">
-                        <span className="text-white">Forgot </span>
-                        <span className="text-green-400">Username?</span>
-                    </h2>
-                    <p className="text-gray-400 text-sm">
-                        We'll send your username to your registered email.
-                    </p>
-                </motion.div>
-
-                {/* Message */}
-                {message && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`border px-4 py-3 rounded-xl mb-6 ${success
-                            ? 'bg-green-500/10 border-green-500/50'
-                            : 'bg-red-500/10 border-red-500/50'
-                            }`}
-                    >
-                        <p className={`text-sm ${success ? 'text-green-300' : 'text-red-300'}`}>
-                            {message}
+                    {/* Header */}
+                    <div style={{ marginBottom: '3rem' }}>
+                        <h1 style={{
+                            fontFamily: "'Playfair Display', serif",
+                            fontSize: '32px', fontWeight: 600,
+                            color: C.onBg, marginBottom: '1rem', lineHeight: 1.2,
+                        }}>
+                            Identity Recovery
+                        </h1>
+                        <p style={{ fontSize: '16px', color: C.muted, lineHeight: 1.5, margin: 0 }}>
+                            Provide your registered credentials. The architectural protocol requires a confirmed match to trace your identity.
                         </p>
-                        {success && (
-                            <div className="mt-3 pt-3 border-t border-green-500/30">
-                                <p className="text-yellow-400 text-sm font-semibold flex items-center gap-2">
-                                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                    </svg>
-                                    If you don't see this email in your inbox, please check your spam/junk folder.
-                                </p>
-                            </div>
-                        )}
-                    </motion.div>
-                )}
+                    </div>
 
-                {!success && (
-                    <motion.form
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.6, delay: 0.3 }}
-                        onSubmit={handleSubmit}
-                        className="space-y-5"
-                    >
-                        {/* Email */}
-                        <div>
-                            <label className="block text-gray-400 text-sm font-medium mb-2">
-                                Registered Email *
-                            </label>
-                            <input
-                                name="email"
-                                type="email"
-                                value={formData.email}
-                                onChange={handleChange}
-                                required
-                                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-                                placeholder="your.email@example.com"
-                            />
-                        </div>
+                    {/* Error */}
+                    {message && !success && (
+                        <motion.div
+                            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                            style={{
+                                marginBottom: '1.5rem', padding: '10px 14px',
+                                border: `1px solid ${C.error}`, borderLeft: `3px solid ${C.error}`,
+                                backgroundColor: 'rgba(255,180,171,0.08)',
+                            }}
+                        >
+                            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error, margin: 0 }}>{message}</p>
+                        </motion.div>
+                    )}
 
-                        {/* Phone Number */}
-                        <div>
-                            <label className="block text-gray-400 text-sm font-medium mb-2">
-                                Registered Phone Number *
-                            </label>
-                            <input
-                                name="phoneNumber"
-                                type="text"
-                                value={formData.phoneNumber}
-                                onChange={handleChange}
-                                required
-                                className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/20 transition-all placeholder-gray-500"
-                                placeholder="+91 1234567890"
-                            />
-                        </div>
-
-                        {/* Submit Button */}
-                        <div className="pt-2">
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                type="submit"
-                                disabled={loading}
-                                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-green-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    {/* Success */}
+                    {success && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                            style={{ textAlign: 'center', padding: '1rem 0' }}>
+                            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', color: C.secondary, marginBottom: '12px' }}>
+                                Identity Traced
+                            </h2>
+                            <p style={{ fontSize: '15px', color: C.muted, lineHeight: 1.6, marginBottom: '1.5rem' }}>{message}</p>
+                            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.secondary, letterSpacing: '0.05em', marginBottom: '2rem' }}>
+                                Check spam/junk if not in inbox.
+                            </p>
+                            <Link to="/login" style={{
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '12px', letterSpacing: '0.1em',
+                                color: C.muted, textDecoration: 'none', transition: 'color 0.2s',
+                            }}
+                                onMouseEnter={e => e.target.style.color = C.secondary}
+                                onMouseLeave={e => e.target.style.color = C.muted}
                             >
+                                ← Return to Authentication
+                            </Link>
+                        </motion.div>
+                    )}
+
+                    {/* Form */}
+                    {!success && (
+                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            {/* Email */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <label style={{
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    fontSize: '12px', letterSpacing: '0.1em',
+                                    color: C.onBg, textTransform: 'uppercase', display: 'block',
+                                }}>
+                                    Email Address
+                                </label>
+                                <input
+                                    name="email" type="email" placeholder="architect@domain.com"
+                                    value={formData.email} onChange={handleChange} required
+                                    style={{
+                                        width: '100%', backgroundColor: 'transparent',
+                                        border: `1px solid ${C.border}`,
+                                        color: C.onBg, fontFamily: "'JetBrains Mono', monospace",
+                                        fontSize: '14px', padding: '12px 16px',
+                                        outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box',
+                                    }}
+                                    onFocus={e => e.target.style.borderColor = C.primary}
+                                    onBlur={e => e.target.style.borderColor = C.border}
+                                />
+                            </div>
+
+                            {/* Submit */}
+                            <SlideButton type="submit" disabled={loading}>
                                 {loading ? (
-                                    <span className="flex items-center justify-center gap-2">
-                                        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <svg style={{ animation: 'spin 1s linear infinite', width: '14px', height: '14px' }} viewBox="0 0 24 24">
+                                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
+                                            <path fill="currentColor" opacity="0.75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                         </svg>
                                         Sending...
                                     </span>
-                                ) : (
-                                    'Send Username'
-                                )}
-                            </motion.button>
-                        </div>
-                    </motion.form>
-                )}
+                                ) : 'Initiate Trace'}
+                            </SlideButton>
+                        </form>
+                    )}
 
-                {/* Back to Login */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.6, delay: 0.5 }}
-                    className="mt-6 text-center"
-                >
-                    <Link
-                        to="/login"
-                        className="text-green-400 hover:text-green-300 text-sm font-semibold transition-colors"
-                    >
-                        ← Back to Login
-                    </Link>
+                    {/* Footer mechanics */}
+                    {!success && (
+                        <div style={{ marginTop: '3rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                            {/* Security note */}
+                            <div style={{
+                                padding: '1rem',
+                                border: `1px solid ${C.border}`,
+                                backgroundColor: C.surfaceLow,
+                            }}>
+                                <p style={{
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    fontSize: '13px', color: C.muted, lineHeight: 1.6, margin: 0,
+                                }}>
+                                    We will never share your identity. Data is encrypted within the arena's core architecture.
+                                </p>
+                            </div>
+
+                            {/* Back link */}
+                            <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                <Link to="/login" style={{
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    fontSize: '12px', letterSpacing: '0.1em',
+                                    color: C.muted, textDecoration: 'none',
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    transition: 'color 0.2s',
+                                }}
+                                    onMouseEnter={e => e.currentTarget.style.color = C.secondary}
+                                    onMouseLeave={e => e.currentTarget.style.color = C.muted}
+                                >
+                                    ← Return to Authentication
+                                </Link>
+                            </div>
+                        </div>
+                    )}
                 </motion.div>
-            </motion.div>
+            </div>
+
+            <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
         </div>
+    );
+};
+
+const SlideButton = ({ children, type = 'button', disabled = false }) => {
+    const [hovered, setHovered] = React.useState(false);
+    return (
+        <button type={type} disabled={disabled}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                width: '100%',
+                border: '1px solid #f1bc8b',
+                backgroundColor: hovered && !disabled ? '#f1bc8b' : 'transparent',
+                color: hovered && !disabled ? '#131313' : '#f1bc8b',
+                padding: '16px', cursor: disabled ? 'not-allowed' : 'pointer',
+                opacity: disabled ? 0.4 : 1, transition: 'all 0.3s',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '12px', letterSpacing: '0.1em',
+                fontWeight: 500, textTransform: 'uppercase',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            }}
+        >
+            {children}
+        </button>
     );
 };
 

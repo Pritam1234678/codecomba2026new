@@ -19,4 +19,8 @@ public class SubmissionJob {
     private String code;
     private String language;
     private Double timeLimit;
+    /** Memory limit in MB (sandbox enforces via prlimit). */
+    private Integer memoryLimit;
+    /** true = test run (not saved to DB, no leaderboard update) */
+    private boolean testRun = false;
 }

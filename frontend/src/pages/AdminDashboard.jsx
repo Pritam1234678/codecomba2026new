@@ -1,201 +1,368 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { gsap } from 'gsap';
-import AdminService from '../services/admin.service';
-import AuthService from '../services/auth.service';
+import { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import api from '../services/api';
-import cache from '../services/cache';
+
+const C = {
+    bg:         '#131313',
+    surface:    '#131313',
+    surfaceCon: '#201f1f',
+    surfaceLow: '#1c1b1b',
+    surfaceMin: '#0e0e0e',
+    surfaceHi:  '#2a2a2a',
+    border:     '#50453b',
+    borderThin: 'rgba(80,69,59,0.6)',
+    primary:    '#f1bc8b',
+    secondary:  '#e9c176',
+    muted:      '#d4c4b7',
+    outline:    '#9d8e83',
+    onBg:       '#e5e2e1',
+    error:      '#ffb4ab',
+};
 
 const AdminDashboard = () => {
-  const [userStats, setUserStats] = useState({ total: 0, enabled: 0, disabled: 0 });
-  const [contestStats, setContestStats] = useState({ total: 0, active: 0, inactive: 0 });
-  const [adminProfile, setAdminProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+    const location = useLocation();
+    const [userStats,    setUserStats]    = useState({ total: 0, enabled: 0, disabled: 0 });
+    const [contestStats, setContestStats] = useState({ total: 0, active: 0, inactive: 0 });
+    const [adminProfile, setAdminProfile] = useState(null);
+    const [loading,      setLoading]      = useState(true);
 
-  const headerRef = useRef(null);
-  const profileRef = useRef(null);
-  const actionsRef = useRef(null);
+    useEffect(() => {
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (user) setAdminProfile(user);
+        api.get('/admin/dashboard')
+            .then(res => {
+                const { userStats, contestStats, profile } = res.data;
+                setUserStats(userStats);
+                setContestStats(contestStats);
+                if (profile) setAdminProfile(profile);
+            })
+            .catch(() => {})
+            .finally(() => setLoading(false));
+    }, []);
 
-  useEffect(() => {
-    // Profile from localStorage — instant, no API call needed
-    const localUser = AuthService.getCurrentUser();
-    if (localUser) {
-      setAdminProfile(localUser);
-      setLoading(false); // Show dashboard immediately with local data
-    }
+    const stats = [
+        { label: 'Total Users',      value: userStats.total,      sub: `${userStats.enabled} enabled`,       icon: 'group' },
+        { label: 'Active Contests',  value: contestStats.active,  sub: `${contestStats.total} total`,        icon: 'military_tech' },
+        { label: 'Disabled Users',   value: userStats.disabled,   sub: 'accounts blocked',                   icon: 'block' },
+        { label: 'Total Contests',   value: contestStats.total,   sub: `${contestStats.inactive} inactive`,  icon: 'emoji_events' },
+    ];
 
-    // Fetch stats in background — updates numbers when ready
-    api.get('/admin/dashboard')
-      .then(res => {
-        const { userStats, contestStats, profile } = res.data;
-        setUserStats(userStats);
-        setContestStats(contestStats);
-        // Refresh profile with server data (photo URL, latest info)
-        if (profile) setAdminProfile(profile);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
-  }, []);
-
-  useEffect(() => {
-    if (!loading && headerRef.current) {
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-
-      tl.from(headerRef.current, {
-        opacity: 0,
-        y: 30,
-        duration: 0.8
-      })
-        .from(profileRef.current, {
-          opacity: 0,
-          y: 20,
-          duration: 0.6
-        }, '-=0.4')
-        .from(actionsRef.current, {
-          opacity: 0,
-          y: 20,
-          duration: 0.6
-        }, '-=0.2');
-    }
-  }, [loading]);
-
-  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-400 text-lg">Loading...</div>
-      </div>
+        <div style={{
+            backgroundColor: C.bg,
+            color: C.onBg,
+            fontFamily: "'Geist', sans-serif",
+            flex: 1,
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+        }}>
+            {/* ── Main Canvas ── */}
+            <main style={{ flex: 1, padding: '32px 48px 32px', backgroundColor: C.bg, display: 'flex', flexDirection: 'column' }}>
+
+                {/* Header */}
+                <motion.header
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                    style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+                        marginBottom: '2rem',
+                        paddingBottom: '1.5rem',
+                        borderBottom: `1px solid ${C.border}`,
+                    }}
+                >
+                    <div>
+                        <h2 style={{
+                            fontFamily: "'Playfair Display', serif",
+                            fontSize: '40px', fontWeight: 700,
+                            lineHeight: 1.1, letterSpacing: '-0.02em',
+                            color: C.onBg, marginBottom: '6px',
+                        }}>
+                            Command Center
+                        </h2>
+                        <p style={{ fontSize: '15px', color: C.muted, lineHeight: 1.5, maxWidth: '400px' }}>
+                            Global system oversight and administrative control. All systems operational.
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '16px', flexShrink: 0 }}>
+                        <Link
+                            to="/admin/contests/create"
+                            style={{
+                                padding: '12px 24px',
+                                border: `1px solid ${C.secondary}`,
+                                color: C.secondary,
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '12px', letterSpacing: '0.1em',
+                                textTransform: 'uppercase',
+                                textDecoration: 'none',
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                transition: 'all 0.2s',
+                                backgroundColor: 'transparent',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.secondary; }}
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add</span>
+                            Create Contest
+                        </Link>
+                        <Link
+                            to="/admin/users"
+                            style={{
+                                padding: '12px 24px',
+                                border: `1px solid ${C.border}`,
+                                color: C.onBg,
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '12px', letterSpacing: '0.1em',
+                                textTransform: 'uppercase',
+                                textDecoration: 'none',
+                                transition: 'border-color 0.2s',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.borderColor = C.secondary}
+                            onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
+                        >
+                            Manage Users
+                        </Link>
+                    </div>
+                </motion.header>
+
+                {/* Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '16px', alignItems: 'stretch', flex: 1 }}>
+
+                    {/* System Health — 8 cols */}
+                    <motion.section
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.1 }}
+                        style={{
+                            gridColumn: 'span 8',
+                            backgroundColor: C.surfaceCon,
+                            border: `1px solid ${C.border}`,
+                            padding: '1.5rem',
+                            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                            <h3 style={{
+                                fontFamily: "'Playfair Display', serif",
+                                fontSize: '28px', fontWeight: 600,
+                                color: C.onBg,
+                                display: 'flex', alignItems: 'center', gap: '12px',
+                            }}>
+                                <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: C.primary, display: 'inline-block', animation: 'pulse 2s infinite' }} />
+                                System Health
+                            </h3>
+                            <span style={{
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '11px', letterSpacing: '0.15em',
+                                color: C.primary,
+                                border: `1px solid ${C.primary}`,
+                                padding: '4px 12px',
+                            }}>
+                                LIVE METRICS
+                            </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px', marginTop: 'auto' }}>
+                            {[
+                                { label: 'Total Users',    value: loading ? '—' : userStats.total },
+                                { label: 'Total Contests', value: loading ? '—' : contestStats.total },
+                                { label: 'Active Contests',value: loading ? '—' : contestStats.active },
+                            ].map(({ label, value }) => (
+                                <div key={label} style={{ borderTop: `1px solid ${C.border}`, paddingTop: '1rem' }}>
+                                    <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', marginBottom: '8px' }}>
+                                        {label}
+                                    </p>
+                                    <p style={{ fontFamily: "'Playfair Display', serif", fontSize: '40px', fontWeight: 300, color: C.onBg, margin: 0 }}>
+                                        {value}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.section>
+
+                    {/* Quick Actions — 4 cols */}
+                    <motion.section
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                        style={{
+                            gridColumn: 'span 4',
+                            backgroundColor: C.surfaceCon,
+                            border: `1px solid ${C.border}`,
+                            borderTop: `2px solid ${C.secondary}`,
+                            padding: '1.5rem',
+                            display: 'flex', flexDirection: 'column',
+                        }}
+                    >
+                        <h3 style={{
+                            fontFamily: "'Playfair Display', serif",
+                            fontSize: '20px', fontWeight: 600,
+                            color: C.secondary,
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            marginBottom: '1rem',
+                        }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>bolt</span>
+                            Quick Actions
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1, justifyContent: 'space-between' }}>
+                            {[
+                                { to: '/admin/users',    label: 'Manage Users',    icon: 'group' },
+                                { to: '/admin/contests', label: 'Manage Contests', icon: 'military_tech' },
+                                { to: '/admin/leaderboard', label: 'Leaderboard', icon: 'leaderboard' },
+                                { to: '/admin/platform-details', label: 'Platform Details', icon: 'tune' },
+                            ].map(({ to, label, icon }) => (
+                                <Link
+                                    key={to}
+                                    to={to}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '12px',
+                                        padding: '12px 16px',
+                                        border: `1px solid ${C.border}`,
+                                        textDecoration: 'none',
+                                        color: C.muted,
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                        fontSize: '12px', letterSpacing: '0.08em',
+                                        transition: 'all 0.2s',
+                                        backgroundColor: 'transparent',
+                                    }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; e.currentTarget.style.backgroundColor = 'rgba(96,68,3,0.15)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{icon}</span>
+                                    {label}
+                                    <span style={{ marginLeft: 'auto', opacity: 0.4 }}>→</span>
+                                </Link>
+                            ))}
+                        </div>
+                    </motion.section>
+
+                    {/* Stat Cards — 12 cols */}
+                    <motion.section
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.3 }}
+                        style={{
+                            gridColumn: 'span 12',
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(4, 1fr)',
+                            gap: '16px',
+                        }}
+                    >
+                        {stats.map(({ label, value, sub, icon }) => (
+                            <div
+                                key={label}
+                                style={{
+                                    backgroundColor: C.surface,
+                                    border: `1px solid ${C.border}`,
+                                    padding: '1rem',
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    transition: 'border-color 0.2s',
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.borderColor = C.secondary}
+                                onMouseLeave={e => e.currentTarget.style.borderColor = C.border}
+                            >
+                                {/* Left accent bar */}
+                                <div style={{ position: 'absolute', top: 0, left: 0, width: '3px', height: '100%', backgroundColor: C.secondary }} />
+                                <p style={{
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    fontSize: '11px', letterSpacing: '0.1em',
+                                    color: C.outline, textTransform: 'uppercase',
+                                    marginBottom: '1rem',
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{icon}</span>
+                                    {label}
+                                </p>
+                                <p style={{
+                                    fontFamily: "'Playfair Display', serif",
+                                    fontSize: '28px', fontWeight: 600,
+                                    color: C.onBg, margin: 0,
+                                }}>
+                                    {loading ? '—' : value}
+                                </p>
+                                <p style={{
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    fontSize: '12px', color: C.primary,
+                                    marginTop: '8px', margin: '8px 0 0',
+                                }}>
+                                    {sub}
+                                </p>
+                            </div>
+                        ))}
+                    </motion.section>
+
+                    {/* Profile Info — 12 cols */}
+                    <motion.section
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.4 }}
+                        style={{
+                            gridColumn: 'span 12',
+                            backgroundColor: C.surfaceCon,
+                            border: `1px solid ${C.border}`,
+                            padding: '1.5rem',
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h3 style={{
+                                fontFamily: "'Playfair Display', serif",
+                                fontSize: '20px', fontWeight: 600,
+                                color: C.onBg,
+                            }}>
+                                Administrator Profile
+                            </h3>
+                            <Link
+                                to="/profile/edit"
+                                style={{
+                                    padding: '10px 24px',
+                                    border: `1px solid ${C.border}`,
+                                    color: C.muted,
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    fontSize: '12px', letterSpacing: '0.1em',
+                                    textTransform: 'uppercase',
+                                    textDecoration: 'none',
+                                    transition: 'all 0.2s',
+                                }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
+                            >
+                                Edit Profile
+                            </Link>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+                            {[
+                                { label: 'Username',    value: adminProfile?.username   || '—' },
+                                { label: 'Full Name',   value: adminProfile?.fullName   || '—' },
+                                { label: 'Email',       value: adminProfile?.email      || '—' },
+                                { label: 'Roll Number', value: adminProfile?.rollNumber || '—' },
+                            ].map(({ label, value }) => (
+                                <div key={label} style={{ borderTop: `1px solid ${C.border}`, paddingTop: '1rem' }}>
+                                    <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', marginBottom: '6px' }}>
+                                        {label}
+                                    </p>
+                                    <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '15px', color: C.onBg, margin: 0 }}>
+                                        {value}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </motion.section>
+                </div>
+            </main>
+
+            <style>{`
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.4; }
+                }
+                .material-symbols-outlined {
+                    font-variation-settings: 'FILL' 0, 'wght' 300;
+                }
+            `}</style>
+        </div>
     );
-  }
-
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
-      {/* Header Section */}
-      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-sm border border-white/20 rounded-xl flex items-center justify-center shadow-lg overflow-hidden shrink-0">
-            {adminProfile?.photoUrl ? (
-              <img
-                src={adminProfile.photoUrl}
-                alt={adminProfile?.fullName || adminProfile?.username}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-2xl font-bold text-gray-100">
-                {adminProfile?.username?.charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
-          <div className="flex-1">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold mb-1 bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent">
-              Admin Dashboard
-            </h1>
-            <p className="text-xs sm:text-sm text-gray-500">
-              Logged in as <span className="text-gray-300 font-medium">{adminProfile?.username}</span>
-            </p>
-          </div>
-          <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-            <Link
-              to="/profile/edit"
-              className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-sm sm:text-base font-semibold rounded-xl shadow-lg shadow-green-500/30 transition-all transform hover:scale-105 flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Edit Profile
-            </Link>
-            <div className="sm:text-right">
-              <div className="text-xs font-medium bg-linear-to-r from-white/10 to-red-900 bg-clip-text text-transparent uppercase tracking-wide mb-1">Role</div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-                <span className="text-xs sm:text-sm bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent font-medium">Administrator</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Profile Card */}
-      <div ref={profileRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
-        <h2 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-3 sm:mb-4">Profile Information</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-          <div>
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Email</div>
-            <div className="text-sm text-gray-300 font-mono">{adminProfile?.email || '—'}</div>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Full Name</div>
-            <div className="text-sm text-gray-300">{adminProfile?.fullName || '—'}</div>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Roll Number</div>
-            <div className="text-sm text-gray-300 font-mono">{adminProfile?.rollNumber || '—'}</div>
-          </div>
-          <div>
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Branch</div>
-            <div className="text-sm text-gray-300">{adminProfile?.branch || '—'}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Statistics Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl hover:border-white/30 transition-all">
-          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Total Users</div>
-          <div className="text-2xl sm:text-3xl font-bold text-gray-100">{userStats.total}</div>
-        </div>
-        <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl hover:border-white/30 transition-all">
-          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Enabled Users</div>
-          <div className="text-3xl font-bold text-gray-100">{userStats.enabled}</div>
-        </div>
-        <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl hover:border-white/30 transition-all">
-          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Total Contests</div>
-          <div className="text-3xl font-bold text-gray-100">{contestStats.total}</div>
-        </div>
-        <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-3xl p-6 shadow-xl hover:border-white/30 transition-all">
-          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Active Contests</div>
-          <div className="text-3xl font-bold text-gray-100">{contestStats.active}</div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div ref={actionsRef} className="bg-linear-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
-        <h2 className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-3 sm:mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <Link
-            to="/admin/users"
-            className="bg-white/5 backdrop-blur-sm border border-white/20 hover:border-white/30 rounded-xl p-4 transition-all hover:shadow-lg hover:scale-105 hover:shadow-green-500/30"
-          >
-            <div className="text-gray-100 font-medium mb-1">Manage Users</div>
-            <div className="text-xs text-gray-500">View and manage all users</div>
-          </Link>
-          <Link
-            to="/admin/contests"
-            className="bg-white/5 backdrop-blur-sm border border-white/20 hover:border-white/30 rounded-xl p-4 transition-all hover:shadow-lg hover:scale-105 hover:shadow-green-500/30"
-          >
-            <div className="text-gray-100 font-medium mb-1">Manage Contests</div>
-            <div className="text-xs text-gray-500">Create and manage contests</div>
-          </Link>
-          <Link
-            to="/admin/leaderboard"
-            className="bg-white/5 backdrop-blur-sm border border-white/20 hover:border-white/30 rounded-xl p-4 transition-all hover:shadow-lg hover:scale-105 hover:shadow-green-500/30"
-          >
-            <div className="text-gray-100 font-medium mb-1">Leaderboard</div>
-            <div className="text-xs text-gray-500">View rankings</div>
-          </Link>
-          <Link
-            to="/admin/platform-details"
-            className="bg-white/5 backdrop-blur-sm border border-white/20 hover:border-white/30 rounded-xl p-4 transition-all hover:shadow-lg hover:scale-105 hover:shadow-green-500/30 "
-          >
-            <div className="text-gray-100 font-medium mb-1">Platform Details</div>
-            <div className="text-xs text-gray-500">View platform information</div>
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
 };
 
 export default AdminDashboard;

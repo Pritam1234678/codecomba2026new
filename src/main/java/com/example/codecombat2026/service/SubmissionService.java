@@ -34,6 +34,9 @@ public class SubmissionService {
     /**
      * Async submit — saves PENDING to MySQL, pushes job to Valkey queue,
      * returns immediately (< 10ms). Worker pool handles execution.
+     *
+     * Upsert logic: if user already has a NON-PENDING submission for this problem,
+     * we update it. Otherwise create a new row.
      */
     @Transactional
     public Submission submitCodeAsync(Long userId, Long problemId,
@@ -43,8 +46,25 @@ public class SubmissionService {
         Problem problem = problemRepository.findById(problemId)
             .orElseThrow(() -> new ResourceNotFoundException("Problem not found"));
 
-        // Upsert: update existing submission or create new one
-        Submission submission = submissionRepository.findByUser_IdAndProblem_Id(userId, problemId);
+        // Look at the latest submission for this user+problem.
+        // If it's a finished real submission → reuse the row.
+        // If it's PENDING/JUDGING → leave it (could be in flight) and create new.
+        // If it's a test run row → create a new one (don't overwrite tests).
+        List<Submission> existing = submissionRepository.findByUser_IdAndProblem_IdOrderBySubmittedAtDesc(
+            userId, problemId, org.springframework.data.domain.PageRequest.of(0, 1));
+
+        Submission submission = null;
+        if (!existing.isEmpty()) {
+            Submission latest = existing.get(0);
+            Submission.SubmissionStatus s = latest.getStatus();
+            // Reuse only if it's a finished verdict (AC/WA/CE/RE/TLE/MLE)
+            if (s == Submission.SubmissionStatus.AC || s == Submission.SubmissionStatus.WA
+                || s == Submission.SubmissionStatus.CE || s == Submission.SubmissionStatus.RE
+                || s == Submission.SubmissionStatus.TLE || s == Submission.SubmissionStatus.MLE) {
+                submission = latest;
+            }
+        }
+
         if (submission == null) {
             submission = new Submission();
             submission.setUser(user);
@@ -63,7 +83,7 @@ public class SubmissionService {
         submission.setTestCaseDetails(null);
         submission.setTimeConsumed(null);
         submission.setUserName(user.getUsername());
-        submission.setUserRoll(user.getRollNumber());
+        submission.setUserRoll(null);
         submission.setProblemName(problem.getTitle());
 
         submission = submissionRepository.save(submission);
@@ -73,7 +93,9 @@ public class SubmissionService {
         SubmissionJob job = new SubmissionJob(
             submission.getId(), userId, problemId, contestId,
             code, language.name(),
-            problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0
+            problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0,
+            problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256,
+            false  // isTestRun = false
         );
 
         try {
@@ -82,7 +104,6 @@ public class SubmissionService {
             log.debug("Submission {} queued for async judging", submission.getId());
         } catch (Exception e) {
             log.error("Failed to queue submission {}: {}", submission.getId(), e.getMessage());
-            // Fallback: mark as error so user knows something went wrong
             submission.setStatus(Submission.SubmissionStatus.RE);
             submission.setErrorMessage("Failed to queue submission. Please try again.");
             submissionRepository.save(submission);
@@ -91,8 +112,57 @@ public class SubmissionService {
         return submission;
     }
 
+    /**
+     * Test run — saves to DB with isTestRun flag, pushes job to queue.
+     * Verdict arrives via polling on /submissions/{id}/status.
+     */
+    @Transactional
+    public Submission testCodeAsync(Long userId, Long problemId,
+                                    String code, Submission.ProgrammingLanguage language) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Problem problem = problemRepository.findById(problemId)
+            .orElseThrow(() -> new ResourceNotFoundException("Problem not found"));
+
+        // Create a temporary submission for test run (separate from real submission)
+        // We use a new submission each time so it doesn't overwrite the real one
+        Submission submission = new Submission();
+        submission.setUser(user);
+        submission.setProblem(problem);
+        submission.setContest(problem.getContest());
+        submission.setCode(code);
+        submission.setLanguage(language);
+        submission.setStatus(Submission.SubmissionStatus.PENDING);
+        submission.setSubmittedAt(TimeUtil.now());
+        submission.setUserName(user.getUsername());
+        submission.setUserRoll(null);
+        submission.setProblemName(problem.getTitle());
+        submission = submissionRepository.save(submission);
+
+        Long contestId = problem.getContest() != null ? problem.getContest().getId() : null;
+        SubmissionJob job = new SubmissionJob(
+            submission.getId(), userId, problemId, contestId,
+            code, language.name(),
+            problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0,
+            problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256,
+            true  // isTestRun = true — no leaderboard update
+        );
+
+        try {
+            String jobJson = objectMapper.writeValueAsString(job);
+            redis.opsForList().leftPush(SubmissionWorkerPool.QUEUE_KEY, jobJson);
+            log.debug("Test run {} queued for user {} problem {}", submission.getId(), userId, problemId);
+        } catch (Exception e) {
+            log.error("Failed to queue test run: {}", e.getMessage());
+        }
+
+        return submission;
+    }
+
     public Submission getSubmission(Long userId, Long problemId) {
-        return submissionRepository.findByUser_IdAndProblem_Id(userId, problemId);
+        List<Submission> results = submissionRepository.findByUser_IdAndProblem_IdOrderBySubmittedAtDesc(
+            userId, problemId, org.springframework.data.domain.PageRequest.of(0, 1));
+        return results.isEmpty() ? null : results.get(0);
     }
 
     public List<Submission> getUserSubmissions(Long userId) {

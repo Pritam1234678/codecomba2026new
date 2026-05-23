@@ -6,20 +6,32 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.ThreadLocalRandom;
+
+/**
+ * Email sender with bounded exponential backoff for transient SMTP failures.
+ *
+ * Gmail SMTP returns 421/4xx for rate limiting and connection issues — those
+ * are exactly the failures worth retrying. 5xx errors (auth, malformed) fail
+ * fast on the first attempt.
+ */
 @Service
 public class EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
+    private static final int MAX_ATTEMPTS = 3;
+    private static final long BASE_DELAY_MS = 500;
+
     @Autowired
     private JavaMailSender mailSender;
 
-    // Read from env — no hardcoded URLs
     @Value("${APP_URL:https://codecombat.live}")
     private String appUrl;
 
@@ -47,6 +59,34 @@ public class EmailService {
             + "</div></div></body></html>";
     }
 
+    /**
+     * Send a MIME message with bounded exponential backoff + jitter.
+     * Returns normally on success; throws after final failure.
+     */
+    private void sendWithRetry(MimeMessage msg) throws MessagingException {
+        MailException last = null;
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                mailSender.send(msg);
+                if (attempt > 1) log.info("Email delivered on attempt {}", attempt);
+                return;
+            } catch (MailException e) {
+                last = e;
+                log.warn("Email attempt {}/{} failed: {}", attempt, MAX_ATTEMPTS, e.getMessage());
+                if (attempt < MAX_ATTEMPTS) {
+                    long backoff = BASE_DELAY_MS * (1L << (attempt - 1)); // 500, 1000, 2000ms
+                    long jitter = ThreadLocalRandom.current().nextLong(0, 200);
+                    try { Thread.sleep(backoff + jitter); }
+                    catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new MessagingException("Retry interrupted", ie);
+                    }
+                }
+            }
+        }
+        throw new MessagingException("Email send failed after " + MAX_ATTEMPTS + " attempts", last);
+    }
+
     private void sendHtml(String to, String subject, String content) throws MessagingException {
         MimeMessage msg = mailSender.createMimeMessage();
         MimeMessageHelper h = new MimeMessageHelper(msg, true, "UTF-8");
@@ -54,7 +94,7 @@ public class EmailService {
         h.setTo(to);
         h.setSubject(subject);
         h.setText(wrap(content), true);
-        mailSender.send(msg);
+        sendWithRetry(msg);
     }
 
     // ─── Public methods ───────────────────────────────────────────────────────
@@ -77,10 +117,10 @@ public class EmailService {
                 + "</div>";
 
             h.setText(wrap(content), true);
-            mailSender.send(msg);
+            sendWithRetry(msg);
         } catch (Exception e) {
-            log.error("Failed to send support email: {}", e.getMessage());
-            throw new RuntimeException("Failed to send email: " + e.getMessage());
+            log.error("Failed to send support email after retries: {}", e.getMessage());
+            throw new RuntimeException("Failed to send email", e);
         }
     }
 
@@ -103,7 +143,7 @@ public class EmailService {
 
             sendHtml(userEmail, "Welcome to CodeCombat! 🎉", content);
         } catch (Exception e) {
-            log.error("Failed to send welcome email to {}: {}", userEmail, e.getMessage());
+            log.error("Failed to send welcome email to {} after retries: {}", userEmail, e.getMessage());
             // Don't throw — welcome email failure shouldn't block registration
         }
     }
@@ -127,8 +167,8 @@ public class EmailService {
 
             sendHtml(userEmail, "Password Reset Request - CodeCombat", content);
         } catch (Exception e) {
-            log.error("Failed to send password reset email to {}: {}", userEmail, e.getMessage());
-            throw new RuntimeException("Failed to send password reset email: " + e.getMessage());
+            log.error("Failed to send password reset email to {} after retries: {}", userEmail, e.getMessage());
+            throw new RuntimeException("Failed to send password reset email", e);
         }
     }
 
@@ -149,8 +189,8 @@ public class EmailService {
             log.info("Username recovery email sent to {}", userEmail);
 
         } catch (MessagingException e) {
-            log.error("HTML email failed for {}, trying plain text: {}", userEmail, e.getMessage());
-            // Fallback to plain text
+            // HTML send failed across all retries — try plain-text once as a last resort
+            log.error("HTML email failed for {}, trying plain text fallback: {}", userEmail, e.getMessage());
             try {
                 SimpleMailMessage plain = new SimpleMailMessage();
                 plain.setFrom("no-reply@codecombat.live");
@@ -161,11 +201,11 @@ public class EmailService {
                 mailSender.send(plain);
             } catch (Exception fallback) {
                 log.error("Plain text fallback also failed: {}", fallback.getMessage());
-                throw new RuntimeException("Failed to send username recovery email: " + e.getMessage());
+                throw new RuntimeException("Failed to send username recovery email", e);
             }
         } catch (Exception e) {
             log.error("Failed to send username recovery email to {}: {}", userEmail, e.getMessage());
-            throw new RuntimeException("Failed to send username recovery email: " + e.getMessage());
+            throw new RuntimeException("Failed to send username recovery email", e);
         }
     }
 }

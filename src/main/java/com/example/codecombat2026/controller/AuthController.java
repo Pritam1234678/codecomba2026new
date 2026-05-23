@@ -11,6 +11,8 @@ import com.example.codecombat2026.repository.UserRepository;
 import com.example.codecombat2026.security.jwt.JwtUtils;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -29,6 +31,9 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+
     @Autowired
     AuthenticationManager authenticationManager;
 
@@ -93,13 +98,6 @@ public class AuthController {
                     "Error: Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one special character (@ # $ % & * !)."));
         }
 
-        // Phone Validation: 10 digits, starts with 6,7,8,9
-        String phonePattern = "^[6-9]\\d{9}$";
-        if (signUpRequest.getPhoneNumber() == null || !signUpRequest.getPhoneNumber().matches(phonePattern)) {
-            return ResponseEntity.badRequest().body(new MessageResponse(
-                    "Error: Phone number must be exactly 10 digits and start with 6, 7, 8, or 9."));
-        }
-
         // 2. Uniqueness Validations
         if (userRepository.existsByUsername(signUpRequest.getUsername())) {
             return ResponseEntity.badRequest().body(new MessageResponse("Error: Username is already taken!"));
@@ -109,50 +107,12 @@ public class AuthController {
             return ResponseEntity.badRequest().body(new MessageResponse("Error: Email is already in use!"));
         }
 
-        if (userRepository.existsByPhoneNumber(signUpRequest.getPhoneNumber())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Phone number is already in use!"));
-        }
-
-        if (signUpRequest.getRollNumber() != null && userRepository.existsByRollNumber(signUpRequest.getRollNumber())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Error: Roll number is already registered!"));
-        }
-
-        // 3. Cross-Field Validations
-        String username = signUpRequest.getUsername();
-        String email = signUpRequest.getEmail();
-        String phone = signUpRequest.getPhoneNumber();
-        String roll = signUpRequest.getRollNumber();
-        String password = signUpRequest.getPassword();
-
-        // Check for duplicate values among fields
-        Set<String> uniqueFields = new HashSet<>();
-        uniqueFields.add(username);
-        uniqueFields.add(email);
-        uniqueFields.add(phone);
-        if (roll != null)
-            uniqueFields.add(roll);
-
-        int expectedCount = (roll != null) ? 4 : 3;
-        if (uniqueFields.size() != expectedCount) {
-            return ResponseEntity.badRequest().body(new MessageResponse(
-                    "Error: Username, Email, Phone Number, and Roll Number must all be unique from each other."));
-        }
-
-        // Password matching other fields
-        if (password.equals(username) || password.equals(email) || password.equals(roll)) {
-            return ResponseEntity.badRequest().body(
-                    new MessageResponse("Error: Password cannot be easier same as Username, Email, or Roll Number."));
-        }
-
         // Create new user's account
         User user = new User(signUpRequest.getUsername(),
                 signUpRequest.getEmail(),
                 encoder.encode(signUpRequest.getPassword()));
 
         user.setFullName(signUpRequest.getFullName());
-        user.setRollNumber(signUpRequest.getRollNumber());
-        user.setBranch(signUpRequest.getBranch());
-        user.setPhoneNumber(signUpRequest.getPhoneNumber());
 
         Set<String> strRoles = signUpRequest.getRole();
         Set<Role> roles = new HashSet<>();
@@ -185,7 +145,7 @@ public class AuthController {
             emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
         } catch (Exception e) {
             // Log error but don't fail registration
-            System.err.println("Failed to send welcome email: " + e.getMessage());
+            log.warn("Failed to send welcome email to {}: {}", user.getEmail(), e.getMessage());
         }
 
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
@@ -198,35 +158,23 @@ public class AuthController {
     public ResponseEntity<?> forgotPassword(@RequestBody java.util.Map<String, String> request) {
         String username = request.get("username");
         String email = request.get("email");
-        String phoneNumber = request.get("phoneNumber");
 
-        // Validate all three fields match the same user
         java.util.Optional<User> userOpt = userRepository.findByUsername(username);
 
-        if (userOpt.isEmpty() ||
-                !userOpt.get().getEmail().equals(email) ||
-                !userOpt.get().getPhoneNumber().equals(phoneNumber)) {
+        if (userOpt.isEmpty() || !userOpt.get().getEmail().equals(email)) {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("The provided details do not match our records."));
         }
 
         User user = userOpt.get();
-
-        // Delete any existing tokens for this user
         passwordResetTokenRepository.deleteByUser(user);
 
-        // Generate new token
         String token = java.util.UUID.randomUUID().toString();
-        com.example.codecombat2026.entity.PasswordResetToken resetToken = new com.example.codecombat2026.entity.PasswordResetToken(
-                token, user);
+        com.example.codecombat2026.entity.PasswordResetToken resetToken = new com.example.codecombat2026.entity.PasswordResetToken(token, user);
         passwordResetTokenRepository.save(resetToken);
 
-        // Send password reset email
         try {
-            emailService.sendPasswordResetEmail(
-                    user.getEmail(),
-                    user.getFullName() != null ? user.getFullName() : "user",
-                    token);
+            emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName() != null ? user.getFullName() : "user", token);
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(new MessageResponse("Failed to send password reset email. Please try again later."));
@@ -301,14 +249,12 @@ public class AuthController {
     @PostMapping("/forgot-username")
     public ResponseEntity<?> forgotUsername(@RequestBody java.util.Map<String, String> request) {
         String email = request.get("email");
-        String phoneNumber = request.get("phoneNumber");
 
-        // Use indexed query — email and phoneNumber are indexed columns
-        java.util.Optional<User> userOpt = userRepository.findByEmailAndPhoneNumber(email, phoneNumber);
+        java.util.Optional<User> userOpt = userRepository.findByEmail(email);
 
         if (userOpt.isEmpty()) {
             return ResponseEntity.badRequest()
-                    .body(new MessageResponse("The provided details do not match our records."));
+                    .body(new MessageResponse("No account found with this email."));
         }
 
         User user = userOpt.get();

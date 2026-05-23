@@ -1,0 +1,154 @@
+package com.example.codecombat2026.controller;
+
+import com.example.codecombat2026.dto.ProblemDTO;
+import com.example.codecombat2026.entity.Problem;
+import com.example.codecombat2026.entity.User;
+import com.example.codecombat2026.entity.UserProblemSolved;
+import com.example.codecombat2026.repository.ProblemRepository;
+import com.example.codecombat2026.repository.UserProblemSolvedRepository;
+import com.example.codecombat2026.repository.UserRepository;
+import com.example.codecombat2026.security.services.UserDetailsImpl;
+import com.example.codecombat2026.service.PracticeService;
+import com.example.codecombat2026.service.PracticeService.PracticeVerdict;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * Practice mode controller — separate from contest submission flow.
+ * GET /api/practice/problems  — all active problems with user's solved flag
+ * POST /api/practice/run      — judge user's code against the problem harness
+ * GET /api/practice/stats     — user's points + solved count
+ */
+@RestController
+@RequestMapping("/api/practice")
+@CrossOrigin(origins = "*", maxAge = 3600)
+public class PracticeController {
+
+    @Autowired private ProblemRepository problemRepository;
+    @Autowired private UserProblemSolvedRepository solvedRepository;
+    @Autowired private UserRepository userRepository;
+    @Autowired private PracticeService practiceService;
+
+    /** Returns all active problems with a "solved" flag for the current user. */
+    @GetMapping("/problems")
+    @PreAuthorize("isAuthenticated()")
+    public List<PracticeProblemDTO> listProblems(@AuthenticationPrincipal UserDetailsImpl user) {
+        Set<Long> solvedIds = solvedRepository.findByUserId(user.getId()).stream()
+                .map(UserProblemSolved::getProblemId)
+                .collect(Collectors.toCollection(HashSet::new));
+
+        return problemRepository.findAll().stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActive()))
+                .map(p -> new PracticeProblemDTO(
+                        p.getId(),
+                        p.getTitle(),
+                        p.getDescription(),
+                        p.getLevel(),
+                        p.getTimeLimit(),
+                        p.getMemoryLimit(),
+                        solvedIds.contains(p.getId()),
+                        pointsForLevel(p.getLevel())
+                ))
+                .collect(Collectors.toList());
+    }
+
+    /** Returns a single problem (active only) with full details. */
+    @GetMapping("/problems/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getProblem(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl user) {
+        Problem p = problemRepository.findById(id).orElse(null);
+        if (p == null || !Boolean.TRUE.equals(p.getActive())) {
+            return ResponseEntity.notFound().build();
+        }
+        boolean solved = solvedRepository.existsByUserIdAndProblemId(user.getId(), id);
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("problem", new ProblemDTO(
+                p.getId(), p.getTitle(), p.getDescription(),
+                p.getInputFormat(), p.getOutputFormat(), p.getConstraints(),
+                p.getTimeLimit(), p.getMemoryLimit(), p.getActive(),
+                p.getContestId(), p.getExample1(), p.getExample2(),
+                p.getExample3(), p.getImages()));
+        resp.put("solved", solved);
+        resp.put("pointsAvailable", pointsForLevel(p.getLevel()));
+        return ResponseEntity.ok(resp);
+    }
+
+    /** Synchronously judges user's code in practice mode. */
+    @PostMapping("/run")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<PracticeVerdict> runPractice(
+            @RequestBody PracticeRunRequest req,
+            @AuthenticationPrincipal UserDetailsImpl user) {
+        if (req.code == null || req.code.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (req.code.length() > 50_000) {
+            return ResponseEntity.badRequest().build();
+        }
+        PracticeVerdict v = practiceService.runPractice(user.getId(), req.problemId, req.code, req.language);
+        return ResponseEntity.ok(v);
+    }
+
+    /** User's overall practice stats. */
+    @GetMapping("/stats")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getStats(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        User u = userRepository.findById(userDetails.getId()).orElse(null);
+        long solvedCount = solvedRepository.countByUserId(userDetails.getId());
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("totalPoints", u != null && u.getTotalPoints() != null ? u.getTotalPoints() : 0);
+        resp.put("solvedCount", solvedCount);
+        return ResponseEntity.ok(resp);
+    }
+
+    private int pointsForLevel(String level) {
+        if (level == null) return 5;
+        switch (level.toUpperCase()) {
+            case "EASY":   return 5;
+            case "MEDIUM": return 7;
+            case "HARD":   return 10;
+            default:       return 5;
+        }
+    }
+
+    // ─── DTOs ─────────────────────────────────────────────────────────────────
+
+    public static class PracticeProblemDTO {
+        public Long id;
+        public String title;
+        public String description;
+        public String level;
+        public Double timeLimit;
+        public Integer memoryLimit;
+        public boolean solved;
+        public int pointsAvailable;
+
+        public PracticeProblemDTO(Long id, String title, String description, String level,
+                                   Double timeLimit, Integer memoryLimit, boolean solved, int pointsAvailable) {
+            this.id = id;
+            this.title = title;
+            this.description = description;
+            this.level = level;
+            this.timeLimit = timeLimit;
+            this.memoryLimit = memoryLimit;
+            this.solved = solved;
+            this.pointsAvailable = pointsAvailable;
+        }
+    }
+
+    public static class PracticeRunRequest {
+        public Long problemId;
+        public String code;
+        public String language;
+    }
+}

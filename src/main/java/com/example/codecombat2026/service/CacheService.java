@@ -60,9 +60,9 @@ public class CacheService {
     }
 
     public void evictProblem(Long problemId) {
-        redis.delete("problem:" + problemId);
+        try { redis.delete("problem:" + problemId); } catch (Exception ignored) {}
         for (String lang : new String[]{"JAVA","CPP","PYTHON","JAVASCRIPT","C"}) {
-            redis.delete("snippet:" + problemId + ":" + lang);
+            try { redis.delete("snippet:" + problemId + ":" + lang); } catch (Exception ignored) {}
         }
     }
 
@@ -92,7 +92,7 @@ public class CacheService {
     // ─── Contest list ─────────────────────────────────────────────────────────
 
     public void evictContests() {
-        redis.delete("contests:active");
+        try { redis.delete("contests:active"); } catch (Exception ignored) {}
     }
 
     // ─── Generic string cache ─────────────────────────────────────────────────

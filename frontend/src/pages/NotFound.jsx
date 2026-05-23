@@ -1,206 +1,378 @@
-import { useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Float, Text3D, Center, useMatcapTexture } from '@react-three/drei';
-import * as THREE from 'three';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import AuthService from '../services/auth.service';
 
-// Animated 3D "404" Text
-function AnimatedText({ position }) {
-    const textRef = useRef();
-    const [matcap] = useMatcapTexture('7B5254_E9DCC7_B19986_C8AC91', 256);
-
-    useFrame((state) => {
-        if (textRef.current) {
-            textRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.2;
-            textRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.8) * 0.3;
-        }
-    });
-
-    return (
-        <group position={position}>
-            <Center>
-                <Text3D
-                    ref={textRef}
-                    font="/fonts/helvetiker_bold.typeface.json"
-                    size={2}
-                    height={0.5}
-                    curveSegments={12}
-                    bevelEnabled
-                    bevelThickness={0.1}
-                    bevelSize={0.05}
-                    bevelOffset={0}
-                    bevelSegments={5}
-                >
-                    404
-                    <meshBasicMaterial color="#00ff00" />
-                </Text3D>
-            </Center>
-        </group>
-    );
-}
-
-// Floating Geometric Shapes
-function FloatingShape({ position, geometry, color }) {
-    const meshRef = useRef();
-
-    useFrame((state) => {
-        if (meshRef.current) {
-            meshRef.current.rotation.x += 0.01;
-            meshRef.current.rotation.y += 0.01;
-        }
-    });
-
-    return (
-        <Float speed={2} rotationIntensity={1} floatIntensity={2}>
-            <mesh ref={meshRef} position={position}>
-                {geometry}
-                <meshStandardMaterial color={color} wireframe />
-            </mesh>
-        </Float>
-    );
-}
-
-// Background Particles
-function Particles() {
-    const particlesRef = useRef();
-    const count = 100;
-
-    const positions = new Float32Array(count * 3);
-    for (let i = 0; i < count * 3; i++) {
-        positions[i] = (Math.random() - 0.5) * 20;
-    }
-
-    useFrame((state) => {
-        if (particlesRef.current) {
-            particlesRef.current.rotation.y = state.clock.elapsedTime * 0.05;
-        }
-    });
-
-    return (
-        <points ref={particlesRef}>
-            <bufferGeometry>
-                <bufferAttribute
-                    attach="attributes-position"
-                    count={count}
-                    array={positions}
-                    itemSize={3}
-                />
-            </bufferGeometry>
-            <pointsMaterial size={0.05} color="#10b981" transparent opacity={0.6} />
-        </points>
-    );
-}
+// ── Design tokens (matches project palette) ───────────────────────────────────
+const C = {
+    bg:         '#131313',
+    surface:    '#201f1f',
+    surfaceLow: '#1c1b1b',
+    border:     '#50453b',
+    primary:    '#f1bc8b',
+    secondary:  '#e9c176',
+    muted:      '#d4c4b7',
+    outline:    '#9d8e83',
+    onBg:       '#e5e2e1',
+    error:      '#ffb4ab',
+};
 
 export default function NotFound() {
-    const canvasRef = useRef();
+    const navigate  = useNavigate();
+    const cursorRef = useRef(null);
+    const [visible, setVisible] = useState(false);
 
+    // Determine where "Go Home" and "Go Dashboard" should point
+    const currentUser = AuthService.getCurrentUser();
+    const isAdmin     = currentUser?.roles?.includes('ROLE_ADMIN');
+    const homeHref    = '/';
+    const dashHref    = !currentUser
+        ? '/login'
+        : isAdmin
+        ? '/admin/dashboard'
+        : '/dashboard';
+    const dashLabel   = !currentUser ? 'Login' : 'Go Dashboard';
+
+    // Blinking cursor
     useEffect(() => {
-        // GSAP animation for text elements
-        const elements = document.querySelectorAll('.fade-in');
-        elements.forEach((el, index) => {
-            setTimeout(() => {
-                el.style.opacity = '1';
-                el.style.transform = 'translateY(0)';
-            }, index * 200);
-        });
+        const id = setInterval(() => setVisible(v => !v), 530);
+        return () => clearInterval(id);
     }, []);
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center relative overflow-hidden">
-            {/* Three.js Canvas Background */}
-            <div className="absolute inset-0 z-0">
-                <Canvas
-                    ref={canvasRef}
-                    camera={{ position: [0, 0, 8], fov: 75 }}
-                    style={{ background: 'transparent' }}
+        <div
+            style={{
+                backgroundColor: C.bg,
+                color: C.onBg,
+                minHeight: '100vh',
+                display: 'flex',
+                flexDirection: 'column',
+                fontFamily: "'Geist', sans-serif",
+                overflow: 'hidden',
+                position: 'relative',
+            }}
+        >
+            {/* ── Background: abstract wireframe sphere image ── */}
+            <div
+                aria-hidden="true"
+                style={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 0,
+                    opacity: 0.18,
+                    mixBlendMode: 'screen',
+                    backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuD67vQIxIaSs28f3g6QIU4WCNohLzmQ6ZG8Fs6LTQXJlb-wmYUSSW719F_qYwqkbBQSUfMHvJlHj2lzhSePIBWG7Eqmk-WuZm2ncWGMhA5rOHyr1DRdOPOBZpckKEds6gB2xdL4bNq1EtQzzOkj30whb5u8Y_7wjlyjIXH8fyjQVZWGYVTYK3gJU1S04uKZLBs0ljtdW4X34jshhFhyi4hqpI28-b48lcenBo46NtSx2Sg8JSKnL5uSHJB_yMj_wkpKcyquL0UtwO0U')`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    backgroundRepeat: 'no-repeat',
+                    pointerEvents: 'none',
+                }}
+            />
+
+            {/* ── Radial vignette overlay ── */}
+            <div
+                aria-hidden="true"
+                style={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 1,
+                    background: 'radial-gradient(circle at center, transparent 0%, #131313 78%)',
+                    pointerEvents: 'none',
+                }}
+            />
+
+            {/* ── Main content ── */}
+            <main
+                style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    zIndex: 10,
+                    padding: '2rem 64px',
+                    minHeight: '100vh',
+                }}
+            >
+                <div
+                    style={{
+                        width: '100%',
+                        maxWidth: '900px',
+                        display: 'grid',
+                        gridTemplateColumns: '5fr 7fr',
+                        gap: '32px',
+                        alignItems: 'center',
+                    }}
+                    className="not-found-grid"
                 >
-                    <ambientLight intensity={0.5} />
-                    <pointLight position={[10, 10, 10]} intensity={1} />
-                    <pointLight position={[-10, -10, -10]} intensity={0.5} color="#10b981" />
-
-
-
-                    {/* Background Particles */}
-                    <Particles />
-
-                    {/* Controls */}
-                    <OrbitControls
-                        enableZoom={false}
-                        enablePan={false}
-                        autoRotate
-                        autoRotateSpeed={0.5}
-                    />
-                </Canvas>
-            </div>
-
-            {/* Content Overlay */}
-            <div className="relative z-10 text-center px-4 sm:px-6 max-w-2xl">
-                {/* Glassmorphism Card */}
-                <div className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-green-500/20 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 shadow-2xl">
-                    <h1
-                        className="text-5xl sm:text-6xl lg:text-8xl font-bold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-4 sm:mb-6 fade-in"
-                        style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.8s ease-out' }}
-                    >
-                        Oops!
-                    </h1>
-
-                    <h2
-                        className="text-xl sm:text-2xl lg:text-3xl font-semibold text-gray-100 mb-3 sm:mb-4 fade-in"
-                        style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.8s ease-out' }}
-                    >
-                        Page Not Found
-                    </h2>
-
-                    <p
-                        className="text-gray-400 text-lg mb-8 fade-in"
-                        style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.8s ease-out' }}
-                    >
-                        The page you're looking for seems to have wandered off into the digital void.
-                        Don't worry, even the best coders get lost sometimes!
-                    </p>
-
-                    {/* Action Buttons */}
+                    {/* ── Left: Fragmented code block ── */}
                     <div
-                        className="flex flex-col sm:flex-row gap-4 justify-center fade-in"
-                        style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.8s ease-out' }}
+                        style={{
+                            borderLeft: `1px solid ${C.border}`,
+                            paddingLeft: '2rem',
+                            opacity: 0.8,
+                        }}
                     >
-                        <Link
-                            to="/"
-                            className="px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg shadow-green-500/30 transition-all transform hover:scale-105"
+                        <div
+                            style={{
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '14px',
+                                lineHeight: 1.7,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '2px',
+                            }}
                         >
-                            Go Home
-                        </Link>
+                            <span style={{ color: C.primary }}>try {'{'}</span>
+                            <span style={{ paddingLeft: '1.5rem', color: C.muted }}>
+                                route.execute(target);
+                            </span>
+                            <span style={{ paddingLeft: '1.5rem', color: C.error, opacity: 0.75 }}>
+                                {'// Target missing in environment'}
+                            </span>
+                            <span style={{ color: C.primary }}>{'} catch (Exception e) {'}</span>
+                            <span style={{ paddingLeft: '1.5rem', color: C.muted }}>
+                                System.out.println(
+                            </span>
+                            <span
+                                style={{
+                                    paddingLeft: '3rem',
+                                    color: C.outline,
+                                }}
+                            >
+                                "404: Arena Not Found."
+                            </span>
+                            <span style={{ paddingLeft: '1.5rem', color: C.muted }}>);</span>
+                            <span style={{ color: C.primary }}>{'}'}</span>
 
-                        <Link
-                            to="/contests"
-                            className="px-8 py-4 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-green-500/50 text-gray-100 font-semibold rounded-xl transition-all transform hover:scale-105"
-                        >
-                            View Contests
-                        </Link>
+                            {/* Blinking cursor */}
+                            <span
+                                style={{
+                                    marginTop: '1rem',
+                                    color: C.primary,
+                                    fontSize: '16px',
+                                    opacity: visible ? 1 : 0,
+                                    transition: 'opacity 0.1s',
+                                    display: 'block',
+                                }}
+                            >
+                                █
+                            </span>
+                        </div>
                     </div>
 
-                    {/* Fun Error Code */}
-                    <div className="mt-8 pt-8 border-t border-white/10 fade-in" style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.8s ease-out' }}>
-                        <p className="text-sm text-gray-500 font-mono">
-                            Error Code: <span className="text-green-400">404_PAGE_NOT_FOUND</span>
-                        </p>
-                        <p className="text-xs text-gray-600 mt-2">
-                            "In the world of coding, every error is just an opportunity to debug life."
-                        </p>
+                    {/* ── Right: Error messaging ── */}
+                    <div
+                        style={{
+                            borderLeft: `1px solid ${C.border}`,
+                            paddingLeft: '2rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '2rem',
+                        }}
+                    >
+                        {/* 404 headline */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <h1
+                                style={{
+                                    fontFamily: "'Playfair Display', serif",
+                                    fontSize: 'clamp(64px, 10vw, 96px)',
+                                    fontWeight: 700,
+                                    lineHeight: 1,
+                                    letterSpacing: '-0.02em',
+                                    margin: 0,
+                                    background: `linear-gradient(135deg, ${C.onBg} 0%, ${C.outline} 100%)`,
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    backgroundClip: 'text',
+                                }}
+                            >
+                                404
+                            </h1>
+
+                            <div
+                                style={{
+                                    borderBottom: `1px solid rgba(233,193,118,0.3)`,
+                                    paddingBottom: '1rem',
+                                    display: 'inline-block',
+                                }}
+                            >
+                                <h2
+                                    style={{
+                                        fontFamily: "'Playfair Display', serif",
+                                        fontSize: '24px',
+                                        fontWeight: 600,
+                                        color: C.secondary,
+                                        margin: 0,
+                                    }}
+                                >
+                                    Route Decrypted: Not Found
+                                </h2>
+                            </div>
+
+                            <p
+                                style={{
+                                    fontFamily: "'Geist', sans-serif",
+                                    fontSize: '16px',
+                                    lineHeight: 1.6,
+                                    color: C.outline,
+                                    margin: 0,
+                                    maxWidth: '420px',
+                                    paddingTop: '0.5rem',
+                                }}
+                            >
+                                The designated coordinates are unmapped. The arena you are
+                                attempting to enter does not exist in the current architecture.
+                            </p>
+                        </div>
+
+                        {/* ── Action buttons ── */}
+                        <div
+                            style={{
+                                display: 'flex',
+                                flexDirection: 'row',
+                                gap: '16px',
+                                flexWrap: 'wrap',
+                                paddingTop: '0.5rem',
+                            }}
+                        >
+                            {/* Primary: Go Home */}
+                            <HomeButton to={homeHref} />
+
+                            {/* Secondary: Dashboard / Login */}
+                            <DashButton to={dashHref} label={dashLabel} />
+                        </div>
+
+                        {/* ── Error code footer ── */}
+                        <div
+                            style={{
+                                borderTop: `1px solid ${C.border}`,
+                                paddingTop: '1rem',
+                                marginTop: '0.5rem',
+                            }}
+                        >
+                            <p
+                                style={{
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    fontSize: '11px',
+                                    letterSpacing: '0.1em',
+                                    color: C.outline,
+                                    margin: 0,
+                                    opacity: 0.6,
+                                }}
+                            >
+                                ERROR_CODE:{' '}
+                                <span style={{ color: C.primary }}>404_ROUTE_NOT_FOUND</span>
+                                {' '}·{' '}
+                                <span style={{ color: C.outline }}>
+                                    {window.location.pathname}
+                                </span>
+                            </p>
+                        </div>
                     </div>
                 </div>
+            </main>
 
-                {/* Floating Hints */}
-                <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500 fade-in" style={{ opacity: 0, transform: 'translateY(20px)', transition: 'all 0.8s ease-out' }}>
-                    <span> Tip: Check the URL</span>
-                    <span>•</span>
-                    <span> Or use navigation</span>
-                </div>
-            </div>
-
-            {/* Animated Background Gradient Orbs */}
-            <div className="absolute top-20 left-20 w-72 h-72 bg-green-500/20 rounded-full blur-3xl animate-pulse"></div>
-            <div className="absolute bottom-20 right-20 w-96 h-96 bg-emerald-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+            {/* ── Responsive styles ── */}
+            <style>{`
+                @media (max-width: 768px) {
+                    .not-found-grid {
+                        grid-template-columns: 1fr !important;
+                        padding: 2rem 20px !important;
+                    }
+                    .not-found-grid > div:first-child {
+                        order: 2;
+                        border-left: none !important;
+                        border-top: 1px solid #50453b;
+                        padding-left: 0 !important;
+                        padding-top: 1.5rem;
+                    }
+                    .not-found-grid > div:last-child {
+                        order: 1;
+                        border-left: none !important;
+                        padding-left: 0 !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 }
+
+// ── Go Home button — bordered amber ──────────────────────────────────────────
+const HomeButton = ({ to }) => {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <Link
+            to={to}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                border: `1px solid ${C.secondary}`,
+                padding: '14px 28px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '12px',
+                letterSpacing: '0.1em',
+                fontWeight: 500,
+                textTransform: 'uppercase',
+                textDecoration: 'none',
+                color: hovered ? C.bg : C.secondary,
+                backgroundColor: hovered ? C.secondary : 'transparent',
+                transition: 'all 0.3s ease',
+            }}
+        >
+            <span
+                className="material-symbols-outlined"
+                style={{ fontSize: '18px', fontVariationSettings: "'FILL' 0" }}
+            >
+                home
+            </span>
+            Go Home
+        </Link>
+    );
+};
+
+// ── Dashboard / Login ghost button ───────────────────────────────────────────
+const DashButton = ({ to, label }) => {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <Link
+            to={to}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '14px 28px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '12px',
+                letterSpacing: '0.1em',
+                fontWeight: 500,
+                textTransform: 'uppercase',
+                textDecoration: 'none',
+                color: hovered ? C.secondary : C.outline,
+                backgroundColor: 'transparent',
+                border: 'none',
+                transition: 'color 0.3s ease',
+                position: 'relative',
+            }}
+        >
+            <span
+                className="material-symbols-outlined"
+                style={{
+                    fontSize: '18px',
+                    fontVariationSettings: "'FILL' 0",
+                    opacity: hovered ? 1 : 0.7,
+                    transition: 'opacity 0.3s',
+                }}
+            >
+                dashboard
+            </span>
+            {label}
+        </Link>
+    );
+};

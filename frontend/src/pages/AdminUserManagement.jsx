@@ -1,256 +1,398 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { gsap } from 'gsap';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import AdminService from '../services/admin.service';
 
+const C = {
+    bg:         '#131313',
+    surfaceCon: '#201f1f',
+    surfaceLow: '#1c1b1b',
+    surfaceHi:  '#2a2a2a',
+    surfaceMin: '#0e0e0e',
+    border:     '#50453b',
+    primary:    '#f1bc8b',
+    secondary:  '#e9c176',
+    muted:      '#d4c4b7',
+    outline:    '#9d8e83',
+    onBg:       '#e5e2e1',
+    error:      '#ffb4ab',
+    success:    '#66bb6a',
+};
+
 const AdminUserManagement = () => {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [deleteModal, setDeleteModal] = useState({ show: false, userId: null, username: '' });
-  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+    const [users,        setUsers]        = useState([]);
+    const [loading,      setLoading]      = useState(true);
+    const [error,        setError]        = useState('');
+    const [search,       setSearch]       = useState('');
+    const [filter,       setFilter]       = useState('ALL'); // ALL | ACTIVE | DISABLED
+    const [deleteModal,  setDeleteModal]  = useState({ show: false, userId: null, username: '', email: '' });
+    const [confirmInput, setConfirmInput] = useState('');
+    const [toast,        setToast]        = useState(null);
 
-  const headerRef = useRef(null);
-  const tableRef = useRef(null);
+    useEffect(() => { loadUsers(); }, []);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+    const loadUsers = () => {
+        setLoading(true);
+        AdminService.getAllUsers()
+            .then(res => {
+                const regular = res.data.filter(u => !u.roles?.some(r => r.name === 'ROLE_ADMIN'));
+                setUsers(regular);
+            })
+            .catch(() => setError('Failed to load users'))
+            .finally(() => setLoading(false));
+    };
 
-  useEffect(() => {
-    if (!loading && headerRef.current && tableRef.current) {
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+    const showToast = (msg, type = 'success') => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 3000);
+    };
 
-      tl.from(headerRef.current, {
-        opacity: 0,
-        y: 30,
-        duration: 0.8
-      })
-        .from(tableRef.current, {
-          opacity: 0,
-          y: 20,
-          duration: 0.6
-        }, '-=0.3');
-    }
-  }, [loading]);
+    const handleToggle = (userId, enabled) => {
+        const action = enabled ? AdminService.disableUser(userId) : AdminService.enableUser(userId);
+        action
+            .then(() => { loadUsers(); showToast(enabled ? 'Operative disabled.' : 'Operative enabled.'); })
+            .catch(() => showToast('Failed to update status.', 'error'));
+    };
 
-  const loadUsers = () => {
-    setLoading(true);
-    AdminService.getAllUsers()
-      .then(response => {
-        // Filter out admin users, only show regular users
-        const regularUsers = response.data.filter(user =>
-          !user.roles.some(role => role.name === 'ROLE_ADMIN')
-        );
-        setUsers(regularUsers);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError('Failed to load users');
-        setLoading(false);
-      });
-  };
+    const openDelete = (user) => {
+        setDeleteModal({ show: true, userId: user.id, username: user.username, email: user.email });
+        setConfirmInput('');
+    };
 
-  const handleToggleUser = (userId, currentStatus) => {
-    const action = currentStatus ? AdminService.disableUser(userId) : AdminService.enableUser(userId);
+    const confirmDelete = () => {
+        AdminService.deleteUser(deleteModal.userId)
+            .then(() => {
+                showToast('Operative purged from system.');
+                loadUsers();
+                setDeleteModal({ show: false, userId: null, username: '', email: '' });
+            })
+            .catch(err => showToast(err.response?.data?.message || 'Purge failed.', 'error'));
+    };
 
-    action.then(() => {
-      loadUsers();
-    }).catch(err => {
-      alert('Failed to update user status');
+    const filtered = users.filter(u => {
+        const matchSearch = u.username?.toLowerCase().includes(search.toLowerCase()) ||
+                            u.email?.toLowerCase().includes(search.toLowerCase()) ||
+                            u.rollNumber?.toLowerCase().includes(search.toLowerCase());
+        const matchFilter = filter === 'ALL' || (filter === 'ACTIVE' && u.enabled) || (filter === 'DISABLED' && !u.enabled);
+        return matchSearch && matchFilter;
     });
-  };
 
-  const handleDeleteUser = (userId, username) => {
-    setDeleteModal({ show: true, userId, username });
-  };
-
-  const confirmDelete = () => {
-    AdminService.deleteUser(deleteModal.userId)
-      .then(() => {
-        setNotification({ show: true, message: 'User and all submissions deleted successfully', type: 'success' });
-        setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
-        loadUsers();
-        setDeleteModal({ show: false, userId: null, username: '' });
-      })
-      .catch(err => {
-        setNotification({ show: true, message: err.response?.data?.message || 'Failed to delete user', type: 'error' });
-        setTimeout(() => setNotification({ show: false, message: '', type: '' }), 3000);
-        setDeleteModal({ show: false, userId: null, username: '' });
-      });
-  };
-
-  const cancelDelete = () => {
-    setDeleteModal({ show: false, userId: null, username: '' });
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-400 text-lg">Loading...</div>
-      </div>
+    if (loading) return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', letterSpacing: '0.1em' }}>
+            Loading...
+        </div>
     );
-  }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-red-400 text-lg">{error}</div>
-      </div>
+    if (error) return (
+        <div style={{ padding: '48px 64px', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.error }}>
+            {error}
+        </div>
     );
-  }
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div ref={headerRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl">
-        <h1 className="text-xl sm:text-2xl lg:text-3xl font-semibold bg-gradient-to-r from-green-400 via-emerald-500 to-green-600 bg-clip-text text-transparent mb-1">
-          User Management
-        </h1>
-        <p className="text-xs sm:text-sm text-gray-500">Manage user accounts and permissions</p>
-      </div>
+    const activeCount   = users.filter(u => u.enabled).length;
+    const disabledCount = users.filter(u => !u.enabled).length;
 
-      {/* Users Table */}
-      <div ref={tableRef} className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl">
-        <div className="overflow-x-auto max-h-[600px] overflow-y-auto custom-scrollbar">
-          <table className="w-full">
-            <thead className="bg-white/10 border-b border-white/20">
-              <tr>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
-                <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roll Number</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/10">
-              {users.map((user, index) => (
-                <motion.tr
-                  key={user.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05, duration: 0.3 }}
-                  whileHover={{ x: 3, backgroundColor: '#1f1f1f' }}
-                  className="transition-colors"
-                >
-                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-200">{user.username}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{user.email}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 font-mono">{user.rollNumber || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{user.branch || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2.5 py-1 rounded text-xs font-medium ${user.enabled ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
-                      }`}>
-                      {user.enabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleToggleUser(user.id, user.enabled)}
-                        className={`px-4 py-2 rounded font-medium transition-all ${user.enabled
-                          ? 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50 text-red-400'
-                          : 'bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 hover:border-green-500/50 text-green-400'
-                          }`}
-                      >
-                        {user.enabled ? 'Disable' : 'Enable'}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteUser(user.id, user.username)}
-                        className="px-4 py-2 rounded font-medium transition-all bg-gray-500/10 hover:bg-gray-500/20 border border-gray-500/30 hover:border-gray-500/50 text-gray-400 hover:text-gray-300"
-                      >
-                        Delete
-                      </button>
+    return (
+        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: '48px 64px' }}>
+
+            {/* ── Header ── */}
+            <motion.header
+                initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '3rem', paddingBottom: '2rem', borderBottom: `1px solid ${C.border}` }}
+            >
+                <div>
+                    <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '36px', fontWeight: 600, color: C.onBg, marginBottom: '8px' }}>
+                        User Index
+                    </h1>
+                    <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.outline, maxWidth: '560px', lineHeight: 1.5 }}>
+                        Manage platform access, monitor activity statuses, and perform structural modifications to user accounts within the architectural grid.
+                    </p>
+                    {/* Stats */}
+                    <div style={{ display: 'flex', gap: '0', marginTop: '1.5rem', borderLeft: `1px solid ${C.border}` }}>
+                        {[
+                            { label: 'Total', value: users.length, color: C.muted },
+                            { label: 'Active', value: activeCount, color: C.success },
+                            { label: 'Disabled', value: disabledCount, color: C.outline },
+                        ].map(({ label, value, color }) => (
+                            <div key={label} style={{ padding: '0 20px', borderRight: `1px solid ${C.border}` }}>
+                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>{label}</span>
+                                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', fontWeight: 300, color }}>{value}</span>
+                            </div>
+                        ))}
                     </div>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
+                </div>
+
+                {/* Search + Filter */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-end' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: `1px solid ${C.border}`, paddingBottom: '8px', width: '280px' }}>
+                        <span className="material-symbols-outlined" style={{ color: C.outline, fontSize: '18px' }}>search</span>
+                        <input
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="SEARCH OPERATIVES..."
+                            style={{ background: 'transparent', border: 'none', outline: 'none', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.08em', color: C.onBg, width: '100%' }}
+                        />
+                        <span style={{ color: C.primary, animation: 'blink 1s infinite', fontFamily: "'JetBrains Mono', monospace" }}>█</span>
+                    </div>
+                    {/* Filter tabs */}
+                    <div style={{ display: 'flex', gap: '0', border: `1px solid ${C.border}` }}>
+                        {['ALL', 'ACTIVE', 'DISABLED'].map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setFilter(f)}
+                                style={{
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    fontSize: '10px', letterSpacing: '0.12em',
+                                    padding: '6px 16px',
+                                    background: filter === f ? C.secondary : 'transparent',
+                                    color: filter === f ? C.bg : C.outline,
+                                    border: 'none', cursor: 'pointer',
+                                    borderRight: f !== 'DISABLED' ? `1px solid ${C.border}` : 'none',
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </motion.header>
+
+            {/* ── Table ── */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
+                style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceCon, overflow: 'hidden' }}
+            >
+                {/* Table header */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px 120px 100px 160px', gap: '16px', padding: '14px 24px', borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceHi }}>
+                    {['Operative', 'Identifier', 'Roll ID', 'Status', 'Actions'].map((h, i) => (
+                        <span key={h} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase', textAlign: i >= 3 ? 'center' : 'left' }}>
+                            {h}
+                        </span>
+                    ))}
+                </div>
+
+                {filtered.length === 0 ? (
+                    <div style={{ padding: '4rem', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.outline }}>
+                        No operatives found
+                    </div>
+                ) : (
+                    filtered.map((user, i) => (
+                        <UserRow
+                            key={user.id}
+                            user={user}
+                            index={i}
+                            onToggle={() => handleToggle(user.id, user.enabled)}
+                            onDelete={() => openDelete(user)}
+                        />
+                    ))
+                )}
+
+                {/* Pagination info */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', borderTop: `1px solid ${C.border}`, backgroundColor: C.surfaceLow }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
+                        Showing {filtered.length} of {users.length} entries
+                    </span>
+                </div>
+            </motion.div>
+
+            {/* ── Delete Modal ── */}
+            <AnimatePresence>
+                {deleteModal.show && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            style={{ backgroundColor: C.surfaceCon, border: `1px solid ${C.error}`, maxWidth: '440px', width: '100%', padding: '2.5rem', position: 'relative' }}
+                        >
+                            {/* Red top bar */}
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', backgroundColor: C.error }} />
+
+                            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 600, color: C.error, marginBottom: '1rem' }}>
+                                Purge Protocol
+                            </h3>
+                            <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '15px', color: C.muted, lineHeight: 1.6, marginBottom: '1.5rem' }}>
+                                You are about to permanently erase operative{' '}
+                                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: C.onBg }}>{deleteModal.username}</span>{' '}
+                                from the system architecture. This action transcends standard reversal methods.
+                            </p>
+
+                            {/* Confirm input */}
+                            <div style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, padding: '1rem', marginBottom: '1.5rem' }}>
+                                <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, marginBottom: '8px', letterSpacing: '0.08em' }}>
+                                    Confirm identification to proceed:
+                                </p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: `1px solid ${C.error}`, paddingBottom: '6px' }}>
+                                    <span style={{ color: C.error, fontFamily: "'JetBrains Mono', monospace" }}>&gt;</span>
+                                    <input
+                                        value={confirmInput}
+                                        onChange={e => setConfirmInput(e.target.value)}
+                                        placeholder={deleteModal.username}
+                                        style={{ background: 'transparent', border: 'none', outline: 'none', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.onBg, width: '100%' }}
+                                    />
+                                    <span style={{ color: C.error, animation: 'blink 1s infinite', fontFamily: "'JetBrains Mono', monospace" }}>█</span>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
+                                <button
+                                    onClick={() => setDeleteModal({ show: false, userId: null, username: '', email: '' })}
+                                    style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: C.outline, background: 'none', border: 'none', cursor: 'pointer', padding: '10px 20px', transition: 'color 0.2s' }}
+                                    onMouseEnter={e => e.currentTarget.style.color = C.secondary}
+                                    onMouseLeave={e => e.currentTarget.style.color = C.outline}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmDelete}
+                                    disabled={confirmInput !== deleteModal.username}
+                                    style={{
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                        fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase',
+                                        border: `1px solid ${C.error}`, color: C.error,
+                                        backgroundColor: 'transparent', padding: '10px 24px',
+                                        cursor: confirmInput !== deleteModal.username ? 'not-allowed' : 'pointer',
+                                        opacity: confirmInput !== deleteModal.username ? 0.4 : 1,
+                                        transition: 'all 0.2s',
+                                    }}
+                                    onMouseEnter={e => { if (confirmInput === deleteModal.username) { e.currentTarget.style.backgroundColor = C.error; e.currentTarget.style.color = C.bg; } }}
+                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.error; }}
+                                >
+                                    Execute Delete
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ── Toast ── */}
+            <AnimatePresence>
+                {toast && (
+                    <motion.div
+                        initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
+                        style={{
+                            position: 'fixed', bottom: '2rem', right: '2rem',
+                            backgroundColor: C.surfaceLow,
+                            borderLeft: `2px solid ${toast.type === 'success' ? C.secondary : C.error}`,
+                            padding: '1rem 1.5rem',
+                            display: 'flex', alignItems: 'center', gap: '12px',
+                            zIndex: 100, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                            fontFamily: "'JetBrains Mono', monospace", fontSize: '12px',
+                            color: toast.type === 'success' ? C.secondary : C.error,
+                            letterSpacing: '0.05em',
+                        }}
+                    >
+                        {toast.msg}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <style>{`
+                @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+                .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; }
+            `}</style>
         </div>
-      </div>
+    );
+};
 
-      {/* Delete Confirmation Modal */}
-      {deleteModal.show && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-gradient-to-br from-white/5 to-white/2 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl"
-          >
-            {/* Warning Icon */}
-            <div className="flex items-center justify-center w-16 h-16 bg-red-500/10 rounded-full mx-auto mb-4">
-              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+/* ── User Row ── */
+const UserRow = ({ user, index, onToggle, onDelete }) => {
+    const [hovered, setHovered] = useState(false);
+    const initials = (user.username || 'U').slice(0, 2).toUpperCase();
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.03 }}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                display: 'grid', gridTemplateColumns: '1fr 200px 120px 100px 160px',
+                gap: '16px', padding: '18px 24px',
+                borderBottom: `1px solid ${C.border}`,
+                borderLeft: `2px solid ${user.enabled ? '#66bb6a' : C.border}`,
+                backgroundColor: hovered ? '#201f1f' : 'transparent',
+                transition: 'background-color 0.2s',
+                position: 'relative',
+            }}
+        >
+            {/* Operative */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                    width: '32px', height: '32px', borderRadius: '50%',
+                    border: `1px solid ${user.enabled ? '#66bb6a' : C.border}`,
+                    backgroundColor: '#0e0e0e',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                }}>
+                    <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '12px', fontWeight: 700, color: user.enabled ? '#f1bc8b' : C.outline }}>
+                        {initials}
+                    </span>
+                </div>
+                <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: user.enabled ? C.onBg : C.outline }}>
+                    {user.username}
+                </span>
             </div>
 
-            {/* Title */}
-            <h3 className="text-xl sm:text-2xl font-bold text-red-400 text-center mb-3">
-              Delete User
-            </h3>
-
-            {/* Message */}
-            <p className="text-gray-300 text-center mb-2">
-              Are you sure you want to delete user <span className="font-bold text-white">"{deleteModal.username}"</span>?
-            </p>
-            <p className="text-sm text-gray-400 text-center mb-6">
-              This will also delete all their submissions. This action cannot be undone!
-            </p>
-
-            {/* Buttons */}
-            <div className="flex gap-3">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={cancelDelete}
-                className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-xl transition-all"
-              >
-                Cancel
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={confirmDelete}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium rounded-xl shadow-lg shadow-red-500/30 transition-all"
-              >
-                Delete
-              </motion.button>
+            {/* Email */}
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
             </div>
-          </motion.div>
-        </div>
-      )}
 
-      {/* Notification Toast */}
-      {
-        notification.show && (
-          <motion.div
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className={`fixed top-4 right-4 z-50 px-6 py-4 rounded-xl shadow-2xl backdrop-blur-xl border ${notification.type === 'success'
-              ? 'bg-green-500/20 border-green-500/50 text-green-400'
-              : 'bg-red-500/20 border-red-500/50 text-red-400'
-              }`}
-          >
-            <div className="flex items-center gap-3">
-              {notification.type === 'success' ? (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              )}
-              <p className="font-medium">{notification.message}</p>
+            {/* Roll */}
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline, display: 'flex', alignItems: 'center' }}>
+                {user.rollNumber || '—'}
             </div>
-          </motion.div>
-        )
-      }
-    </div >
-  );
+
+            {/* Status */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: user.enabled ? '#66bb6a' : C.border, flexShrink: 0 }} />
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', color: user.enabled ? '#66bb6a' : C.outline, textTransform: 'uppercase' }}>
+                        {user.enabled ? 'Active' : 'Disabled'}
+                    </span>
+                </span>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+                <button
+                    onClick={onToggle}
+                    style={{
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase',
+                        color: user.enabled ? C.outline : '#f1bc8b',
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        textDecoration: 'underline', textDecorationColor: 'transparent',
+                        transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = C.secondary; e.currentTarget.style.textDecorationColor = C.secondary; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = user.enabled ? C.outline : '#f1bc8b'; e.currentTarget.style.textDecorationColor = 'transparent'; }}
+                >
+                    {user.enabled ? 'Disable' : 'Enable'}
+                </button>
+                <button
+                    onClick={onDelete}
+                    style={{
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase',
+                        color: C.outline, background: 'none', border: 'none', cursor: 'pointer',
+                        textDecoration: 'underline', textDecorationColor: 'transparent',
+                        transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = C.error; e.currentTarget.style.textDecorationColor = C.error; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = C.outline; e.currentTarget.style.textDecorationColor = 'transparent'; }}
+                >
+                    Delete
+                </button>
+            </div>
+        </motion.div>
+    );
 };
 
 export default AdminUserManagement;

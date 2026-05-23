@@ -26,6 +26,28 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthTokenFilter.class);
 
+    /**
+     * Skip JWT filter on async dispatches (e.g., SSE SseEmitter internal re-dispatch).
+     * Without this, Spring Security re-runs the filter on the async thread with no JWT
+     * and throws AuthorizationDeniedException, killing the SSE connection.
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return true;
+    }
+
+    /**
+     * Skip JWT filter for SSE stream endpoint entirely.
+     * This endpoint uses permitAll() + manual single-use ticket validation
+     * in {@code SubmissionController}. The filter would otherwise send 401
+     * before the controller can handle auth, and would also leak JWTs into
+     * proxy logs via the URL.
+     */
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return request.getRequestURI().contains("/submissions/stream");
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -57,13 +79,10 @@ public class AuthTokenFilter extends OncePerRequestFilter {
             return headerAuth.substring(7);
         }
 
-        // Also accept token as query param for SSE connections
-        // (EventSource API doesn't support custom headers)
-        String tokenParam = request.getParameter("token");
-        if (StringUtils.hasText(tokenParam)) {
-            return tokenParam;
-        }
-
+        // Note: We deliberately do NOT accept ?token= as a query param.
+        // The previous implementation did so for SSE compatibility, but JWTs
+        // in URLs end up in proxy logs and browser history. SSE auth now uses
+        // single-use tickets via /submissions/sse-ticket instead.
         return null;
     }
 }

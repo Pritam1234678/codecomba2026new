@@ -15,8 +15,8 @@ export default function ManageTestCases() {
   }, [id, navigate]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-gray-400 text-lg">Redirecting to problem editor...</div>
+    <div className="flex items-center justify-center min-h-screen" style={{ backgroundColor: 'var(--color-background)' }}>
+      <div className="text-lg" style={{ color: 'var(--color-on-surface-variant)' }}>Redirecting to problem editor...</div>
     </div>
   );
 }
