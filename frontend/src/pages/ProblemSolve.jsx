@@ -311,32 +311,63 @@ const ProblemSolve = () => {
             .catch(() => {});
     }, [id]);
 
-    // ── Load all problems for prev/next navigation ────────────────────────────
+    // ── Load all problems for prev/next navigation (client-side cache 60s) ──────
     useEffect(() => {
+        const CACHE_KEY = 'problems_nav_cache';
+        const CACHE_TTL = 60000; // 60s
+        try {
+            const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
+            if (cached && Date.now() - cached.ts < CACHE_TTL) {
+                setAllProblems(cached.data);
+                setCurrentIndex(cached.data.findIndex(p => p.id === parseInt(id)));
+                return;
+            }
+        } catch (ignored) {}
+
         api.get('/problems')
             .then(res => {
                 setAllProblems(res.data);
                 setCurrentIndex(res.data.findIndex(p => p.id === parseInt(id)));
+                try {
+                    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: res.data, ts: Date.now() }));
+                } catch (ignored) {}
             })
             .catch(() => {});
     }, [id]);
 
     // ── Contest status polling ────────────────────────────────────────────────
     useEffect(() => {
-        const check = async () => {
+        const CACHE_KEY = `contest_status_${id}`;
+        const CACHE_TTL = 10000; // 10s client cache for initial load
+
+        const check = async (useCache = false) => {
+            if (useCache) {
+                try {
+                    const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
+                    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+                        setContestStatus({ ...cached.data, checked: true });
+                        if (!cached.data.exists) { setProblem(null); return; }
+                        if (!cached.data.active) setShowStatusBanner(true);
+                        if (cached.data.problemActive === false) setShowStatusBanner(true);
+                        return;
+                    }
+                } catch (ignored) {}
+            }
             try {
                 const res = await api.get(`/problems/${id}/contest-status`);
                 setContestStatus({ ...res.data, checked: true });
                 if (!res.data.exists) { setProblem(null); return; }
                 if (!res.data.active) setShowStatusBanner(true);
-                // If admin disabled this problem while user has it open — show banner instantly
                 if (res.data.problemActive === false) setShowStatusBanner(true);
+                try {
+                    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: res.data, ts: Date.now() }));
+                } catch (ignored) {}
             } catch (err) {
                 if (err.response?.status === 404) setProblem(null);
             }
         };
-        check();
-        const iv = setInterval(check, 5000); // poll every 5s for faster disable detection
+        check(true); // use cache on initial load
+        const iv = setInterval(() => check(false), 5000); // always fresh on poll
         return () => clearInterval(iv);
     }, [id]);
 
