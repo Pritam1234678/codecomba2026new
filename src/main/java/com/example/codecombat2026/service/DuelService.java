@@ -457,12 +457,23 @@ public class DuelService {
                 Sort.by(Sort.Direction.DESC, "startedAt"));
         Page<DuelMatch> page = duelMatchRepository.findByStatus(statusEnum, pageable);
         List<DuelMatchView> views = page.getContent().stream()
-                .map(m -> toView(m, null))
+                .map(m -> toView(m, null, false))
                 .toList();
         return new PageImpl<>(views, pageable, page.getTotalElements());
     }
 
     private DuelMatchView toView(DuelMatch match, Seat yourSeat) {
+        return toView(match, yourSeat, true);
+    }
+
+    /**
+     * @param includeProblem when true, fetches and inlines the problem
+     *                       statement (used by participant-facing
+     *                       {@code getMatch}). Admin listing views pass
+     *                       {@code false} to skip the per-row problem
+     *                       fetch.
+     */
+    private DuelMatchView toView(DuelMatch match, Seat yourSeat, boolean includeProblem) {
         String userAUsername = lookupUsername(match.getUserAId());
         String userBUsername = lookupUsername(match.getUserBId());
 
@@ -481,6 +492,30 @@ public class DuelService {
             // remainingSec stays null for FINISHED rows.
         }
 
+        DuelMatchView.DuelProblemView problemView = null;
+        if (includeProblem && match.getProblemId() != null) {
+            try {
+                problemView = problemRepository.findById(match.getProblemId())
+                        .map(p -> new DuelMatchView.DuelProblemView(
+                                p.getId(),
+                                p.getTitle(),
+                                p.getDescription(),
+                                p.getInputFormat(),
+                                p.getOutputFormat(),
+                                p.getConstraints(),
+                                p.getExample1(),
+                                p.getExample2(),
+                                p.getExample3(),
+                                p.getTimeLimit(),
+                                p.getMemoryLimit(),
+                                p.getLevel()))
+                        .orElse(null);
+            } catch (Exception e) {
+                log.debug("Problem inline lookup failed for problemId={}: {}",
+                        match.getProblemId(), e.getMessage());
+            }
+        }
+
         return new DuelMatchView(
                 match.getMatchId(),
                 match.getUserAId(),
@@ -488,6 +523,7 @@ public class DuelService {
                 match.getUserBId(),
                 userBUsername,
                 match.getProblemId(),
+                problemView,
                 match.getStatus() != null ? match.getStatus().name() : null,
                 match.getOutcome() != null ? match.getOutcome().name() : null,
                 match.getWinnerUserId(),

@@ -17,6 +17,10 @@ import java.util.UUID;
  * <p>{@code yourSeat} carries {@code "A"} / {@code "B"} for participant
  * callers and {@code null} for admin views (where the caller is not in the
  * match).
+ *
+ * <p>{@code problem} carries the inlined problem statement so the duel
+ * arena page does not need a second round-trip to render the description.
+ * Null for admin listing views (where the problem statement is not needed).
  */
 public record DuelMatchView(
         UUID matchId,
@@ -25,6 +29,7 @@ public record DuelMatchView(
         Long userBId,
         String userBUsername,
         Long problemId,
+        DuelProblemView problem,
         String status,
         String outcome,
         Long winnerUserId,
@@ -33,4 +38,26 @@ public record DuelMatchView(
         Long elapsedSeconds,
         Long remainingSeconds,
         String yourSeat
-) {}
+) {
+
+    /**
+     * Inline problem snapshot embedded in {@link DuelMatchView}. Carries
+     * exactly the fields the duel arena needs — no harness / test cases /
+     * solution template (which live in {@code CodeSnippet} and are server-
+     * side only).
+     */
+    public record DuelProblemView(
+            Long id,
+            String title,
+            String description,
+            String inputFormat,
+            String outputFormat,
+            String constraints,
+            String example1,
+            String example2,
+            String example3,
+            Double timeLimit,
+            Integer memoryLimit,
+            String level
+    ) {}
+}
