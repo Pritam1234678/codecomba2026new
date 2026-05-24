@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
+import { getDuelMetrics } from '../services/duelService';
 
 const C = {
     bg:         '#131313',
@@ -26,6 +27,8 @@ const AdminDashboard = () => {
     const [contestStats, setContestStats] = useState({ total: 0, active: 0, inactive: 0 });
     const [adminProfile, setAdminProfile] = useState(null);
     const [loading,      setLoading]      = useState(true);
+    const [duelMetrics,    setDuelMetrics]    = useState(null);
+    const [duelMetricsErr, setDuelMetricsErr] = useState(false);
 
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem('user'));
@@ -39,6 +42,31 @@ const AdminDashboard = () => {
             })
             .catch(() => {})
             .finally(() => setLoading(false));
+    }, []);
+
+    // Poll duel metrics every 5 s. On any failure (e.g. 503), keep prior values
+    // and flip the error flag so the panel renders "—" placeholders rather than
+    // crashing the dashboard.
+    useEffect(() => {
+        let cancelled = false;
+        const fetchMetrics = () => {
+            getDuelMetrics()
+                .then((data) => {
+                    if (cancelled) return;
+                    setDuelMetrics(data);
+                    setDuelMetricsErr(false);
+                })
+                .catch(() => {
+                    if (cancelled) return;
+                    setDuelMetricsErr(true);
+                });
+        };
+        fetchMetrics();
+        const id = setInterval(fetchMetrics, 5000);
+        return () => {
+            cancelled = true;
+            clearInterval(id);
+        };
     }, []);
 
     const stats = [
@@ -291,6 +319,78 @@ const AdminDashboard = () => {
                                 </p>
                             </div>
                         ))}
+                    </motion.section>
+
+                    {/* Live Duels — 12 cols */}
+                    <motion.section
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, delay: 0.35 }}
+                        style={{
+                            gridColumn: 'span 12',
+                            backgroundColor: C.surfaceCon,
+                            border: `1px solid ${C.border}`,
+                            padding: '1.5rem',
+                            display: 'flex', flexDirection: 'column',
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                            <h3 style={{
+                                fontFamily: "'Playfair Display', serif",
+                                fontSize: '24px', fontWeight: 600,
+                                color: C.onBg,
+                                display: 'flex', alignItems: 'center', gap: '12px',
+                            }}>
+                                <span
+                                    className="material-symbols-outlined"
+                                    style={{ fontSize: '24px', color: C.primary }}
+                                >
+                                    swords
+                                </span>
+                                Live Duels
+                            </h3>
+                            <span style={{
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '11px', letterSpacing: '0.15em',
+                                color: duelMetricsErr ? C.error : C.primary,
+                                border: `1px solid ${duelMetricsErr ? C.error : C.primary}`,
+                                padding: '4px 12px',
+                            }}>
+                                {duelMetricsErr ? 'METRICS UNAVAILABLE' : 'POLLING · 5S'}
+                            </span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '32px' }}>
+                            {[
+                                { label: 'Active Matches',   key: 'activeMatchCount',      icon: 'sports_kabaddi' },
+                                { label: 'Queue Depth',      key: 'queueDepth',            icon: 'schedule' },
+                                { label: 'Finished Today',   key: 'matchesFinishedToday',  icon: 'task_alt' },
+                                { label: 'Abandoned Today',  key: 'matchesAbandonedToday', icon: 'cancel' },
+                            ].map(({ label, key, icon }) => {
+                                const raw = duelMetrics ? duelMetrics[key] : null;
+                                const display = duelMetricsErr || raw === null || raw === undefined ? '—' : raw;
+                                return (
+                                    <div key={key} style={{ borderTop: `1px solid ${C.border}`, paddingTop: '1rem' }}>
+                                        <p style={{
+                                            fontFamily: "'JetBrains Mono', monospace",
+                                            fontSize: '11px', letterSpacing: '0.1em',
+                                            color: C.outline, textTransform: 'uppercase',
+                                            marginBottom: '8px',
+                                            display: 'flex', alignItems: 'center', gap: '8px',
+                                        }}>
+                                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{icon}</span>
+                                            {label}
+                                        </p>
+                                        <p style={{
+                                            fontFamily: "'Playfair Display', serif",
+                                            fontSize: '36px', fontWeight: 300,
+                                            color: C.onBg, margin: 0,
+                                        }}>
+                                            {display}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </motion.section>
 
                     {/* Profile Info — 12 cols */}

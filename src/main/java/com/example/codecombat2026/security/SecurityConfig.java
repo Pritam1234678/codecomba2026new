@@ -94,6 +94,12 @@ public class SecurityConfig {
                         // SSE stream: permit at filter level, auth handled by @PreAuthorize + JWT filter
                         // Without this, Spring Security re-checks on async dispatch and fails (no JWT on async thread)
                         .requestMatchers("/api/submissions/stream").permitAll()
+                        // Duel SSE stream: same pattern as /api/submissions/stream — auth is handled
+                        // by a single-use SSE ticket (SseTicketService) consumed by the controller.
+                        .requestMatchers("/api/duels/*/stream").permitAll()
+                        // Admin duel routes: explicit role gate placed BEFORE the broader /api/admin/**
+                        // matcher so reordering can't accidentally widen access.
+                        .requestMatchers("/api/admin/duels/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated());
 

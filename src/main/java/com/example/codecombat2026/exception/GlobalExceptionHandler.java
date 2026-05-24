@@ -54,6 +54,42 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
 
+    @ExceptionHandler(DuelNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleDuelNotFound(DuelNotFoundException ex) {
+        log.debug("Duel not found: {}", ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", "DUEL_NOT_FOUND");
+        body.put("message", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(DuelForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleDuelForbidden(DuelForbiddenException ex) {
+        log.debug("Duel forbidden: {}", ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", "DUEL_FORBIDDEN");
+        body.put("message", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(DuelStateConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleDuelStateConflict(DuelStateConflictException ex) {
+        log.debug("Duel state conflict {}: {}", ex.getCode(), ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", ex.getCode());
+        Object payload = ex.getPayload();
+        if (payload instanceof Map<?, ?> payloadMap) {
+            for (Map.Entry<?, ?> entry : payloadMap.entrySet()) {
+                if (entry.getKey() != null) {
+                    body.put(entry.getKey().toString(), entry.getValue());
+                }
+            }
+        } else if (payload != null) {
+            body.put("details", payload);
+        }
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<MessageResponse> handleGlobalException(Exception ex, HttpServletRequest request) {
         // Let Spring's own ResponseStatusException flow through unchanged so

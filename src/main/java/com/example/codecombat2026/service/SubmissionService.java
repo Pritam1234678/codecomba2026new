@@ -95,7 +95,8 @@ public class SubmissionService {
             code, language.name(),
             problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0,
             problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256,
-            false  // isTestRun = false
+            false,  // isTestRun = false
+            null    // duelId — practice/contest submissions are not duel-tagged
         );
 
         try {
@@ -145,7 +146,8 @@ public class SubmissionService {
             code, language.name(),
             problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0,
             problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256,
-            true  // isTestRun = true — no leaderboard update
+            true,  // isTestRun = true — no leaderboard update
+            null   // duelId — test runs are not duel-tagged
         );
 
         try {

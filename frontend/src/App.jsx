@@ -36,6 +36,8 @@ import PracticeSolve from './pages/PracticeSolve';
 import api from './services/api';
 import AuthService from './services/auth.service';
 const NotFound = lazy(() => import('./pages/NotFound'));
+const Duel = lazy(() => import('./pages/Duel'));
+const DuelArena = lazy(() => import('./pages/DuelArena'));
 
 // Public routes — no sidebar, no auth required
 // /compiler is special: shown with sidebar if logged in, with navbar if not
@@ -106,6 +108,16 @@ function App() {
       <Route path="/problems/:id" element={<div className="flex-1 px-14 py-8"><UserRoute><ProblemSolve /></UserRoute></div>} />
       <Route path="/practice" element={<UserRoute><Practice /></UserRoute>} />
       <Route path="/practice/:id" element={<UserRoute><PracticeSolve /></UserRoute>} />
+      <Route path="/duel" element={
+        <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-gray-400">Loading...</div>}>
+          <UserRoute><Duel /></UserRoute>
+        </Suspense>
+      } />
+      <Route path="/duel/:matchId" element={
+        <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-gray-400">Loading...</div>}>
+          <UserRoute><DuelArena /></UserRoute>
+        </Suspense>
+      } />
       <Route path="/platform-details" element={<div className="p-8 flex-1"><UserRoute><PlatformDetails /></UserRoute></div>} />
       <Route path="/support" element={<div className="flex-1"><Support /></div>} />
 

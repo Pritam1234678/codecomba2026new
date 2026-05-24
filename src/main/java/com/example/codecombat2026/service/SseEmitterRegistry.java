@@ -107,6 +107,56 @@ public class SseEmitterRegistry {
     }
 
     /**
+     * Push an arbitrary named event to every subscription for the user.
+     *
+     * <p>Used by Live Duel Mode to deliver per-user events that are not
+     * submission verdicts — {@code queue_timeout} when the matchmaking
+     * sweep evicts a user from the queue (Requirement 1.5),
+     * {@code pairing_failed} when the pair-loop cannot create a match
+     * (Requirements 3.4 / 10.2), and {@code matched} when a duel is paired
+     * (Requirement 13.2). The registry itself is generic over event name —
+     * only the browser consumer (the duel lobby page) cares which name it
+     * is listening for.
+     *
+     * <p>Best-effort: a single dead emitter does not abort the fan-out.
+     * Mirrors {@link #sendVerdict(Long, Object)} for serialization and
+     * cleanup behavior.
+     */
+    public void sendEvent(Long userId, String eventName, Object payload) {
+        ConcurrentHashMap<String, SseEmitter> subs = emitters.get(userId);
+        if (subs == null || subs.isEmpty()) {
+            log.debug("No SSE subscriptions for user {} — '{}' event not pushed", userId, eventName);
+            return;
+        }
+
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(payload);
+        } catch (IOException e) {
+            log.error("Failed to serialise '{}' payload for user {}: {}", eventName, userId, e.getMessage());
+            return;
+        }
+
+        Iterator<Map.Entry<String, SseEmitter>> it = subs.entrySet().iterator();
+        int delivered = 0;
+        while (it.hasNext()) {
+            Map.Entry<String, SseEmitter> e = it.next();
+            try {
+                e.getValue().send(SseEmitter.event().name(eventName).data(json));
+                delivered++;
+            } catch (IOException ex) {
+                it.remove();
+                log.debug("SSE send failed for user {} sub {} event {}: {}",
+                    userId, e.getKey(), eventName, ex.getMessage());
+            }
+        }
+        if (subs.isEmpty()) {
+            emitters.remove(userId);
+        }
+        log.debug("'{}' delivered to {} subscription(s) for user {}", eventName, delivered, userId);
+    }
+
+    /**
      * Send a heartbeat to keep connections alive through proxies / load balancers.
      * Called every 25 seconds by a scheduler.
      */

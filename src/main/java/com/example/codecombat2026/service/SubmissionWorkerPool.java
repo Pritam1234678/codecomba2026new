@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -81,6 +82,16 @@ public class SubmissionWorkerPool {
     @Autowired private LeaderboardCacheService leaderboard;
     @Autowired private SseEmitterRegistry sseRegistry;
     @Autowired private CacheService cacheService;
+    /**
+     * Duel verdict callback target. Lazy-injected to break the circular
+     * dependency: {@link DuelService} pushes duel-tagged jobs onto
+     * {@code submission:queue}, which this pool drains. Without {@code @Lazy}
+     * the bean graph would require both beans to be fully constructed before
+     * either can be wired.
+     */
+    @Autowired
+    @Lazy
+    private DuelService duelService;
 
     @PostConstruct
     public void startWorkers() {
@@ -304,18 +315,27 @@ public class SubmissionWorkerPool {
     }
 
     /**
-     * Finalize a job: update DB, leaderboard, push SSE.
+     * Finalize a job: update DB, leaderboard or duel adjudication, push SSE.
      * Each section is wrapped in try/catch so one failure doesn't lose the verdict.
      *
-     * Idempotency: leaderboard increment is keyed off the submission row, not
+     * <p>Idempotency: leaderboard increment is keyed off the submission row, not
      * a counter — replays will set the same final score, not stack. The DB
      * update is overwriting all result fields so re-running is safe.
+     *
+     * <p>Per Property 13 (Zero leaderboard side-effects), duel-tagged jobs
+     * (those with {@code job.duelId != null}) MUST NOT touch the leaderboard,
+     * {@code user_problem_solved}, or {@code users.total_points}. The
+     * {@code if (job.getDuelId() == null)} gate is the explicit guard so any
+     * future leaderboard side-effect added by another feature is automatically
+     * excluded for duel submissions. Per Property 14, the per-user SSE
+     * verdict push runs in <em>both</em> branches so the personal verdict
+     * feed stays consistent across contest, practice, and duel modes.
      */
     void finalizeAndNotify(SubmissionJob job, Long submissionId,
                            Submission.SubmissionStatus status, String errorMessage,
                            int passed, int total, int score, long timeMs, String details) {
 
-        // 1. Update DB — polling needs this. Wrap in try so it never throws.
+        // 1. Update DB — needed by polling. Wrap in try so it never throws.
         if (submissionId != null && submissionId > 0) {
             try {
                 submissionRepository.updateResult(
@@ -327,28 +347,49 @@ public class SubmissionWorkerPool {
             }
         }
 
-        // 2. Leaderboard — only for real successful submissions
-        if (!job.isTestRun() && status == Submission.SubmissionStatus.AC && job.getContestId() != null) {
+        // ─── Branch on duelId ──────────────────────────────────────────────
+        // Per Property 13: duel-tagged jobs MUST NOT touch leaderboard,
+        // user_problem_solved, or users.total_points. The if/else gate is
+        // the explicit guard so any future leaderboard side-effect added by
+        // another feature is automatically excluded for duel submissions.
+        if (job.getDuelId() == null) {
+            // 2a. Leaderboard — only for real successful submissions
+            if (!job.isTestRun() && status == Submission.SubmissionStatus.AC && job.getContestId() != null) {
+                try {
+                    leaderboard.updateScore(job.getContestId(), job.getUserId(), score);
+                } catch (Exception e) {
+                    log.warn("Leaderboard update failed: {}", e.getMessage());
+                }
+            }
+
+            // 3a. Invalidate user submissions cache so dashboard shows fresh data
             try {
-                leaderboard.updateScore(job.getContestId(), job.getUserId(), score);
+                redis.delete("submissions:user:" + job.getUserId());
+            } catch (Exception ignored) {}
+
+            // 4a. Invalidate solved cache for practice mode on AC
+            if (!job.isTestRun() && status == Submission.SubmissionStatus.AC) {
+                try {
+                    redis.delete("solved:" + job.getUserId());
+                } catch (Exception ignored) {}
+            }
+        } else {
+            // 2b/3b/4b. Duel branch — no leaderboard, no caches.
+            // Hand off to DuelService for room state + win adjudication.
+            try {
+                duelService.onDuelVerdict(
+                    job.getDuelId(), job.getUserId(), submissionId,
+                    status, passed, total
+                );
             } catch (Exception e) {
-                log.warn("Leaderboard update failed: {}", e.getMessage());
+                log.warn("Duel verdict callback failed for match {} sub {}: {}",
+                    job.getDuelId(), submissionId, e.getMessage());
             }
         }
 
-        // 3. Invalidate user submissions cache so dashboard shows fresh data
-        try {
-            redis.delete("submissions:user:" + job.getUserId());
-        } catch (Exception ignored) {}
-
-        // 4. Invalidate solved cache for practice mode on AC
-        if (!job.isTestRun() && status == Submission.SubmissionStatus.AC) {
-            try {
-                redis.delete("solved:" + job.getUserId());
-            } catch (Exception ignored) {}
-        }
-
-        // 5. Push verdict to user's open SSE connection (if any)
+        // 5. Push verdict to user's open SSE connection (always, both branches).
+        //    Per Property 14: per-user SSE fan-out happens for both contest and
+        //    duel submissions so the personal verdict feed stays consistent.
         try {
             sseRegistry.sendVerdict(job.getUserId(), new VerdictEvent(
                 submissionId, status.name(), passed, total, score, timeMs, errorMessage, details,

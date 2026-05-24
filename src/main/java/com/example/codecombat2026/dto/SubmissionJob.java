@@ -1,5 +1,7 @@
 package com.example.codecombat2026.dto;
 
+import java.util.UUID;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,4 +25,10 @@ public class SubmissionJob {
     private Integer memoryLimit;
     /** true = test run (not saved to DB, no leaderboard update) */
     private boolean testRun = false;
+    /**
+     * Live Duel match id when this job was produced inside a duel.
+     * Null for practice and contest submissions. Defaults to null so jobs
+     * already on submission:queue at deploy time deserialize cleanly.
+     */
+    private UUID duelId;
 }
