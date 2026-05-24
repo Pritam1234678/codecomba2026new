@@ -77,7 +77,11 @@ public class AdminDashboardController {
         try {
             String cached = redis.opsForValue().get(STATS_CACHE_KEY);
             if (cached != null) {
-                return objectMapper.readValue(cached, Map.class);
+                Map<String, Object> raw = objectMapper.readValue(cached, Map.class);
+                // Jackson decodes JSON numbers as Integer when they fit. Our
+                // controllers declare Map<String, Long> so the response
+                // serializer hits ClassCastException. Coerce values to Long.
+                return coerceStatsToLong(raw);
             }
         } catch (Exception ignored) {}
 
@@ -108,6 +112,27 @@ public class AdminDashboardController {
         } catch (Exception ignored) {}
 
         return result;
+    }
+
+    /** Walk the stats payload and convert any Number leaves to Long. */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> coerceStatsToLong(Map<String, Object> raw) {
+        Map<String, Object> out = new HashMap<>();
+        for (Map.Entry<String, Object> e : raw.entrySet()) {
+            Object v = e.getValue();
+            if (v instanceof Map<?, ?> m) {
+                Map<String, Long> inner = new HashMap<>();
+                for (Map.Entry<?, ?> ie : m.entrySet()) {
+                    if (ie.getValue() instanceof Number n) {
+                        inner.put(String.valueOf(ie.getKey()), n.longValue());
+                    }
+                }
+                out.put(e.getKey(), inner);
+            } else {
+                out.put(e.getKey(), v);
+            }
+        }
+        return out;
     }
 
     /**
