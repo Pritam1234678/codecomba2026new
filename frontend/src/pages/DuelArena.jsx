@@ -7,6 +7,7 @@ import {
     submitDuelCode,
     forfeit,
     heartbeat,
+    getMatchSubmissions,
 } from '../services/duelService';
 import ProblemService from '../services/problem.service';
 
@@ -222,6 +223,37 @@ const DuelArena = () => {
         return () => { cancelled = true; };
     }, [match?.problemId]);  // eslint-disable-line react-hooks/exhaustive-deps
 
+    // ── Load existing duel-scoped submissions for this user on mount ────────
+    // The hook only captures verdicts from SSE events delivered while the
+    // page is open — so a refresh inside the arena loses every prior verdict.
+    // Backend exposes /api/duels/{matchId}/submissions to rebuild the list.
+    useEffect(() => {
+        if (!matchId) return;
+        let cancelled = false;
+        getMatchSubmissions(matchId)
+            .then((rows) => {
+                if (cancelled) return;
+                const items = Array.isArray(rows) ? rows : [];
+                // Match the in-memory shape the SSE handler produces.
+                const decorated = items.map((s) => ({
+                    submissionId: s.submissionId,
+                    status:       s.status,
+                    passed:       s.testCasesPassed ?? 0,
+                    total:        s.totalTestCases ?? 0,
+                    ts:           s.submittedAt
+                        ? new Date(s.submittedAt).getTime()
+                        : Date.now(),
+                }));
+                // Server returns newest-first; we render in append order so
+                // reverse here to keep newest-first after our `.slice().reverse()` flip.
+                setHistory(decorated.slice().reverse());
+            })
+            .catch(() => {
+                // Non-fatal — empty list is fine, future SSE verdicts will populate.
+            });
+        return () => { cancelled = true; };
+    }, [matchId]);
+
     const onCodeChange = useCallback((newCode) => {
         const value = newCode ?? '';
         setCode(value);
@@ -336,10 +368,22 @@ const DuelArena = () => {
         setForfeiting(true);
         try {
             await forfeit(matchId);
+            // Re-read the match so the result modal renders even if the
+            // SSE stream missed the match_finished event (e.g. browser
+            // backgrounded the tab during the close).
+            try {
+                const fresh = await getMatch(matchId);
+                setMatch(fresh);
+            } catch { /* ignore — modal will fire on next SSE tick */ }
         } catch (err) {
-            // 409 on already-finished is fine; the SSE stream will surface it.
             const status = err?.response?.status;
-            if (status !== 409) {
+            if (status === 409) {
+                // Already finished — re-read so the modal still shows.
+                try {
+                    const fresh = await getMatch(matchId);
+                    setMatch(fresh);
+                } catch { /* ignore */ }
+            } else {
                 console.warn('Forfeit failed', err);
             }
         } finally {

@@ -53,13 +53,17 @@ export const issueDuelTicket = (matchId) =>
 
 /**
  * Recent duel history for the current user.
- *
- * TODO: backend endpoint `/api/user/duel-history` is pending implementation.
- * The wrapper is provided here so the lobby UI can be wired up; calls will
- * 404 until the controller lands.
+ * Resolves with an array of `DuelHistoryEntry`.
  */
 export const getDuelHistory = (limit = 10) =>
-  api.get(`/user/duel-history?limit=${limit}`).then((r) => r.data);
+  api.get(`/duels/history?limit=${limit}`).then((r) => r.data);
+
+/**
+ * Per-match submission list for the calling user. Used by the arena to
+ * rebuild "Your submissions" on mount/refresh.
+ */
+export const getMatchSubmissions = (matchId) =>
+  api.get(`/duels/${matchId}/submissions`).then((r) => r.data);
 
 // ─── Admin endpoints (require ROLE_ADMIN) ────────────────────────────────────
 
@@ -116,6 +120,7 @@ const DuelService = {
   heartbeat,
   issueDuelTicket,
   getDuelHistory,
+  getMatchSubmissions,
   getDuelMetrics,
   listAdminMatches,
   adminCancelMatch,

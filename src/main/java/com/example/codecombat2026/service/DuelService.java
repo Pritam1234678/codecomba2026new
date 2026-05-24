@@ -1,4 +1,4 @@
-package com.example.codecombat2026.service;
+bhapackage com.example.codecombat2026.service;
 
 import com.example.codecombat2026.dto.SubmissionJob;
 import com.example.codecombat2026.dto.duel.DuelMatchView;
@@ -462,6 +462,110 @@ public class DuelService {
         return new PageImpl<>(views, pageable, page.getTotalElements());
     }
 
+    /**
+     * Returns the calling user's most recent FINISHED duel matches as
+     * compact history rows. The frontend lobby ("Recent Duels" card)
+     * polls this once per page-load.
+     *
+     * @param userId the requesting user
+     * @param limit  max rows to return (clamped to {@code [1, 50]})
+     * @return rows ordered by ended_at DESC, opponent and problem title
+     *         resolved server-side
+     */
+    public List<DuelHistoryEntry> getDuelHistory(Long userId, int limit) {
+        if (userId == null) return List.of();
+        int safeLimit = Math.max(1, Math.min(50, limit));
+        Pageable pageable = PageRequest.of(0, safeLimit);
+        List<DuelMatch> rows = duelMatchRepository.findFinishedByUser(userId, pageable);
+        List<DuelHistoryEntry> out = new java.util.ArrayList<>(rows.size());
+        for (DuelMatch m : rows) {
+            Long opponentId = userId.equals(m.getUserAId()) ? m.getUserBId() : m.getUserAId();
+            String opponentUsername = lookupUsername(opponentId);
+            String problemTitle = null;
+            if (m.getProblemId() != null) {
+                try {
+                    problemTitle = problemRepository.findById(m.getProblemId())
+                            .map(Problem::getTitle).orElse(null);
+                } catch (Exception ignored) { /* nullable */ }
+            }
+            String outcome = m.getOutcome() != null ? m.getOutcome().name() : null;
+            out.add(new DuelHistoryEntry(
+                    m.getMatchId(),
+                    opponentUsername,
+                    m.getProblemId(),
+                    problemTitle,
+                    outcome,
+                    m.getWinnerUserId(),
+                    m.getEndedAt()
+            ));
+        }
+        return out;
+    }
+
+    /**
+     * Per-user, per-match submission list — the frontend rebuilds the
+     * "Your submissions" panel from this on mount so a refresh inside
+     * the arena keeps the verdict history.
+     */
+    public List<DuelSubmissionView> getMatchSubmissions(UUID matchId, Long userId) {
+        if (matchId == null || userId == null) return List.of();
+        // Participant gate — same logic as getMatch but without throwing
+        // 404 if the match is gone (we just return empty).
+        DuelMatch match = duelMatchRepository.findById(matchId).orElse(null);
+        if (match == null) return List.of();
+        if (!userId.equals(match.getUserAId()) && !userId.equals(match.getUserBId())) {
+            throw new DuelForbiddenException("Not a participant of match " + matchId);
+        }
+
+        // Pull duel_submissions for this match, then for each one fetch
+        // the underlying Submission row and filter to the calling user.
+        List<DuelSubmission> links = duelSubmissionRepository.findByMatchId(matchId);
+        List<DuelSubmissionView> out = new java.util.ArrayList<>();
+        for (DuelSubmission link : links) {
+            Submission sub = submissionRepository.findById(link.getSubmissionId()).orElse(null);
+            if (sub == null) continue;
+            if (sub.getUser() == null || !userId.equals(sub.getUser().getId())) continue;
+            out.add(new DuelSubmissionView(
+                    sub.getId(),
+                    sub.getStatus() != null ? sub.getStatus().name() : null,
+                    sub.getTestCasesPassed() != null ? sub.getTestCasesPassed() : 0,
+                    sub.getTotalTestCases() != null ? sub.getTotalTestCases() : 0,
+                    sub.getLanguage() != null ? sub.getLanguage().name() : null,
+                    sub.getSubmittedAt(),
+                    Boolean.TRUE.equals(link.isFirstAc())
+            ));
+        }
+        // Newest first.
+        out.sort((a, b) -> {
+            if (a.submittedAt() == null) return 1;
+            if (b.submittedAt() == null) return -1;
+            return b.submittedAt().compareTo(a.submittedAt());
+        });
+        return out;
+    }
+
+    /** Compact projection of a duel-tagged submission for the arena history list. */
+    public record DuelSubmissionView(
+            Long submissionId,
+            String status,
+            int testCasesPassed,
+            int totalTestCases,
+            String language,
+            LocalDateTime submittedAt,
+            boolean firstAc
+    ) {}
+
+    /** Compact projection of a finished duel for the lobby history table. */
+    public record DuelHistoryEntry(
+            UUID matchId,
+            String opponentUsername,
+            Long problemId,
+            String problemTitle,
+            String outcome,
+            Long winnerUserId,
+            LocalDateTime endedAt
+    ) {}
+
     private DuelMatchView toView(DuelMatch match, Seat yourSeat) {
         return toView(match, yourSeat, true);
     }
@@ -527,6 +631,7 @@ public class DuelService {
                 match.getStatus() != null ? match.getStatus().name() : null,
                 match.getOutcome() != null ? match.getOutcome().name() : null,
                 match.getWinnerUserId(),
+                match.getWinnerUserId() != null ? lookupUsername(match.getWinnerUserId()) : null,
                 startedAt,
                 match.getEndedAt(),
                 elapsedSec,
@@ -1219,6 +1324,13 @@ public class DuelService {
         payload.put("matchId", match.getMatchId().toString());
         payload.put("outcome", match.getOutcome() != null ? match.getOutcome().name() : null);
         payload.put("winnerUserId", match.getWinnerUserId());
+        // Inline winner username so the result modal can render
+        // "winner: <username>" without an extra round-trip.
+        if (match.getWinnerUserId() != null) {
+            payload.put("winnerUsername", lookupUsername(match.getWinnerUserId()));
+        } else {
+            payload.put("winnerUsername", null);
+        }
         payload.put("endedAt", match.getEndedAt() != null ? match.getEndedAt().toString() : null);
         payload.put("ts", Instant.now().toString());
         try {

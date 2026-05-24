@@ -33,6 +33,7 @@ public record DuelMatchView(
         String status,
         String outcome,
         Long winnerUserId,
+        String winnerUsername,
         LocalDateTime startedAt,
         LocalDateTime endedAt,
         Long elapsedSeconds,

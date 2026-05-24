@@ -61,16 +61,27 @@ const Duel = () => {
         }
     }, [matchId, navigate]);
 
-    // ── Recent duel history — endpoint is pending on the backend, so a 404 ──
-    // is the expected MVP path; render the empty state in that case.
+    // ── Recent duel history — backend endpoint `/api/duels/history`. ───
     useEffect(() => {
         let cancelled = false;
+        const selfUser = (() => {
+            try { return JSON.parse(localStorage.getItem('user') || 'null'); }
+            catch { return null; }
+        })();
+        const selfId = selfUser?.id ?? null;
         getDuelHistory(10)
             .then((data) => {
                 if (cancelled) return;
-                // Tolerate either an array or a `{ items: [...] }` envelope.
                 const items = Array.isArray(data) ? data : (data?.items ?? []);
-                setHistory(items);
+                // Decorate each row with `youWon` so the table can colour
+                // the outcome cell. The backend returns the raw outcome +
+                // winnerUserId so we resolve the perspective here.
+                const decorated = items.map((row) => ({
+                    ...row,
+                    youWon: row.winnerUserId != null && selfId != null
+                        && Number(row.winnerUserId) === Number(selfId),
+                }));
+                setHistory(decorated);
                 setHistoryErr(false);
             })
             .catch(() => {

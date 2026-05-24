@@ -159,4 +159,16 @@ public interface DuelMatchRepository extends JpaRepository<DuelMatch, UUID> {
            "WHERE m.outcome = com.example.codecombat2026.entity.DuelMatch.Outcome.ABANDONED " +
            "AND m.endedAt >= :startOfDay")
     long countAbandonedSince(@Param("startOfDay") LocalDateTime startOfDay);
+
+    /**
+     * Recent duel history for a given user — both finished (most recent
+     * first by {@code endedAt}) so the lobby can render their last N
+     * matches. We include only FINISHED rows because in-progress matches
+     * are surfaced separately via the {@code findActiveByUser} query.
+     */
+    @Query("SELECT m FROM DuelMatch m " +
+           "WHERE (m.userAId = :userId OR m.userBId = :userId) " +
+           "AND m.status = com.example.codecombat2026.entity.DuelMatch.Status.FINISHED " +
+           "ORDER BY m.endedAt DESC NULLS LAST")
+    List<DuelMatch> findFinishedByUser(@Param("userId") Long userId, Pageable pageable);
 }

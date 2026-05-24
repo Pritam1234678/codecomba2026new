@@ -162,6 +162,31 @@ public class DuelController {
     }
 
     /**
+     * Recent finished-duel history for the calling user. Used by the
+     * lobby "Recent Duels" card. Query param {@code limit} clamped to
+     * {@code [1, 50]} server-side, default 10.
+     */
+    @GetMapping("/history")
+    @PreAuthorize("isAuthenticated()")
+    public java.util.List<com.example.codecombat2026.service.DuelService.DuelHistoryEntry> history(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int limit) {
+        return duelService.getDuelHistory(userDetails.getId(), limit);
+    }
+
+    /**
+     * Per-match submission list for the calling user. Used by the arena
+     * to rebuild the "Your submissions" panel on mount / refresh.
+     */
+    @GetMapping("/{matchId}/submissions")
+    @PreAuthorize("isAuthenticated()")
+    public java.util.List<com.example.codecombat2026.service.DuelService.DuelSubmissionView> mySubmissions(
+            @PathVariable UUID matchId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        return duelService.getMatchSubmissions(matchId, userDetails.getId());
+    }
+
+    /**
      * Forfeit the calling user's seat in the match. Returns the freshly
      * re-read {@link DuelMatchView} so the frontend can render the result
      * modal directly (Requirements 7.5 / 7.6).
@@ -297,6 +322,7 @@ public class DuelController {
                 mfPayload.put("matchId", matchId.toString());
                 mfPayload.put("outcome", view.outcome());
                 mfPayload.put("winnerUserId", view.winnerUserId());
+                mfPayload.put("winnerUsername", view.winnerUsername());
                 mfPayload.put("endedAt", view.endedAt() != null ? view.endedAt().toString() : null);
                 mfPayload.put("ts", java.time.Instant.now().toString());
                 duelSseEmitterRegistry.emitTo(matchId, ticketUserId, "match_finished", mfPayload);
