@@ -1065,16 +1065,16 @@ public class DuelService {
     // ─── Cache keys for hot read paths (added to absorb 5s admin polling) ────
 
     /** Admin metrics cache key — only the DB-derived counts; live members not cached. */
-    static final String METRICS_CACHE_KEY = "duel:metrics:db";
+    public static final String METRICS_CACHE_KEY = "duel:metrics:db";
 
     /** Metrics cache TTL — short so live state stays current. */
     private static final long METRICS_CACHE_TTL_SEC = 4L;
 
     /** Eligible-problem list cache key. */
-    static final String ELIGIBLE_LIST_CACHE_KEY = "duel:eligible:list";
+    public static final String ELIGIBLE_LIST_CACHE_KEY = "duel:eligible:list";
 
     /** Eligible list cache TTL — only invalidated by admin add/delete. */
-    static final long ELIGIBLE_LIST_CACHE_TTL_SEC = 60L;
+    public static final long ELIGIBLE_LIST_CACHE_TTL_SEC = 60L;
 
     /** Snapshot of duel runtime metrics for the admin dashboard. */
     public DuelMetrics getMetrics() {
