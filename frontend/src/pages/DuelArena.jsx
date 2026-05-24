@@ -10,6 +10,7 @@ import {
     getMatchSubmissions,
 } from '../services/duelService';
 import ProblemService from '../services/problem.service';
+import api from '../services/api';
 
 // ── Design tokens (mirrors AdminDashboard.jsx / ProblemSolve.jsx) ───────────
 const C = {
@@ -326,6 +327,40 @@ const DuelArena = () => {
             return next.slice(-20);
         });
     }, [stream?.events, selfUserId]);
+
+    // ── Poll PENDING submissions for verdict updates ─────────────────────────
+    // Belt-and-suspenders: if the duel SSE stream misses a verdict event
+    // (e.g. connection dropped briefly), we poll the per-submission status
+    // endpoint every 3 s for any items still showing PENDING/JUDGING.
+    useEffect(() => {
+        const pending = history.filter(
+            (h) => h.status === 'PENDING' || h.status === 'JUDGING'
+        );
+        if (!pending.length) return undefined;
+        const poll = setInterval(async () => {
+            let changed = false;
+            const updates = [...history];
+            for (let i = 0; i < updates.length; i++) {
+                const h = updates[i];
+                if (h.status !== 'PENDING' && h.status !== 'JUDGING') continue;
+                try {
+                    const resp = await api.get(`/submissions/${h.submissionId}/status`);
+                    const sub = resp.data;
+                    if (sub && sub.status && sub.status !== 'PENDING' && sub.status !== 'JUDGING') {
+                        updates[i] = {
+                            ...h,
+                            status: sub.status,
+                            passed: sub.testCasesPassed ?? 0,
+                            total:  sub.totalTestCases ?? 0,
+                        };
+                        changed = true;
+                    }
+                } catch { /* ignore — keep polling */ }
+            }
+            if (changed) setHistory(updates);
+        }, 3000);
+        return () => clearInterval(poll);
+    }, [history]);
 
     // ── Submit ───────────────────────────────────────────────────────────────
     const isMatchFinished = stream?.status === 'FINISHED' || match?.status === 'FINISHED';
