@@ -11,16 +11,18 @@ import java.util.UUID;
  * admin {@code listMatches} endpoint. Usernames are looked up at query time
  * because they are stable and small (≤ 20 chars). The transient fields
  * {@code elapsedSeconds} / {@code remainingSeconds} are computed on demand
- * relative to {@code TimeUtil.now()} and the configured draw-timeout — they
- * are never persisted.
+ * relative to {@code TimeUtil.now()} and the per-match {@code timeLimitSec}
+ * — they are never persisted.
  *
- * <p>{@code yourSeat} carries {@code "A"} / {@code "B"} for participant
- * callers and {@code null} for admin views (where the caller is not in the
- * match).
- *
- * <p>{@code problem} carries the inlined problem statement so the duel
- * arena page does not need a second round-trip to render the description.
- * Null for admin listing views (where the problem statement is not needed).
+ * <p>V4 fields:
+ * <ul>
+ *   <li>{@code difficulty} — EASY/MEDIUM/HARD bucket the match was created in.</li>
+ *   <li>{@code timeLimitSec} — total match window in seconds (1200/2400/3900).</li>
+ *   <li>{@code runsUsed} / {@code submitsUsed} — counters from Valkey for the
+ *       calling user (null on admin views).</li>
+ *   <li>{@code runsRemaining} / {@code submitsRemaining} — derived from the
+ *       per-match limits (5 runs, 2 submits).</li>
+ * </ul>
  */
 public record DuelMatchView(
         UUID matchId,
@@ -38,14 +40,17 @@ public record DuelMatchView(
         LocalDateTime endedAt,
         Long elapsedSeconds,
         Long remainingSeconds,
-        String yourSeat
+        String yourSeat,
+        String difficulty,
+        Integer timeLimitSec,
+        Integer runsUsed,
+        Integer submitsUsed,
+        Integer runsRemaining,
+        Integer submitsRemaining
 ) {
 
     /**
-     * Inline problem snapshot embedded in {@link DuelMatchView}. Carries
-     * exactly the fields the duel arena needs — no harness / test cases /
-     * solution template (which live in {@code CodeSnippet} and are server-
-     * side only).
+     * Inline problem snapshot embedded in {@link DuelMatchView}.
      */
     public record DuelProblemView(
             Long id,

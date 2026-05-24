@@ -5,6 +5,7 @@ import useDuelStream from '../hooks/useDuelStream';
 import {
     getMatch,
     submitDuelCode,
+    runDuelCode,
     forfeit,
     heartbeat,
     getMatchSubmissions,
@@ -166,6 +167,13 @@ const DuelArena = () => {
                 setMatch(data);
                 setParticipantOk(true);
                 setMatchLoadErr(null);
+                // Seed run/submit counters from the read-model.
+                if (typeof data.runsRemaining === 'number') {
+                    setRunsRemaining(data.runsRemaining);
+                }
+                if (typeof data.submitsRemaining === 'number') {
+                    setSubmitsRemaining(data.submitsRemaining);
+                }
             })
             .catch((err) => {
                 if (cancelled) return;
@@ -183,6 +191,66 @@ const DuelArena = () => {
         return () => { cancelled = true; };
     }, [matchId]);
 
+    // ── Fullscreen on mount + banner if user exits ──────────────────────────
+    // We never auto-forfeit on fullscreen exit — too aggressive — but we
+    // surface a banner with a button that re-enters fullscreen.
+    useEffect(() => {
+        const root = document.documentElement;
+        // Best-effort enter; if the browser blocks (no user gesture) the
+        // banner will appear instead.
+        try {
+            const result = root.requestFullscreen?.();
+            if (result && typeof result.catch === 'function') {
+                result.catch(() => setShowFsBanner(true));
+            }
+        } catch {
+            setShowFsBanner(true);
+        }
+
+        const onFsChange = () => {
+            const inFs = !!document.fullscreenElement;
+            setShowFsBanner(!inFs);
+        };
+        document.addEventListener('fullscreenchange', onFsChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', onFsChange);
+            // Exit fullscreen on unmount so the lobby isn't stuck in fs mode.
+            if (document.fullscreenElement) {
+                document.exitFullscreen?.().catch(() => {});
+            }
+        };
+    }, []);
+
+    // ── beforeunload → auto-forfeit ─────────────────────────────────────────
+    // Refresh / close-tab / back-button all fire beforeunload. We use a
+    // keepalive fetch (modern browsers honor up to 64KiB) so the JWT in
+    // the Authorization header reaches the backend before the page tears
+    // down. Best-effort — if the network swallows it the reconnect-grace
+    // timer on the server will still finalise the match in our absence.
+    useEffect(() => {
+        if (!matchId) return undefined;
+        const onBeforeUnload = () => {
+            try {
+                const userRaw = localStorage.getItem('user');
+                if (!userRaw) return;
+                const user = JSON.parse(userRaw);
+                const token = user?.token;
+                if (!token) return;
+                const base = import.meta.env.VITE_API_URL ?? '/api';
+                fetch(`${base}/duels/${matchId}/forfeit`, {
+                    method: 'POST',
+                    keepalive: true,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+            } catch { /* ignore — best effort */ }
+        };
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => window.removeEventListener('beforeunload', onBeforeUnload);
+    }, [matchId]);
+
     // ── Editor state ─────────────────────────────────────────────────────────
     const [language, setLanguage] = useState('JAVA');
     const [code,     setCode]     = useState(STARTER.JAVA);
@@ -191,6 +259,20 @@ const DuelArena = () => {
     const [submitErr,  setSubmitErr]  = useState(null);
     const [history,    setHistory]    = useState([]); // [{ submissionId, language, ts }]
     const lastHeartbeatRef = useRef(0);
+
+    // ── Run / Submit limits (V4) ─────────────────────────────────────────────
+    // Counters live on the server (Valkey). We seed from the initial GET and
+    // refresh on every run response + verdict SSE event.
+    const [runsRemaining,    setRunsRemaining]    = useState(5);
+    const [submitsRemaining, setSubmitsRemaining] = useState(2);
+    const [running,          setRunning]          = useState(false);
+    const [runResult,        setRunResult]        = useState(null);
+    const [runErr,           setRunErr]           = useState(null);
+    // Tracks each user's best (max test cases passed) for the result modal.
+    // Keyed off the SSE verdict events the hook captures.
+    const [maxByUser, setMaxByUser] = useState({}); // { [userId]: { passed, total, ts } }
+    // Fullscreen banner
+    const [showFsBanner, setShowFsBanner] = useState(false);
 
     // ── Load per-language starter snippets for this duel's problem ───────────
     // The platform's judge harness expects ONLY the function body / user code
@@ -326,7 +408,39 @@ const DuelArena = () => {
             }
             return next.slice(-20);
         });
+        // V4 — verdict payload carries submitsRemaining for the calling user.
+        const latest = verdicts[verdicts.length - 1];
+        if (latest && typeof latest.data.submitsRemaining === 'number') {
+            setSubmitsRemaining(latest.data.submitsRemaining);
+        }
+        if (latest && typeof latest.data.runsRemaining === 'number') {
+            setRunsRemaining(latest.data.runsRemaining);
+        }
     }, [stream?.events, selfUserId]);
+
+    // ── Track each user's max test-cases-passed (for result modal) ──────────
+    useEffect(() => {
+        if (!stream?.events?.length) return;
+        setMaxByUser((prev) => {
+            let next = prev;
+            let mutated = false;
+            for (const e of stream.events) {
+                if (e?.type !== 'progress') continue;
+                const d = e.data ?? {};
+                if (d.event !== 'verdict') continue;
+                const uid = d.userId;
+                const passed = d.testCasesPassed ?? d.passed ?? 0;
+                const total = d.totalTestCases ?? d.total ?? 0;
+                if (uid == null) continue;
+                const cur = next[uid];
+                if (!cur || passed > cur.passed) {
+                    if (!mutated) { next = { ...prev }; mutated = true; }
+                    next[uid] = { passed, total, ts: e.ts };
+                }
+            }
+            return mutated ? next : prev;
+        });
+    }, [stream?.events]);
 
     // ── Poll PENDING submissions for verdict updates ─────────────────────────
     // Belt-and-suspenders: if the duel SSE stream misses a verdict event
@@ -362,11 +476,47 @@ const DuelArena = () => {
         return () => clearInterval(poll);
     }, [history]);
 
-    // ── Submit ───────────────────────────────────────────────────────────────
+    // ── Run (V4) — sync compile + examples-only ─────────────────────────────
     const isMatchFinished = stream?.status === 'FINISHED' || match?.status === 'FINISHED';
+    const handleRun = async () => {
+        if (running || isMatchFinished) return;
+        if (runsRemaining <= 0) {
+            setRunErr('No runs left.');
+            return;
+        }
+        setRunning(true);
+        setRunErr(null);
+        setRunResult(null);
+        try {
+            const resp = await runDuelCode(matchId, { code, language });
+            setRunResult(resp);
+            if (typeof resp?.runsRemaining === 'number') {
+                setRunsRemaining(resp.runsRemaining);
+            }
+        } catch (err) {
+            const status = err?.response?.status;
+            const data   = err?.response?.data;
+            if (status === 409 && data?.error === 'RUN_LIMIT_EXCEEDED') {
+                setRunErr('Run limit reached for this match.');
+                setRunsRemaining(0);
+            } else if (status === 409 && data?.error === 'MATCH_FINISHED') {
+                setRunErr('Match already finished.');
+            } else {
+                setRunErr(data?.message ?? 'Run failed');
+            }
+        } finally {
+            setRunning(false);
+        }
+    };
+
+    // ── Submit ───────────────────────────────────────────────────────────────
     const handleSubmit = async () => {
         if (submitting) return;
         if (isMatchFinished) return;
+        if (submitsRemaining <= 0) {
+            setSubmitErr('No submits left.');
+            return;
+        }
         setSubmitting(true);
         setSubmitErr(null);
         try {
@@ -378,11 +528,16 @@ const DuelArena = () => {
                     { submissionId: sid, status: 'PENDING', passed: 0, total: 0, ts: Date.now() },
                 ].slice(-20));
             }
+            // Optimistic decrement; the verdict SSE will sync to the truth.
+            setSubmitsRemaining((s) => Math.max(0, s - 1));
         } catch (err) {
             const status = err?.response?.status;
             const data   = err?.response?.data;
             if (status === 409 && data?.error === 'MATCH_FINISHED') {
                 setSubmitErr('Match already finished.');
+            } else if (status === 409 && data?.error === 'SUBMIT_LIMIT_EXCEEDED') {
+                setSubmitErr('Submit limit reached for this match.');
+                setSubmitsRemaining(0);
             } else if (status === 422) {
                 setSubmitErr('Unsupported language.');
             } else if (status === 429) {
@@ -647,6 +802,40 @@ const DuelArena = () => {
                 </div>
             </header>
 
+            {/* ── Fullscreen reminder banner ────────────────────────────── */}
+            {showFsBanner && !isMatchFinished && (
+                <div style={{
+                    flexShrink: 0,
+                    padding: '8px 16px',
+                    backgroundColor: 'rgba(241,188,139,0.10)',
+                    borderBottom: `1px solid ${C.primary}`,
+                    color: C.primary,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '11px', letterSpacing: '0.05em',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px',
+                }}>
+                    <span>Re-enter fullscreen to continue the duel.</span>
+                    <button
+                        onClick={() => {
+                            try {
+                                document.documentElement.requestFullscreen?.()
+                                    .then(() => setShowFsBanner(false))
+                                    .catch(() => {});
+                            } catch { /* noop */ }
+                        }}
+                        style={{
+                            padding: '4px 12px',
+                            border: `1px solid ${C.primary}`,
+                            color: C.primary, backgroundColor: 'transparent',
+                            fontFamily: 'inherit', fontSize: '11px', letterSpacing: '0.1em',
+                            textTransform: 'uppercase', cursor: 'pointer',
+                        }}
+                    >
+                        Enter Fullscreen
+                    </button>
+                </div>
+            )}
+
             {/* ── Workspace (split pane) ─────────────────────────────────── */}
             <div id="duel-arena-workspace" style={{
                 flex: 1, display: 'flex', overflow: 'hidden', position: 'relative',
@@ -680,7 +869,27 @@ const DuelArena = () => {
                             ))}
                         </select>
 
-                        <div style={{ display: 'flex', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            {/* Counters */}
+                            <span style={{
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '10.5px', letterSpacing: '0.05em',
+                                color: runsRemaining === 0 ? C.error : C.outline,
+                                padding: '4px 8px',
+                                border: `1px solid ${C.borderThin}`,
+                            }}>
+                                RUNS {5 - runsRemaining}/5
+                            </span>
+                            <span style={{
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '10.5px', letterSpacing: '0.05em',
+                                color: submitsRemaining === 0 ? C.error : C.outline,
+                                padding: '4px 8px',
+                                border: `1px solid ${C.borderThin}`,
+                            }}>
+                                SUB {2 - submitsRemaining}/2
+                            </span>
+
                             <button
                                 onClick={() => setShowForfeitConfirm(true)}
                                 disabled={isMatchFinished || forfeiting}
@@ -698,8 +907,26 @@ const DuelArena = () => {
                                 Forfeit
                             </button>
                             <button
+                                onClick={handleRun}
+                                disabled={running || isMatchFinished || runsRemaining <= 0}
+                                style={{
+                                    padding: '6px 14px',
+                                    border: `1px solid ${C.primary}`,
+                                    color: C.primary, backgroundColor: 'transparent',
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    fontSize: '11px', letterSpacing: '0.1em',
+                                    textTransform: 'uppercase',
+                                    cursor: (running || isMatchFinished || runsRemaining <= 0)
+                                        ? 'not-allowed' : 'pointer',
+                                    fontWeight: 600,
+                                    opacity: (running || isMatchFinished || runsRemaining <= 0) ? 0.5 : 1,
+                                }}
+                            >
+                                {running ? 'Running…' : `Run (${runsRemaining})`}
+                            </button>
+                            <button
                                 onClick={handleSubmit}
-                                disabled={submitting || isMatchFinished}
+                                disabled={submitting || isMatchFinished || submitsRemaining <= 0}
                                 style={{
                                     padding: '6px 18px',
                                     border: `1px solid ${C.secondary}`,
@@ -707,13 +934,13 @@ const DuelArena = () => {
                                     fontFamily: "'JetBrains Mono', monospace",
                                     fontSize: '11px', letterSpacing: '0.1em',
                                     textTransform: 'uppercase',
-                                    cursor: (submitting || isMatchFinished)
+                                    cursor: (submitting || isMatchFinished || submitsRemaining <= 0)
                                         ? 'not-allowed' : 'pointer',
                                     fontWeight: 600,
-                                    opacity: (submitting || isMatchFinished) ? 0.5 : 1,
+                                    opacity: (submitting || isMatchFinished || submitsRemaining <= 0) ? 0.5 : 1,
                                 }}
                             >
-                                {submitting ? 'Submitting…' : 'Submit'}
+                                {submitting ? 'Submitting…' : `Submit (${submitsRemaining})`}
                             </button>
                         </div>
                     </div>
@@ -751,6 +978,71 @@ const DuelArena = () => {
                             fontSize: '11px',
                         }}>
                             {submitErr}
+                        </div>
+                    )}
+
+                    {/* Run output panel */}
+                    {(runErr || runResult) && (
+                        <div style={{
+                            flexShrink: 0,
+                            maxHeight: '200px', overflowY: 'auto',
+                            borderTop: `1px solid ${C.border}`,
+                            backgroundColor: C.surfaceMin,
+                            padding: '10px 16px',
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: '11px',
+                        }}>
+                            <div style={{
+                                display: 'flex', justifyContent: 'space-between',
+                                marginBottom: '6px',
+                                color: C.outline, letterSpacing: '0.1em', textTransform: 'uppercase',
+                                fontSize: '10px',
+                            }}>
+                                <span>Run Output</span>
+                                <button
+                                    onClick={() => { setRunResult(null); setRunErr(null); }}
+                                    style={{
+                                        background: 'transparent', border: 'none',
+                                        color: C.outline, cursor: 'pointer',
+                                        fontFamily: 'inherit', fontSize: '10px',
+                                    }}
+                                >Dismiss</button>
+                            </div>
+                            {runErr && (
+                                <div style={{ color: C.error }}>{runErr}</div>
+                            )}
+                            {runResult?.compileError && (
+                                <pre style={{
+                                    color: C.error, whiteSpace: 'pre-wrap', margin: 0,
+                                    fontSize: '11px',
+                                }}>{runResult.compileError}</pre>
+                            )}
+                            {runResult?.cases?.map((c, i) => (
+                                <div key={i} style={{
+                                    marginTop: '8px', padding: '6px 8px',
+                                    border: `1px solid ${C.borderThin}`,
+                                    borderLeft: `3px solid ${c.passed ? C.success : C.error}`,
+                                }}>
+                                    <div style={{
+                                        color: c.passed ? C.success : C.error,
+                                        fontWeight: 600, marginBottom: '4px',
+                                    }}>
+                                        Case {i + 1}: {c.passed ? 'PASS' : 'FAIL'}
+                                        {c.timeLimitExceeded && ' (TLE)'}
+                                    </div>
+                                    {!c.passed && (
+                                        <div style={{ color: C.muted, lineHeight: 1.5 }}>
+                                            <div><span style={{ color: C.outline }}>Input:</span> <code>{c.input || '—'}</code></div>
+                                            <div><span style={{ color: C.outline }}>Expected:</span> <code>{c.expected || '—'}</code></div>
+                                            <div><span style={{ color: C.outline }}>Got:</span> <code>{c.output || '—'}</code></div>
+                                            {c.stderr && <div style={{ color: C.error }}>stderr: <code>{c.stderr}</code></div>}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                            {runResult && !runResult.compileError && runResult.cases?.length === 0 && (
+                                <div style={{ color: C.outline }}>No example cases on this problem.</div>
+                            )}
                         </div>
                     )}
 
@@ -1005,13 +1297,40 @@ const DuelArena = () => {
                                 winner: {stream.winnerUsername}
                             </p>
                         )}
+                        {/* Your max | Opponent max */}
+                        {(me?.id != null || opponent?.id != null) && (
+                            <div style={{
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '11px', color: C.muted,
+                                margin: '12px 0', letterSpacing: '0.05em',
+                                display: 'flex', justifyContent: 'center', gap: '16px',
+                                flexWrap: 'wrap',
+                            }}>
+                                {me?.id != null && (() => {
+                                    const m = maxByUser[me.id];
+                                    return (
+                                        <span>Your max: <span style={{ color: C.primary }}>
+                                            {m ? `${m.passed}/${m.total}` : '0/0'}
+                                        </span></span>
+                                    );
+                                })()}
+                                {opponent?.id != null && (() => {
+                                    const m = maxByUser[opponent.id];
+                                    return (
+                                        <span>Opponent max: <span style={{ color: C.muted }}>
+                                            {m ? `${m.passed}/${m.total}` : '0/0'}
+                                        </span></span>
+                                    );
+                                })()}
+                            </div>
+                        )}
                         <p style={{
                             fontFamily: "'JetBrains Mono', monospace",
                             fontSize: '11px', color: C.outline,
                             margin: '0 0 24px 0', letterSpacing: '0.05em',
                             textTransform: 'uppercase',
                         }}>
-                            {stream?.outcome ?? ''}
+                            {stream?.outcome ?? match?.outcome ?? ''}
                         </p>
                         <button
                             onClick={() => navigate('/duel')}

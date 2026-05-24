@@ -22,7 +22,13 @@ const C = {
     error:      '#ffb4ab',
 };
 
-// ── Outcome label resolver — keeps the history table readable ───────────────
+// ── Difficulty bucket metadata (label + window in seconds) ──────────────────
+const DIFFICULTIES = [
+    { value: 'EASY',   label: 'Easy',   windowMin: 20 },
+    { value: 'MEDIUM', label: 'Medium', windowMin: 40 },
+    { value: 'HARD',   label: 'Hard',   windowMin: 65 },
+];
+
 const OUTCOME_LABEL = {
     USER_A_WIN: 'Win',
     USER_B_WIN: 'Win',
@@ -50,18 +56,15 @@ const Duel = () => {
         findMatch, cancel, STATES,
     } = useDuelMatchmaking();
 
+    const [difficulty, setDifficulty] = useState(null);
     const [history, setHistory]     = useState([]);
     const [historyErr, setHistoryErr] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(true);
 
-    // ── Navigate to the arena once the hook surfaces a matchId ──────────────
     useEffect(() => {
-        if (matchId) {
-            navigate(`/duel/${matchId}`);
-        }
+        if (matchId) navigate(`/duel/${matchId}`);
     }, [matchId, navigate]);
 
-    // ── Recent duel history — backend endpoint `/api/duels/history`. ───
     useEffect(() => {
         let cancelled = false;
         const selfUser = (() => {
@@ -73,9 +76,6 @@ const Duel = () => {
             .then((data) => {
                 if (cancelled) return;
                 const items = Array.isArray(data) ? data : (data?.items ?? []);
-                // Decorate each row with `youWon` so the table can colour
-                // the outcome cell. The backend returns the raw outcome +
-                // winnerUserId so we resolve the perspective here.
                 const decorated = items.map((row) => ({
                     ...row,
                     youWon: row.winnerUserId != null && selfId != null
@@ -93,16 +93,26 @@ const Duel = () => {
         return () => { cancelled = true; };
     }, []);
 
-    // ── Button label / disabled state derive directly from the state ────────
     const isAwaiting  = state === STATES.AWAITING;
     const isCooldown  = state === STATES.COOLDOWN;
     const isError     = state === STATES.ERROR;
-    const isFinding   = isAwaiting; // alias for readability
-    const buttonDisabled = isAwaiting || isCooldown;
+    const buttonDisabled = isAwaiting || isCooldown || !difficulty;
 
-    let buttonLabel = 'FIND MATCH';
-    if (isAwaiting)      buttonLabel = 'SEARCHING…';
-    else if (isCooldown) buttonLabel = `COOLDOWN: ${cooldownSeconds}s`;
+    let buttonLabel;
+    if (isAwaiting) {
+        buttonLabel = 'SEARCHING…';
+    } else if (isCooldown) {
+        buttonLabel = `COOLDOWN: ${cooldownSeconds}s`;
+    } else if (difficulty) {
+        buttonLabel = `FIND MATCH (${difficulty})`;
+    } else {
+        buttonLabel = 'PICK A DIFFICULTY';
+    }
+
+    const onFindMatch = () => {
+        if (!difficulty) return;
+        findMatch(difficulty);
+    };
 
     return (
         <div style={{
@@ -116,7 +126,7 @@ const Duel = () => {
         }}>
             <main style={{ flex: 1, padding: '32px 48px 32px', backgroundColor: C.bg, display: 'flex', flexDirection: 'column' }}>
 
-                {/* ── Header ───────────────────────────────────────────────── */}
+                {/* ── Header ───────────────────────────────────────────── */}
                 <motion.header
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -136,11 +146,43 @@ const Duel = () => {
                         Duel Mode
                     </h2>
                     <p style={{ fontSize: '15px', color: C.muted, lineHeight: 1.5, maxWidth: '520px' }}>
-                        Search for an opponent and prove your speed. Same problem, both clocks running, first to AC takes the round.
+                        Pick a difficulty, hit Find Match, and prove your speed against another player at your level.
                     </p>
                 </motion.header>
 
-                {/* ── Hero Card ────────────────────────────────────────────── */}
+                {/* ── Rules Card ──────────────────────────────────────── */}
+                <motion.section
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.05 }}
+                    style={{
+                        backgroundColor: C.surfaceLow,
+                        border: `1px solid ${C.border}`,
+                        padding: '1.25rem 1.5rem',
+                        marginBottom: '1.5rem',
+                    }}
+                >
+                    <div style={{
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: '11px', letterSpacing: '0.15em',
+                        color: C.primary, textTransform: 'uppercase',
+                        marginBottom: '10px',
+                    }}>
+                        Rules
+                    </div>
+                    <ul style={{
+                        margin: 0, paddingLeft: '20px',
+                        fontSize: '13.5px', lineHeight: 1.7, color: C.muted,
+                    }}>
+                        <li>Choose a difficulty — you'll be matched with another player of the same level.</li>
+                        <li>EASY: 20 min &nbsp;|&nbsp; MEDIUM: 40 min &nbsp;|&nbsp; HARD: 65 min</li>
+                        <li>5 Runs + 2 Submits per match. Run = examples only, doesn't count toward win.</li>
+                        <li>First to pass all test cases wins. On timeout, highest test-cases-passed wins.</li>
+                        <li>Match runs in fullscreen. Refresh / close tab = auto-forfeit.</li>
+                    </ul>
+                </motion.section>
+
+                {/* ── Difficulty selector + action ─────────────────────── */}
                 <motion.section
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -149,18 +191,15 @@ const Duel = () => {
                         backgroundColor: C.surfaceCon,
                         border: `1px solid ${C.border}`,
                         borderTop: `2px solid ${C.secondary}`,
-                        padding: '3rem 2rem',
+                        padding: '2.5rem 2rem',
                         marginBottom: '2rem',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '1.5rem',
-                        position: 'relative',
-                        overflow: 'hidden',
+                        gap: '1.25rem',
                     }}
                 >
-                    {/* Section eyebrow */}
                     <span style={{
                         fontFamily: "'JetBrains Mono', monospace",
                         fontSize: '11px', letterSpacing: '0.15em',
@@ -174,31 +213,73 @@ const Duel = () => {
 
                     <h3 style={{
                         fontFamily: "'Playfair Display', serif",
-                        fontSize: '32px', fontWeight: 600,
+                        fontSize: '28px', fontWeight: 600,
                         color: C.onBg, margin: 0, textAlign: 'center',
                     }}>
-                        Ready when you are
+                        Pick a difficulty
                     </h3>
 
-                    {/* Error banner — sits directly above the action button */}
+                    {/* Difficulty button group */}
+                    <div style={{
+                        display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center',
+                    }}>
+                        {DIFFICULTIES.map((d) => {
+                            const selected = difficulty === d.value;
+                            return (
+                                <button
+                                    key={d.value}
+                                    type="button"
+                                    onClick={() => setDifficulty(d.value)}
+                                    disabled={isAwaiting || isCooldown}
+                                    style={{
+                                        padding: '14px 28px',
+                                        minWidth: '140px',
+                                        border: `2px solid ${selected ? C.primary : C.border}`,
+                                        backgroundColor: selected ? 'rgba(241,188,139,0.10)' : 'transparent',
+                                        color: selected ? C.primary : C.muted,
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                        fontSize: '13px', letterSpacing: '0.15em',
+                                        textTransform: 'uppercase',
+                                        cursor: (isAwaiting || isCooldown) ? 'not-allowed' : 'pointer',
+                                        transition: 'all 0.15s',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        opacity: (isAwaiting || isCooldown) ? 0.5 : 1,
+                                    }}
+                                >
+                                    <span style={{ fontWeight: 700 }}>{d.label}</span>
+                                    <span style={{
+                                        fontSize: '10px', letterSpacing: '0.05em',
+                                        color: selected ? C.primary : C.outline,
+                                        fontWeight: 400,
+                                    }}>
+                                        {d.windowMin} min
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Error banner */}
                     {(isError || error) && (
                         <div style={{
                             border: `1px solid ${C.error}`,
                             backgroundColor: 'rgba(255,180,171,0.08)',
                             color: C.error,
-                            padding: '12px 16px',
+                            padding: '10px 14px',
                             fontFamily: "'JetBrains Mono', monospace",
                             fontSize: '12px', letterSpacing: '0.05em',
-                            display: 'flex', alignItems: 'center', gap: '12px',
-                            maxWidth: '420px', width: '100%',
-                            justifyContent: 'space-between',
+                            maxWidth: '460px', width: '100%',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px',
                         }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>error</span>
                                 {error || 'Something went wrong'}
                             </span>
                             <button
-                                onClick={findMatch}
+                                onClick={onFindMatch}
                                 disabled={buttonDisabled}
                                 style={{
                                     background: 'transparent',
@@ -219,16 +300,16 @@ const Duel = () => {
 
                     {/* Find Match button */}
                     <button
-                        onClick={findMatch}
+                        onClick={onFindMatch}
                         disabled={buttonDisabled}
                         className={isAwaiting ? 'duel-btn-pulse' : ''}
                         style={{
-                            padding: '20px 64px',
+                            padding: '18px 56px',
                             border: `2px solid ${buttonDisabled ? C.border : C.secondary}`,
                             color: buttonDisabled ? C.outline : C.secondary,
                             backgroundColor: 'transparent',
                             fontFamily: "'JetBrains Mono', monospace",
-                            fontSize: '16px', letterSpacing: '0.2em',
+                            fontSize: '15px', letterSpacing: '0.2em',
                             fontWeight: 600,
                             textTransform: 'uppercase',
                             cursor: buttonDisabled ? 'not-allowed' : 'pointer',
@@ -257,11 +338,8 @@ const Duel = () => {
                     {/* Awaiting spinner + Cancel */}
                     {isAwaiting && (
                         <div style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '12px',
-                            marginTop: '4px',
+                            display: 'flex', flexDirection: 'column',
+                            alignItems: 'center', gap: '12px',
                         }}>
                             <div style={{
                                 display: 'flex', alignItems: 'center', gap: '12px',
@@ -276,7 +354,7 @@ const Duel = () => {
                                     borderRadius: '50%',
                                     display: 'inline-block',
                                 }} />
-                                Searching for opponent…
+                                Searching {difficulty} bucket…
                             </div>
                             <button
                                 onClick={cancel}
@@ -299,20 +377,14 @@ const Duel = () => {
                         </div>
                     )}
 
-                    {/* Helper subtext under the button */}
-                    {!isAwaiting && !isCooldown && (
-                        <p style={{
-                            fontSize: '13px',
-                            color: C.outline,
-                            margin: 0,
-                            textAlign: 'center',
-                        }}>
-                            Average pairing time is under a few seconds when other players are queued.
+                    {!isAwaiting && !isCooldown && difficulty && (
+                        <p style={{ fontSize: '12.5px', color: C.outline, margin: 0, textAlign: 'center' }}>
+                            You'll be matched with another player who picked {difficulty}.
                         </p>
                     )}
                 </motion.section>
 
-                {/* ── Recent Duels ─────────────────────────────────────────── */}
+                {/* ── Recent Duels ─────────────────────────────────────── */}
                 <motion.section
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}

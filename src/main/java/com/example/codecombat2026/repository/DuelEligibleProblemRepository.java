@@ -3,6 +3,7 @@ package com.example.codecombat2026.repository;
 import com.example.codecombat2026.entity.DuelEligibleProblem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -74,4 +75,24 @@ public interface DuelEligibleProblemRepository extends JpaRepository<DuelEligibl
         nativeQuery = true
     )
     List<Long> findAllProblemIds();
+
+    /**
+     * Returns the {@code problem_id}s of every eligible problem whose
+     * {@code problems.level} matches {@code :level}. Used by the V4
+     * difficulty-bucketed matchmaker so EASY/MEDIUM/HARD queues each
+     * draw from the right slice of the curated pool.
+     *
+     * <p>No "both-solved" exclusion — the user explicitly dropped that
+     * gate (see V4 rework spec). Random selection happens caller-side.
+     *
+     * @param level uppercase difficulty string ('EASY' / 'MEDIUM' / 'HARD')
+     * @return all eligible problem ids of that level; may be empty
+     */
+    @Query(
+        value = "SELECT dep.problem_id FROM duel_eligible_problems dep " +
+                "INNER JOIN problems p ON p.id = dep.problem_id " +
+                "WHERE p.level = :level",
+        nativeQuery = true
+    )
+    List<Long> findEligibleByLevel(@Param("level") String level);
 }

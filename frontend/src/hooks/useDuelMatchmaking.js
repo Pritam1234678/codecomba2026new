@@ -102,8 +102,13 @@ export default function useDuelMatchmaking() {
   }, []);
 
   // ── findMatch ─────────────────────────────────────────────────────────────
-  const findMatch = useCallback(async () => {
+  const findMatch = useCallback(async (difficulty) => {
     setError(null);
+    if (!difficulty || !['EASY', 'MEDIUM', 'HARD'].includes(difficulty)) {
+      setError('Choose a difficulty before queueing');
+      setState(STATES.ERROR);
+      return;
+    }
     try {
       // Open the per-user SSE listener BEFORE we hit the enqueue endpoint.
       // Otherwise the pair-loop (250 ms tick) can pair us, fire `matched`
@@ -113,17 +118,12 @@ export default function useDuelMatchmaking() {
         await openPerUserSse();
       }
 
-      const result = await enqueue();
+      const result = await enqueue(difficulty);
       setQueueToken(result.queueToken ?? null);
       setState(STATES.AWAITING);
 
       // Belt + suspenders: even if `matched` fires before SSE finishes
-      // attaching, we re-poll the enqueue endpoint every 1.5 s. The
-      // backend is idempotent and returns 409 ALREADY_IN_MATCH with the
-      // existing matchId once we're paired — the catch block below
-      // already handles that and surfaces matchId to the caller, which
-      // navigates to the arena. We stop the poll on cleanup or after
-      // a hard 30 s budget.
+      // attaching, we re-poll the enqueue endpoint every 1.5 s.
       let polls = 0;
       const pollMaxAttempts = 20; // 30 s
       const poll = setInterval(async () => {
@@ -134,20 +134,17 @@ export default function useDuelMatchmaking() {
           return;
         }
         try {
-          await enqueue();
-          // Still queued — the pair-loop hasn't matched us yet. Keep waiting.
+          await enqueue(difficulty);
+          // Still queued — the pair-loop hasn't matched us yet.
         } catch (pollErr) {
           const status = pollErr?.response?.status;
           const data = pollErr?.response?.data;
           if (status === 409 && data?.error === 'ALREADY_IN_MATCH' && data?.matchId) {
-            // Surface the matchId to the consumer; the lobby's useEffect
-            // will navigate to /duel/{matchId} on the next render.
             setMatchId(data.matchId);
             setState(STATES.IDLE);
             clearInterval(poll);
             if (matchPollRef.current === poll) matchPollRef.current = null;
           }
-          // Other errors (e.g. cooldown) are unlikely mid-await; ignore.
         }
       }, 1500);
       matchPollRef.current = poll;
@@ -156,8 +153,6 @@ export default function useDuelMatchmaking() {
       const data = err?.response?.data;
 
       if (status === 409 && data?.error === 'ALREADY_IN_MATCH') {
-        // User is already a participant of an active match. The consumer
-        // should observe `matchId` and navigate to /duel/{matchId}.
         setMatchId(data.matchId);
         setState(STATES.IDLE);
         return;
@@ -171,7 +166,6 @@ export default function useDuelMatchmaking() {
         setCooldownSeconds(retryAfter);
         setState(STATES.COOLDOWN);
 
-        // Tick down once per second; clear interval on reaching 0.
         if (cooldownTimerRef.current) clearInterval(cooldownTimerRef.current);
         cooldownTimerRef.current = setInterval(() => {
           setCooldownSeconds((s) => {

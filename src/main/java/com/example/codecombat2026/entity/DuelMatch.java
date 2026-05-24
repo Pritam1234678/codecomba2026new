@@ -94,6 +94,27 @@ public class DuelMatch {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * Difficulty bucket (EASY / MEDIUM / HARD). V4 column. Drives both
+     * matchmaking routing (only paired with players in the same bucket) and
+     * the per-match {@link #timeLimitSec} chosen at pair time. Stored as a
+     * varchar(10) plain string (rather than an enum mapping) because the
+     * level value already lives as VARCHAR on the {@code problems.level}
+     * column it is sourced from — the simpler comparison wins.
+     */
+    @Column(name = "difficulty", nullable = false, length = 10)
+    private String difficulty;
+
+    /**
+     * Per-match time-limit in seconds. V4 column. Replaces the global
+     * {@code DUEL_DRAW_TIMEOUT_SEC} value with a row-local field so the
+     * EASY / MEDIUM / HARD windows (1200 / 2400 / 3900 s) live alongside
+     * the match they describe and the recovery path can rehydrate the
+     * draw timer correctly even if the env var changes between deploys.
+     */
+    @Column(name = "time_limit_sec", nullable = false)
+    private Integer timeLimitSec;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {

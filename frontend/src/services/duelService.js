@@ -5,10 +5,12 @@ import api from './api';
 /**
  * Enqueue the current user into the matchmaking queue.
  * Idempotent on the backend (5s SET NX EX gate), so double-clicks are safe.
- * Resolves with `{ queueToken, position }` (shape per backend response).
+ *
+ * @param difficulty one of 'EASY' | 'MEDIUM' | 'HARD' (V4)
+ * @returns `{ queueToken, queuedAt, difficulty }`
  */
-export const enqueue = () =>
-  api.post('/duels/queue', {}).then((r) => r.data);
+export const enqueue = (difficulty) =>
+  api.post('/duels/queue', { difficulty }).then((r) => r.data);
 
 /**
  * Remove the current user from the matchmaking queue. No-op if not queued.
@@ -29,6 +31,14 @@ export const submitDuelCode = (matchId, code, language) =>
   api
     .post(`/duels/${matchId}/submissions`, { code, language })
     .then((r) => r.data);
+
+/**
+ * Run user code synchronously against the problem's example test cases.
+ * V4 — counts toward the 5-runs-per-match limit. Returns
+ * `{ passed, compileError, cases, runsUsed, runsRemaining }`.
+ */
+export const runDuelCode = (matchId, body) =>
+  api.post(`/duels/${matchId}/run`, body).then((r) => r.data);
 
 /**
  * Forfeit a duel match. Opponent is awarded the win (outcome=ABANDONED).
@@ -116,6 +126,7 @@ const DuelService = {
   cancelQueue,
   getMatch,
   submitDuelCode,
+  runDuelCode,
   forfeit,
   heartbeat,
   issueDuelTicket,

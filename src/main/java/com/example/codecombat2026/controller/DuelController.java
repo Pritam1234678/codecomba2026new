@@ -1,9 +1,11 @@
 package com.example.codecombat2026.controller;
 
 import com.example.codecombat2026.dto.duel.DuelMatchView;
+import com.example.codecombat2026.dto.duel.EnqueueRequest;
 import com.example.codecombat2026.dto.duel.EnqueueResult;
 import com.example.codecombat2026.dto.duel.HeartbeatRequest;
 import com.example.codecombat2026.dto.duel.RoomStateEvent;
+import com.example.codecombat2026.dto.duel.RunDuelRequest;
 import com.example.codecombat2026.dto.duel.SubmitDuelRequest;
 import com.example.codecombat2026.exception.DuelStateConflictException;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
@@ -92,14 +94,22 @@ public class DuelController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> enqueue(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestBody(required = false) Object body) {
+            @RequestBody(required = false) EnqueueRequest body) {
         try {
+            String difficulty = body != null ? body.difficulty() : null;
             MatchmakingService.EnqueueResult serviceResult =
-                    matchmakingService.enqueue(userDetails.getId());
+                    matchmakingService.enqueue(userDetails.getId(), difficulty);
             EnqueueResult dto = new EnqueueResult(
                     serviceResult.getQueueToken(),
-                    serviceResult.getQueuedAt());
+                    serviceResult.getQueuedAt(),
+                    serviceResult.getDifficulty());
             return ResponseEntity.ok(dto);
+        } catch (IllegalArgumentException ex) {
+            // Bad / missing difficulty value — bubble up as 400.
+            Map<String, Object> respBody = new LinkedHashMap<>();
+            respBody.put("error", "BAD_REQUEST");
+            respBody.put("message", ex.getMessage());
+            return ResponseEntity.badRequest().body(respBody);
         } catch (DuelStateConflictException ex) {
             if ("COOLDOWN_ACTIVE".equals(ex.getCode())) {
                 long retryAfterSec = extractRetryAfterSec(ex.getPayload());
@@ -159,6 +169,26 @@ public class DuelController {
                 matchId, userDetails.getId(), body.code(), body.language());
         Map<String, Object> respBody = Map.of("submissionId", submissionId);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(respBody);
+    }
+
+    /**
+     * Run code synchronously against the problem's example test cases only.
+     * Counts toward the 5-runs-per-match limit. Returns the result inline —
+     * no SSE event, no submissions row.
+     */
+    @PostMapping("/{matchId}/run")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<DuelService.RunResult> run(
+            @PathVariable UUID matchId,
+            @RequestBody RunDuelRequest body,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        DuelService.RunResult result = duelService.runForDuel(
+                matchId,
+                userDetails.getId(),
+                body.code(),
+                body.language(),
+                body.stdin());
+        return ResponseEntity.ok(result);
     }
 
     /**

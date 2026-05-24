@@ -113,6 +113,30 @@ public class DuelService {
     /** Heartbeat-to-opponent rate limit per Property 16 (1 emit per 1500 ms per user). */
     private static final long TYPING_HEARTBEAT_MIN_INTERVAL_MS = 1500L;
 
+    // ─── Run/Submit limits per match (V4 rework) ─────────────────────────────
+
+    /** Maximum compile-and-run-against-examples invocations per (match, user). */
+    static final int RUN_LIMIT_PER_MATCH = 5;
+
+    /** Maximum full-judge submissions per (match, user). */
+    static final int SUBMIT_LIMIT_PER_MATCH = 2;
+
+    /** Valkey key prefix for run counters. */
+    static final String RUN_COUNTER_PREFIX = "duel:runs:";
+
+    /** Valkey key prefix for submit counters. */
+    static final String SUBMIT_COUNTER_PREFIX = "duel:submits:";
+
+    /** Difficulty → time-limit (seconds) mapping for V4 matches. */
+    private static int timeLimitFor(String difficulty) {
+        if (difficulty == null) return 2400;
+        return switch (difficulty.toUpperCase()) {
+            case "EASY" -> 1200;
+            case "HARD" -> 3900;
+            default -> 2400; // MEDIUM and any unknown bucket
+        };
+    }
+
     // ─── Configurable durations ──────────────────────────────────────────────
 
     @Value("${DUEL_DRAW_TIMEOUT_SEC:600}")
@@ -137,6 +161,8 @@ public class DuelService {
     private final SseEmitterRegistry sseEmitterRegistry;
     private final MatchmakingService matchmakingService;
     private final ObjectMapper objectMapper;
+    /** Compile + run service used by the synchronous /run endpoint. */
+    private final CompilerService compilerService;
 
     // ─── In-memory timer state ───────────────────────────────────────────────
 
@@ -168,7 +194,8 @@ public class DuelService {
                        DuelSseEmitterRegistry duelSseEmitterRegistry,
                        SseEmitterRegistry sseEmitterRegistry,
                        @Lazy MatchmakingService matchmakingService,
-                       ObjectMapper objectMapper) {
+                       ObjectMapper objectMapper,
+                       CompilerService compilerService) {
         this.duelMatchRepository = duelMatchRepository;
         this.duelSubmissionRepository = duelSubmissionRepository;
         this.duelEligibleProblemRepository = duelEligibleProblemRepository;
@@ -180,6 +207,7 @@ public class DuelService {
         this.sseEmitterRegistry = sseEmitterRegistry;
         this.matchmakingService = matchmakingService;
         this.objectMapper = objectMapper;
+        this.compilerService = compilerService;
 
         this.drawTimerExec = Executors.newScheduledThreadPool(2, namedThreadFactory("duel-draw-"));
         this.reconnectTimerExec = Executors.newScheduledThreadPool(4, namedThreadFactory("duel-reconnect-"));
@@ -259,7 +287,14 @@ public class DuelService {
                 continue;
             }
             long elapsedSec = Duration.between(startedAt, now).getSeconds();
-            long remainingSec = drawTimeoutSec - elapsedSec;
+            // V4 — read per-match window from the row instead of the global
+            // @Value drawTimeoutSec, so EASY/MEDIUM/HARD windows are honored
+            // across JVM restarts. Falls back to drawTimeoutSec for legacy
+            // pre-V4 rows that somehow lack timeLimitSec.
+            int rowLimit = match.getTimeLimitSec() != null
+                    ? match.getTimeLimitSec()
+                    : (int) drawTimeoutSec;
+            long remainingSec = rowLimit - elapsedSec;
             if (remainingSec > 0) {
                 scheduleDrawTimer(matchId, remainingSec);
                 log.info("Duel recovery: rescheduled draw timer for match {} ({} s remaining)",
@@ -285,56 +320,54 @@ public class DuelService {
      * to {@code IN_PROGRESS}, schedule the draw timer, and emit
      * {@code matched} on the per-user SSE channel.
      *
-     * <p>Picks a problem from {@code duel_eligible_problems} that is not
-     * jointly solved by both participants; falls back to the full pool if
-     * the exclusion empties the candidate set, with a logged warning
-     * (Requirements 3.2 / 3.3 / 3.5). Throws
-     * {@link DuelStateConflictException} with code
-     * {@code NO_ELIGIBLE_PROBLEM} if even the full pool is empty.
+     * <p>V4: difficulty-bucketed pairing. The problem is drawn from the
+     * subset of {@code duel_eligible_problems} whose {@code problems.level}
+     * matches {@code difficulty}; both-solved exclusion has been removed.
+     * The per-match time-limit is derived from difficulty
+     * (EASY=1200s, MEDIUM=2400s, HARD=3900s) and persisted on the row so
+     * the draw timer can rehydrate after a JVM restart without consulting
+     * any global config.
      *
+     * @param userIdA      first participant
+     * @param userIdB      second participant
+     * @param difficulty   bucket the pair came from (EASY/MEDIUM/HARD)
      * @return the freshly-assigned {@code matchId}
-     * @throws DuelStateConflictException with code {@code CONCURRENT_MATCH}
-     *                                    if either user already has an
-     *                                    active match (partial-unique-index
-     *                                    violation), or
-     *                                    {@code NO_ELIGIBLE_PROBLEM} if
-     *                                    no problem can be selected.
      */
-    public UUID pairAndStart(Long userIdA, Long userIdB) {
+    public UUID pairAndStart(Long userIdA, Long userIdB, String difficulty) {
         if (userIdA == null || userIdB == null) {
             throw new IllegalArgumentException("Duel participants must not be null");
         }
         if (userIdA.equals(userIdB)) {
             throw new IllegalArgumentException("Duel participants must be distinct: " + userIdA);
         }
+        String normalizedDifficulty = difficulty == null ? "MEDIUM"
+                : difficulty.trim().toUpperCase();
+        int timeLimitSec = timeLimitFor(normalizedDifficulty);
 
         long[] sorted = SeatAssigner.orderedPair(userIdA, userIdB);
         Long minId = sorted[0];
         Long maxId = sorted[1];
 
-        // Problem selection — exclude problems jointly solved by both.
-        List<Long> eligible = duelEligibleProblemRepository.findEligibleNotBothSolved(minId, maxId);
+        // V4 — pull eligible problems by difficulty level. No both-solved
+        // filtering; user explicitly said dropping that exclusion is fine.
+        List<Long> eligible = duelEligibleProblemRepository.findEligibleByLevel(normalizedDifficulty);
         if (eligible.isEmpty()) {
-            eligible = duelEligibleProblemRepository.findAllProblemIds();
-            log.warn("duel.problem_pool.exhausted users=({},{}) — falling back to full pool",
-                    minId, maxId);
-        }
-        if (eligible.isEmpty()) {
+            log.warn("duel.problem_pool.empty_for_level level={} users=({},{})",
+                    normalizedDifficulty, minId, maxId);
             Map<String, Object> payload = new HashMap<>();
             payload.put("userA", minId);
             payload.put("userB", maxId);
+            payload.put("difficulty", normalizedDifficulty);
             throw new DuelStateConflictException("NO_ELIGIBLE_PROBLEM", payload,
-                    "No eligible problem available for users " + minId + "/" + maxId);
+                    "No eligible problem available for level " + normalizedDifficulty);
         }
-        Long problemId = eligible.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(eligible.size()));
+        Long problemId = eligible.get(
+                java.util.concurrent.ThreadLocalRandom.current().nextInt(eligible.size()));
 
         UUID matchId = UUID.randomUUID();
 
-        // INSERT + transition to IN_PROGRESS happens in a separate
-        // transactional helper so the partial-unique-index violation is
-        // visible as a DataIntegrityViolationException at commit time.
         try {
-            createAndStartMatchRow(matchId, minId, maxId, problemId);
+            createAndStartMatchRow(matchId, minId, maxId, problemId, normalizedDifficulty, timeLimitSec);
         } catch (DataIntegrityViolationException dive) {
             log.info("pairAndStart concurrent_match users=({},{}) match={} — partial-unique violation",
                     minId, maxId, matchId);
@@ -345,24 +378,31 @@ public class DuelService {
                     "User already has an active match");
         }
 
-        // Schedule the draw timer.
-        scheduleDrawTimer(matchId, drawTimeoutSec);
+        // Schedule the draw timer with the per-match window.
+        scheduleDrawTimer(matchId, timeLimitSec);
 
-        // Look up usernames for the matched event payload.
         String userAUsername = lookupUsername(minId);
         String userBUsername = lookupUsername(maxId);
         LocalDateTime startedAt = duelMatchRepository.findById(matchId)
                 .map(DuelMatch::getStartedAt)
                 .orElse(TimeUtil.now());
 
-        // Emit matched event to both users on the per-user channel
-        // (Requirement 4.1 / Requirement 13.2).
-        emitMatched(minId, matchId, userBUsername, problemId, startedAt);
-        emitMatched(maxId, matchId, userAUsername, problemId, startedAt);
+        emitMatched(minId, matchId, userBUsername, problemId, startedAt, normalizedDifficulty, timeLimitSec);
+        emitMatched(maxId, matchId, userAUsername, problemId, startedAt, normalizedDifficulty, timeLimitSec);
 
-        log.info("Duel paired match={} users=({},{}) problem={}", matchId, minId, maxId, problemId);
+        log.info("Duel paired match={} users=({},{}) problem={} difficulty={} window={}s",
+                matchId, minId, maxId, problemId, normalizedDifficulty, timeLimitSec);
         invalidateMetricsCache();
         return matchId;
+    }
+
+    /**
+     * Backward-compatible overload — defaults to MEDIUM. Kept for callers
+     * that may not yet pass the difficulty (e.g. older tests / scripts).
+     * Production matchmaker always calls the 3-arg form.
+     */
+    public UUID pairAndStart(Long userIdA, Long userIdB) {
+        return pairAndStart(userIdA, userIdB, "MEDIUM");
     }
 
     /**
@@ -371,7 +411,8 @@ public class DuelService {
      * at commit time.
      */
     @Transactional
-    void createAndStartMatchRow(UUID matchId, Long minId, Long maxId, Long problemId) {
+    void createAndStartMatchRow(UUID matchId, Long minId, Long maxId, Long problemId,
+                                String difficulty, int timeLimitSec) {
         DuelMatch match = new DuelMatch();
         match.setMatchId(matchId);
         match.setUserAId(minId);
@@ -379,25 +420,29 @@ public class DuelService {
         match.setProblemId(problemId);
         match.setStatus(DuelMatch.Status.WAITING);
         match.setCreatedAt(TimeUtil.now());
+        match.setDifficulty(difficulty);
+        match.setTimeLimitSec(timeLimitSec);
 
         duelMatchRepository.save(match);
-        duelMatchRepository.flush(); // surface unique-index violations before the transition
+        duelMatchRepository.flush();
 
         int rows = duelMatchRepository.startIfWaiting(matchId, TimeUtil.now());
         if (rows != 1) {
-            // Should be unreachable — we just inserted the WAITING row.
             throw new IllegalStateException(
                     "startIfWaiting returned " + rows + " for match " + matchId);
         }
     }
 
     private void emitMatched(Long userId, UUID matchId, String opponentUsername,
-                             Long problemId, LocalDateTime startedAt) {
+                             Long problemId, LocalDateTime startedAt,
+                             String difficulty, int timeLimitSec) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("matchId", matchId.toString());
         payload.put("opponentUsername", opponentUsername);
         payload.put("problemId", problemId);
         payload.put("startedAt", startedAt != null ? startedAt.toString() : null);
+        payload.put("difficulty", difficulty);
+        payload.put("timeLimitSec", timeLimitSec);
         try {
             sseEmitterRegistry.sendEvent(userId, "matched", payload);
         } catch (Exception e) {
@@ -435,7 +480,7 @@ public class DuelService {
             throw new DuelForbiddenException("Not a participant of match " + matchId);
         }
         Seat yourSeat = SeatAssigner.seatFor(match.getUserAId(), match.getUserBId(), requesterId);
-        return toView(match, yourSeat);
+        return toView(match, yourSeat, requesterId);
     }
 
     /** Admin-listing variant that does not enforce participant-only access. */
@@ -457,7 +502,7 @@ public class DuelService {
                 Sort.by(Sort.Direction.DESC, "startedAt"));
         Page<DuelMatch> page = duelMatchRepository.findByStatus(statusEnum, pageable);
         List<DuelMatchView> views = page.getContent().stream()
-                .map(m -> toView(m, null, false))
+                .map(m -> toView(m, null, false, null))
                 .toList();
         return new PageImpl<>(views, pageable, page.getTotalElements());
     }
@@ -567,7 +612,11 @@ public class DuelService {
     ) {}
 
     private DuelMatchView toView(DuelMatch match, Seat yourSeat) {
-        return toView(match, yourSeat, true);
+        return toView(match, yourSeat, true, null);
+    }
+
+    private DuelMatchView toView(DuelMatch match, Seat yourSeat, Long requesterUserId) {
+        return toView(match, yourSeat, true, requesterUserId);
     }
 
     /**
@@ -576,10 +625,19 @@ public class DuelService {
      *                       {@code getMatch}). Admin listing views pass
      *                       {@code false} to skip the per-row problem
      *                       fetch.
+     * @param requesterUserId user whose run/submit counters to inline; null
+     *                       for admin views.
      */
-    private DuelMatchView toView(DuelMatch match, Seat yourSeat, boolean includeProblem) {
+    private DuelMatchView toView(DuelMatch match, Seat yourSeat, boolean includeProblem,
+                                 Long requesterUserId) {
         String userAUsername = lookupUsername(match.getUserAId());
         String userBUsername = lookupUsername(match.getUserBId());
+
+        // Per-row time-limit (V4). Falls back to the global drawTimeoutSec
+        // for any pre-V4 row that somehow has timeLimitSec=null.
+        int rowLimitSec = match.getTimeLimitSec() != null
+                ? match.getTimeLimitSec()
+                : (int) drawTimeoutSec;
 
         Long elapsedSec = null;
         Long remainingSec = null;
@@ -588,12 +646,11 @@ public class DuelService {
             long elapsed = Math.max(0L,
                     Duration.between(startedAt, TimeUtil.now()).getSeconds());
             elapsedSec = elapsed;
-            remainingSec = Math.max(0L, drawTimeoutSec - elapsed);
+            remainingSec = Math.max(0L, rowLimitSec - elapsed);
         } else if (match.getStatus() == DuelMatch.Status.FINISHED && startedAt != null
                 && match.getEndedAt() != null) {
             elapsedSec = Math.max(0L,
                     Duration.between(startedAt, match.getEndedAt()).getSeconds());
-            // remainingSec stays null for FINISHED rows.
         }
 
         DuelMatchView.DuelProblemView problemView = null;
@@ -620,6 +677,17 @@ public class DuelService {
             }
         }
 
+        // Run/submit counters — fetched from Valkey only for participant calls.
+        Integer runsUsed = null, submitsUsed = null, runsRemaining = null, submitsRemaining = null;
+        if (requesterUserId != null) {
+            int rUsed = getRunCount(match.getMatchId(), requesterUserId);
+            int sUsed = getSubmitCount(match.getMatchId(), requesterUserId);
+            runsUsed = rUsed;
+            submitsUsed = sUsed;
+            runsRemaining = Math.max(0, RUN_LIMIT_PER_MATCH - rUsed);
+            submitsRemaining = Math.max(0, SUBMIT_LIMIT_PER_MATCH - sUsed);
+        }
+
         return new DuelMatchView(
                 match.getMatchId(),
                 match.getUserAId(),
@@ -636,7 +704,13 @@ public class DuelService {
                 match.getEndedAt(),
                 elapsedSec,
                 remainingSec,
-                yourSeat != null ? yourSeat.name() : null
+                yourSeat != null ? yourSeat.name() : null,
+                match.getDifficulty(),
+                rowLimitSec,
+                runsUsed,
+                submitsUsed,
+                runsRemaining,
+                submitsRemaining
         );
     }
 
@@ -682,6 +756,10 @@ public class DuelService {
             throw new DuelStateConflictException("MATCH_NOT_ACTIVE", payload,
                     "Match is not in progress: " + matchId);
         }
+
+        // V4 — per-match submit limit (2/match/user). Throws SUBMIT_LIMIT_EXCEEDED
+        // (409) if the user has already used both submits.
+        tryIncrementSubmit(matchId, userId, match);
 
         Submission.ProgrammingLanguage langEnum;
         try {
@@ -891,6 +969,14 @@ public class DuelService {
         verdictPayload.put("status", status.name());
         verdictPayload.put("testCasesPassed", passed);
         verdictPayload.put("totalTestCases", total);
+        // V4 — re-read counters from Valkey so the frontend can update its
+        // "Runs: x/5  Submits: y/2" display from the verdict payload.
+        verdictPayload.put("runsUsed", getRunCount(matchId, userId));
+        verdictPayload.put("submitsUsed", getSubmitCount(matchId, userId));
+        verdictPayload.put("runsRemaining",
+                Math.max(0, RUN_LIMIT_PER_MATCH - getRunCount(matchId, userId)));
+        verdictPayload.put("submitsRemaining",
+                Math.max(0, SUBMIT_LIMIT_PER_MATCH - getSubmitCount(matchId, userId)));
         verdictPayload.put("ts", Instant.now().toString());
         try {
             duelSseEmitterRegistry.emit(matchId, "progress", verdictPayload);
@@ -898,7 +984,12 @@ public class DuelService {
             log.debug("Failed to emit verdict progress for match {}: {}", matchId, e.getMessage());
         }
 
-        if (status != Submission.SubmissionStatus.AC) {
+        // V4 — only full-AC (all test cases passing) wins immediately.
+        // The existing parser sets status=AC only when passed==total, so
+        // this check is defense-in-depth.
+        boolean fullAc = status == Submission.SubmissionStatus.AC
+                && total > 0 && passed == total;
+        if (!fullAc) {
             return;
         }
 
@@ -1132,21 +1223,137 @@ public class DuelService {
         drawTimers.put(matchId, f);
     }
 
-    /** 600-second draw timer expiry (Requirement 6.6). */
+    /**
+     * Match-window timer expiry — V4 win-by-max-test-cases-passed.
+     *
+     * <p>Replaces the prior "always-DRAW" finalize. Now we:
+     * <ol>
+     *   <li>Pull each user's best {@code submissions} row (by max
+     *       {@code testCasesPassed}, tie-break by earliest
+     *       {@code submittedAt}) for this match.</li>
+     *   <li>If max-A &gt; max-B → USER_A_WIN. Vice versa for B.</li>
+     *   <li>Tie on count → compare submission timestamps; earlier wins.</li>
+     *   <li>No submissions on either side → DRAW.</li>
+     * </ol>
+     *
+     * <p>The existing CHECK constraint on {@code duel_matches} requires
+     * {@code winner_user_id IS NOT NULL} for USER_*_WIN, so we route through
+     * {@link DuelMatchRepository#finalizeIfActive} for the win path and the
+     * existing {@code finalizeAsDrawIfActive} for the DRAW path.
+     */
     void finalizeDrawTimerExpired(UUID matchId) {
         DuelMatch match = duelMatchRepository.findById(matchId).orElse(null);
         if (match == null || match.getStatus() != DuelMatch.Status.IN_PROGRESS) {
             return;
         }
-        int rows = duelMatchRepository.finalizeAsDrawIfActive(matchId, TimeUtil.now());
+
+        BestSubmission bestA = findBestSubmission(matchId, match.getUserAId());
+        BestSubmission bestB = findBestSubmission(matchId, match.getUserBId());
+
+        Long winnerUserId = null;
+        DuelMatch.Outcome outcome;
+
+        if (bestA == null && bestB == null) {
+            outcome = null;            // pure draw
+        } else if (bestA != null && bestB == null) {
+            winnerUserId = match.getUserAId();
+            outcome = DuelMatch.Outcome.USER_A_WIN;
+        } else if (bestA == null) {
+            winnerUserId = match.getUserBId();
+            outcome = DuelMatch.Outcome.USER_B_WIN;
+        } else if (bestA.passed > bestB.passed) {
+            winnerUserId = match.getUserAId();
+            outcome = DuelMatch.Outcome.USER_A_WIN;
+        } else if (bestB.passed > bestA.passed) {
+            winnerUserId = match.getUserBId();
+            outcome = DuelMatch.Outcome.USER_B_WIN;
+        } else {
+            // Tie on test-cases-passed → earlier submission wins.
+            int cmp = compareSubmittedAt(bestA.submittedAt, bestB.submittedAt);
+            if (cmp < 0) {
+                winnerUserId = match.getUserAId();
+                outcome = DuelMatch.Outcome.USER_A_WIN;
+            } else if (cmp > 0) {
+                winnerUserId = match.getUserBId();
+                outcome = DuelMatch.Outcome.USER_B_WIN;
+            } else {
+                outcome = null;        // total tie → DRAW
+            }
+        }
+
+        LocalDateTime now = TimeUtil.now();
+        int rows;
+        if (winnerUserId == null) {
+            rows = duelMatchRepository.finalizeAsDrawIfActive(matchId, now);
+        } else {
+            rows = duelMatchRepository.finalizeIfActive(matchId, winnerUserId, outcome, now);
+        }
         if (rows == 1) {
             setCooldown(match.getUserAId());
             setCooldown(match.getUserBId());
             DuelMatch reread = duelMatchRepository.findById(matchId).orElse(match);
             emitMatchFinished(reread);
             cancelReconnectTimers(matchId);
-            log.info("Duel draw-timeout match={}", matchId);
+            log.info("Duel timeout-finalize match={} outcome={} winner={} maxA={}/{} maxB={}/{}",
+                    matchId,
+                    outcome != null ? outcome : "DRAW",
+                    winnerUserId,
+                    bestA != null ? bestA.passed : 0,
+                    bestA != null ? bestA.total : 0,
+                    bestB != null ? bestB.passed : 0,
+                    bestB != null ? bestB.total : 0);
         }
+    }
+
+    /** Compact projection of a user's best submission within a match. */
+    private static final class BestSubmission {
+        final int passed;
+        final int total;
+        final LocalDateTime submittedAt;
+        BestSubmission(int passed, int total, LocalDateTime submittedAt) {
+            this.passed = passed;
+            this.total = total;
+            this.submittedAt = submittedAt;
+        }
+    }
+
+    /**
+     * Walk the per-match {@code duel_submissions} link rows, fetch the
+     * underlying {@code submissions} for the given user, and pick the one
+     * with the highest {@code testCasesPassed} (tie-broken by earliest
+     * {@code submittedAt}). Returns {@code null} if the user has no
+     * submissions for this match.
+     */
+    private BestSubmission findBestSubmission(UUID matchId, Long userId) {
+        if (matchId == null || userId == null) return null;
+        try {
+            List<DuelSubmission> links = duelSubmissionRepository.findByMatchId(matchId);
+            BestSubmission best = null;
+            for (DuelSubmission link : links) {
+                Submission sub = submissionRepository.findById(link.getSubmissionId()).orElse(null);
+                if (sub == null || sub.getUser() == null) continue;
+                if (!userId.equals(sub.getUser().getId())) continue;
+                int passed = sub.getTestCasesPassed() != null ? sub.getTestCasesPassed() : 0;
+                int total = sub.getTotalTestCases() != null ? sub.getTotalTestCases() : 0;
+                LocalDateTime when = sub.getSubmittedAt();
+                if (best == null
+                        || passed > best.passed
+                        || (passed == best.passed && compareSubmittedAt(when, best.submittedAt) < 0)) {
+                    best = new BestSubmission(passed, total, when);
+                }
+            }
+            return best;
+        } catch (Exception e) {
+            log.warn("findBestSubmission failed match={} user={}: {}", matchId, userId, e.getMessage());
+            return null;
+        }
+    }
+
+    private static int compareSubmittedAt(LocalDateTime a, LocalDateTime b) {
+        if (a == null && b == null) return 0;
+        if (a == null) return 1;     // null is "later"
+        if (b == null) return -1;
+        return a.compareTo(b);
     }
 
     private void cancelDrawTimer(UUID matchId) {
@@ -1365,4 +1572,291 @@ public class DuelService {
     Optional<DuelMatch> currentMatch(UUID matchId) {
         return duelMatchRepository.findById(matchId);
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Run / Submit counters (V4 — per-match limits via Valkey)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Returns the current run count for (matchId, userId), or 0 on miss/error. */
+    public int getRunCount(UUID matchId, Long userId) {
+        return readCounter(RUN_COUNTER_PREFIX + matchId + ":" + userId);
+    }
+
+    /** Returns the current submit count for (matchId, userId), or 0 on miss/error. */
+    public int getSubmitCount(UUID matchId, Long userId) {
+        return readCounter(SUBMIT_COUNTER_PREFIX + matchId + ":" + userId);
+    }
+
+    private int readCounter(String key) {
+        try {
+            String v = redis.opsForValue().get(key);
+            if (v == null) return 0;
+            return Integer.parseInt(v);
+        } catch (Exception e) {
+            log.debug("Counter read failed for {}: {}", key, e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Atomically increment a run counter. Throws
+     * {@link DuelStateConflictException}({@code RUN_LIMIT_EXCEEDED}) if the
+     * caller has already used all 5 runs for this match.
+     *
+     * @param matchId the match id (used for TTL derivation)
+     * @param userId  the calling user
+     * @param match   pre-loaded match row (used to compute the TTL window)
+     */
+    public void tryIncrementRun(UUID matchId, Long userId, DuelMatch match) {
+        tryIncrementCounter(RUN_COUNTER_PREFIX + matchId + ":" + userId,
+                RUN_LIMIT_PER_MATCH, "RUN_LIMIT_EXCEEDED", match);
+    }
+
+    /**
+     * Atomically increment a submit counter. Throws
+     * {@link DuelStateConflictException}({@code SUBMIT_LIMIT_EXCEEDED}) if
+     * the caller has already used all 2 submits for this match.
+     */
+    public void tryIncrementSubmit(UUID matchId, Long userId, DuelMatch match) {
+        tryIncrementCounter(SUBMIT_COUNTER_PREFIX + matchId + ":" + userId,
+                SUBMIT_LIMIT_PER_MATCH, "SUBMIT_LIMIT_EXCEEDED", match);
+    }
+
+    private void tryIncrementCounter(String key, int limit, String code, DuelMatch match) {
+        Long incr;
+        try {
+            incr = redis.opsForValue().increment(key);
+        } catch (Exception e) {
+            // Valkey hiccup — fail open so a transient network glitch does
+            // not lock the user out of the match.
+            log.warn("Counter INCR failed for {}: {}", key, e.getMessage());
+            return;
+        }
+        if (incr == null) incr = 1L;
+
+        if (incr > limit) {
+            // Roll back the speculative increment so retries see a stable count.
+            try { redis.opsForValue().decrement(key); } catch (Exception ignored) { /* fall through */ }
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("remaining", 0);
+            payload.put("limit", limit);
+            throw new DuelStateConflictException(code, payload,
+                    "Per-match limit exceeded: " + code);
+        }
+
+        // First successful increment — set the TTL once. Window = match
+        // duration + a 60 s buffer so the key cleans itself up after the
+        // match ends without depending on the finalize path.
+        if (incr == 1L) {
+            try {
+                int rowLimit = match != null && match.getTimeLimitSec() != null
+                        ? match.getTimeLimitSec()
+                        : 3900; // worst-case HARD window
+                redis.expire(key, rowLimit + 60L, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                log.debug("Failed to set TTL on counter {}: {}", key, e.getMessage());
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // runForDuel — sync compile + examples-only run
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Compile the user's code and execute against the problem's example
+     * test cases only. Synchronous — returns the result inline so the
+     * frontend can render output / expected / pass/fail without waiting
+     * on an SSE event.
+     *
+     * <p>Counts toward the 5-runs-per-match-per-user limit. Does NOT
+     * count toward the 2-submits limit. Does NOT touch
+     * {@code submissions} / {@code duel_submissions} — practice runs are
+     * fire-and-forget.
+     */
+    public RunResult runForDuel(UUID matchId, Long userId, String code, String language, String stdin) {
+        if (matchId == null) {
+            throw new DuelNotFoundException("Match id must not be null");
+        }
+        if (userId == null) {
+            throw new DuelForbiddenException("Authenticated user required");
+        }
+        if (language == null || language.isBlank()) {
+            throw new IllegalArgumentException("language is required");
+        }
+
+        DuelMatch match = duelMatchRepository.findById(matchId)
+                .orElseThrow(() -> new DuelNotFoundException("Match not found: " + matchId));
+        if (!userId.equals(match.getUserAId()) && !userId.equals(match.getUserBId())) {
+            throw new DuelForbiddenException("Not a participant of match " + matchId);
+        }
+        if (match.getStatus() != DuelMatch.Status.IN_PROGRESS) {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("matchId", matchId.toString());
+            payload.put("status", match.getStatus() != null ? match.getStatus().name() : null);
+            throw new DuelStateConflictException("MATCH_NOT_ACTIVE", payload,
+                    "Match is not in progress: " + matchId);
+        }
+
+        Submission.ProgrammingLanguage langEnum;
+        try {
+            langEnum = Submission.ProgrammingLanguage.valueOf(language.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Unsupported language: " + language);
+        }
+
+        Problem problem = problemRepository.findById(match.getProblemId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Match references missing problem " + match.getProblemId()));
+
+        // Increment run counter (throws RUN_LIMIT_EXCEEDED on overflow).
+        tryIncrementRun(matchId, userId, match);
+
+        // Build the example test inputs/expected outputs from problem.example1..3.
+        // Each example is stored as "input\noutput-divider-output" — we treat
+        // the first half (before "Output:" or first blank line) as input and
+        // the rest as expected. Since the existing platform doesn't
+        // standardize a structured examples representation, we send the user
+        // the raw string and let them eyeball; we only rely on stdin for the
+        // first example to actually feed the program.
+        java.util.List<String[]> examples = parseExamples(problem);
+
+        // Compile + run the user's code through the same compiler service
+        // the public /compiler endpoint uses. We feed the example input as
+        // stdin and capture stdout/stderr/exit code.
+        java.util.List<Map<String, Object>> caseResults = new java.util.ArrayList<>();
+        boolean overallPassed = true;
+        boolean ranAtLeastOne = false;
+        String compileError = null;
+        long totalTimeMs = 0;
+        for (String[] ex : examples) {
+            String input = ex[0];
+            String expected = ex[1];
+            // First case may carry user-provided stdin override
+            String effectiveStdin = (stdin != null && !stdin.isBlank() && !ranAtLeastOne)
+                    ? stdin : input;
+            CompilerService.CompilerResponse cr = compilerService.compile(
+                    code, langEnum.name(), effectiveStdin, 10);
+            ranAtLeastOne = true;
+            totalTimeMs += cr.executionTimeMs;
+            if (cr.compileError) {
+                compileError = cr.stderr != null && !cr.stderr.isBlank() ? cr.stderr
+                        : (cr.errorMessage != null ? cr.errorMessage : "Compilation error");
+                overallPassed = false;
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("input", input);
+                r.put("expected", expected);
+                r.put("output", "");
+                r.put("stderr", cr.stderr);
+                r.put("passed", false);
+                r.put("compileError", true);
+                caseResults.add(r);
+                break; // no point running more cases on a CE
+            }
+            String stdout = cr.stdout != null ? cr.stdout : "";
+            boolean passed = expected != null
+                    && normalizeOutput(stdout).equals(normalizeOutput(expected));
+            if (!passed) overallPassed = false;
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("input", input);
+            r.put("expected", expected);
+            r.put("output", stdout);
+            r.put("stderr", cr.stderr);
+            r.put("passed", passed);
+            r.put("timeLimitExceeded", cr.timeLimitExceeded);
+            r.put("exitCode", cr.exitCode);
+            caseResults.add(r);
+        }
+
+        int runsUsed = getRunCount(matchId, userId);
+        int runsRemaining = Math.max(0, RUN_LIMIT_PER_MATCH - runsUsed);
+
+        return new RunResult(
+                ranAtLeastOne && overallPassed && compileError == null,
+                compileError,
+                caseResults,
+                runsUsed,
+                runsRemaining,
+                totalTimeMs
+        );
+    }
+
+    /**
+     * Parse the three optional {@code example1/2/3} fields on
+     * {@link Problem} into a list of {@code [input, expectedOutput]}
+     * tuples. The on-disk format is freeform; we make a best-effort split
+     * on the first occurrence of {@code "Output:"} (case-insensitive),
+     * falling back to {@code "Expected:"}, then to a blank-line split.
+     */
+    private static java.util.List<String[]> parseExamples(Problem p) {
+        java.util.List<String[]> out = new java.util.ArrayList<>();
+        String[] sources = new String[]{p.getExample1(), p.getExample2(), p.getExample3()};
+        for (String raw : sources) {
+            if (raw == null || raw.isBlank()) continue;
+            String[] parts = splitInputOutput(raw);
+            if (parts != null) out.add(parts);
+        }
+        return out;
+    }
+
+    private static String[] splitInputOutput(String raw) {
+        if (raw == null) return null;
+        String lower = raw.toLowerCase();
+        int idx = lower.indexOf("output:");
+        if (idx < 0) idx = lower.indexOf("expected:");
+        if (idx >= 0) {
+            // Walk forward to the first newline after the marker.
+            int afterColon = raw.indexOf(':', idx) + 1;
+            // Find the input portion — text BEFORE the marker (after stripping "Input:" prefix).
+            String beforeMarker = raw.substring(0, idx);
+            String inputBody = stripLeadingLabel(beforeMarker, "input");
+            String outputBody = raw.substring(afterColon);
+            return new String[]{inputBody.trim(), outputBody.trim()};
+        }
+        // Fallback: split on first double newline.
+        int blank = raw.indexOf("\n\n");
+        if (blank > 0) {
+            return new String[]{
+                    stripLeadingLabel(raw.substring(0, blank), "input").trim(),
+                    raw.substring(blank + 2).trim()
+            };
+        }
+        // No reliable split — treat the whole thing as input with no expected.
+        return new String[]{stripLeadingLabel(raw, "input").trim(), ""};
+    }
+
+    private static String stripLeadingLabel(String s, String label) {
+        if (s == null) return "";
+        String trimmed = s.trim();
+        String lower = trimmed.toLowerCase();
+        if (lower.startsWith(label + ":")) {
+            return trimmed.substring(label.length() + 1).trim();
+        }
+        return trimmed;
+    }
+
+    /** Whitespace-tolerant comparison: trim each line, drop trailing blank lines. */
+    private static String normalizeOutput(String s) {
+        if (s == null) return "";
+        String[] lines = s.replace("\r\n", "\n").split("\n");
+        StringBuilder sb = new StringBuilder();
+        for (String line : lines) {
+            sb.append(line.stripTrailing()).append('\n');
+        }
+        // Drop trailing newlines.
+        while (sb.length() > 0 && sb.charAt(sb.length() - 1) == '\n') {
+            sb.setLength(sb.length() - 1);
+        }
+        return sb.toString();
+    }
+
+    /** Result DTO for the {@code POST /api/duels/{matchId}/run} endpoint. */
+    public record RunResult(
+            boolean passed,
+            String compileError,
+            java.util.List<Map<String, Object>> cases,
+            int runsUsed,
+            int runsRemaining,
+            long totalTimeMs
+    ) {}
 }
