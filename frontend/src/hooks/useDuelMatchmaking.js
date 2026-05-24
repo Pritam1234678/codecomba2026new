@@ -34,6 +34,7 @@ export default function useDuelMatchmaking() {
 
   const eventSourceRef = useRef(null);
   const cooldownTimerRef = useRef(null);
+  const matchPollRef = useRef(null);
 
   // ── Per-user SSE channel ─────────────────────────────────────────────────
   // Reuses the existing /api/submissions/stream endpoint — same ticket flow
@@ -57,6 +58,11 @@ export default function useDuelMatchmaking() {
       es.addEventListener('matched', (ev) => {
         try {
           const data = JSON.parse(ev.data);
+          // Stop the polling fallback — we got the SSE event.
+          if (matchPollRef.current) {
+            clearInterval(matchPollRef.current);
+            matchPollRef.current = null;
+          }
           setMatchId(data.matchId);
           // Reset to IDLE — caller observes `matchId` and navigates to the arena.
           setState(STATES.IDLE);
@@ -99,13 +105,52 @@ export default function useDuelMatchmaking() {
   const findMatch = useCallback(async () => {
     setError(null);
     try {
-      const result = await enqueue();
-      setQueueToken(result.queueToken ?? null);
-      setState(STATES.AWAITING);
-      // Open the SSE listener if we don't already have one alive.
+      // Open the per-user SSE listener BEFORE we hit the enqueue endpoint.
+      // Otherwise the pair-loop (250 ms tick) can pair us, fire `matched`
+      // on the per-user channel, and have the event silently dropped
+      // because our EventSource isn't open yet.
       if (!eventSourceRef.current) {
         await openPerUserSse();
       }
+
+      const result = await enqueue();
+      setQueueToken(result.queueToken ?? null);
+      setState(STATES.AWAITING);
+
+      // Belt + suspenders: even if `matched` fires before SSE finishes
+      // attaching, we re-poll the enqueue endpoint every 1.5 s. The
+      // backend is idempotent and returns 409 ALREADY_IN_MATCH with the
+      // existing matchId once we're paired — the catch block below
+      // already handles that and surfaces matchId to the caller, which
+      // navigates to the arena. We stop the poll on cleanup or after
+      // a hard 30 s budget.
+      let polls = 0;
+      const pollMaxAttempts = 20; // 30 s
+      const poll = setInterval(async () => {
+        polls += 1;
+        if (polls > pollMaxAttempts) {
+          clearInterval(poll);
+          if (matchPollRef.current === poll) matchPollRef.current = null;
+          return;
+        }
+        try {
+          await enqueue();
+          // Still queued — the pair-loop hasn't matched us yet. Keep waiting.
+        } catch (pollErr) {
+          const status = pollErr?.response?.status;
+          const data = pollErr?.response?.data;
+          if (status === 409 && data?.error === 'ALREADY_IN_MATCH' && data?.matchId) {
+            // Surface the matchId to the consumer; the lobby's useEffect
+            // will navigate to /duel/{matchId} on the next render.
+            setMatchId(data.matchId);
+            setState(STATES.IDLE);
+            clearInterval(poll);
+            if (matchPollRef.current === poll) matchPollRef.current = null;
+          }
+          // Other errors (e.g. cooldown) are unlikely mid-await; ignore.
+        }
+      }, 1500);
+      matchPollRef.current = poll;
     } catch (err) {
       const status = err?.response?.status;
       const data = err?.response?.data;
@@ -149,6 +194,10 @@ export default function useDuelMatchmaking() {
 
   // ── cancel ────────────────────────────────────────────────────────────────
   const cancel = useCallback(async () => {
+    if (matchPollRef.current) {
+      clearInterval(matchPollRef.current);
+      matchPollRef.current = null;
+    }
     try {
       await cancelQueue();
     } catch (err) {
@@ -170,6 +219,10 @@ export default function useDuelMatchmaking() {
       if (cooldownTimerRef.current) {
         clearInterval(cooldownTimerRef.current);
         cooldownTimerRef.current = null;
+      }
+      if (matchPollRef.current) {
+        clearInterval(matchPollRef.current);
+        matchPollRef.current = null;
       }
     };
   }, []);
