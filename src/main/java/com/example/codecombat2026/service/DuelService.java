@@ -1,4 +1,4 @@
-bhapackage com.example.codecombat2026.service;
+package com.example.codecombat2026.service;
 
 import com.example.codecombat2026.dto.SubmissionJob;
 import com.example.codecombat2026.dto.duel.DuelMatchView;
