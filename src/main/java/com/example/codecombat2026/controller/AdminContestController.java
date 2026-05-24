@@ -23,7 +23,7 @@ import java.util.Map;
 public class AdminContestController {
 
     private static final String ADMIN_CONTESTS_KEY = "admin:contests:all";
-    private static final Duration ADMIN_CONTESTS_TTL = Duration.ofSeconds(30);
+    private static final Duration ADMIN_CONTESTS_TTL = Duration.ofSeconds(60);
 
     @Autowired private ContestRepository contestRepository;
     @Autowired private AdminDashboardController adminDashboardController;

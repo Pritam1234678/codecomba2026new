@@ -1,6 +1,8 @@
 package com.example.codecombat2026.config;
 
 import com.example.codecombat2026.controller.AdminDashboardController;
+import com.example.codecombat2026.entity.Contest;
+import com.example.codecombat2026.entity.User;
 import com.example.codecombat2026.repository.ContestRepository;
 import com.example.codecombat2026.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +19,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -88,12 +91,41 @@ public class ConnectionWarmupConfig {
             redis.opsForValue().set(
                 AdminDashboardController.STATS_CACHE_KEY,
                 objectMapper.writeValueAsString(statsPayload),
-                Duration.ofMinutes(2)
+                Duration.ofMinutes(5)
             );
             log.info("✅ Admin stats cache pre-loaded (users={}, contests={})",
                 userStats.get("total"), contestStats.get("total"));
         } catch (Exception e) {
             log.warn("Admin stats cache pre-load failed: {}", e.getMessage());
+        }
+
+        // 5. Pre-populate admin lists (the slow cold ones — 5.4s for contests)
+        // These pay JIT + first-Hibernate-fetch + first-Jackson-serialization
+        // costs. Pay them once at startup so the first admin request is fast.
+        log.info("🔥 Pre-loading admin:contests:all cache...");
+        try {
+            List<Contest> contests = contestRepository.findAll();
+            redis.opsForValue().set(
+                "admin:contests:all",
+                objectMapper.writeValueAsString(contests),
+                Duration.ofSeconds(30)
+            );
+            log.info("✅ admin:contests:all pre-loaded ({} contests)", contests.size());
+        } catch (Exception e) {
+            log.warn("admin:contests:all pre-load failed: {}", e.getMessage());
+        }
+
+        log.info("🔥 Pre-loading admin:users:all cache...");
+        try {
+            List<User> users = userRepository.findAll();
+            redis.opsForValue().set(
+                "admin:users:all",
+                objectMapper.writeValueAsString(users),
+                Duration.ofSeconds(60)
+            );
+            log.info("✅ admin:users:all pre-loaded ({} users)", users.size());
+        } catch (Exception e) {
+            log.warn("admin:users:all pre-load failed: {}", e.getMessage());
         }
     }
 }

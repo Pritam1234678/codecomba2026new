@@ -37,7 +37,7 @@ public class AdminDashboardController {
 
     // Public so ConnectionWarmupConfig can reference it
     public static final String STATS_CACHE_KEY = "admin:dashboard:stats";
-    private static final Duration STATS_TTL    = Duration.ofMinutes(2);
+    private static final Duration STATS_TTL    = Duration.ofMinutes(5);
     private static final Duration PROFILE_TTL  = Duration.ofMinutes(5);
 
     @Autowired private UserRepository userRepository;
