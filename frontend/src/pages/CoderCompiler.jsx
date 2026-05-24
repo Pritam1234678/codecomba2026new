@@ -166,9 +166,11 @@ const CoderCompiler = () => {
         // visitors connect without a ticket and hit the public rate limit.
         let ticket = null;
         const stored = JSON.parse(localStorage.getItem('user') || 'null');
+        // Use the configured API base URL so this works on any deployment
+        const apiBase = import.meta.env.VITE_API_URL ?? '/api';
         if (stored?.token) {
             try {
-                const res = await fetch('/api/compiler/ws-ticket', {
+                const res = await fetch(`${apiBase}/compiler/ws-ticket`, {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + stored.token },
                 });
@@ -182,12 +184,18 @@ const CoderCompiler = () => {
             }
         }
 
+        // Derive WebSocket URL from the API base URL
+        // e.g. https://api.codecoder.in/api → wss://api.codecoder.in/api/compiler/ws
         const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.hostname === 'localhost'
-            ? 'localhost:8080'
-            : window.location.host;
+        let wsBase;
+        if (window.location.hostname === 'localhost') {
+            wsBase = `${proto}//localhost:8080/api`;
+        } else {
+            // Strip the protocol from apiBase and use wss/ws
+            wsBase = apiBase.replace(/^https?:/, proto);
+        }
         const ticketParam = ticket ? `?ticket=${encodeURIComponent(ticket)}` : '';
-        const wsUrl = `${proto}//${host}/api/compiler/ws${ticketParam}`;
+        const wsUrl = `${wsBase}/compiler/ws${ticketParam}`;
 
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
