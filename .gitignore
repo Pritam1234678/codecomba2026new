@@ -73,3 +73,4 @@ stitch_code_combat_ultimate_arena_design/
 .env.production-vm
 bench_admin.sh
 bench_full.sh
+test_duel.sh

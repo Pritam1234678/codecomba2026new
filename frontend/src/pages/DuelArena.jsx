@@ -8,6 +8,7 @@ import {
     forfeit,
     heartbeat,
 } from '../services/duelService';
+import ProblemService from '../services/problem.service';
 
 // ── Design tokens (mirrors AdminDashboard.jsx / ProblemSolve.jsx) ───────────
 const C = {
@@ -183,10 +184,43 @@ const DuelArena = () => {
     // ── Editor state ─────────────────────────────────────────────────────────
     const [language, setLanguage] = useState('JAVA');
     const [code,     setCode]     = useState(STARTER.JAVA);
+    const [snippets, setSnippets] = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [submitErr,  setSubmitErr]  = useState(null);
     const [history,    setHistory]    = useState([]); // [{ submissionId, language, ts }]
     const lastHeartbeatRef = useRef(0);
+
+    // ── Load per-language starter snippets for this duel's problem ───────────
+    // The platform's judge harness expects ONLY the function body / user code
+    // between USER_CODE_START / USER_CODE_END markers — submitting a full
+    // `public class Main { ... }` produces a compile error every time. The
+    // snippets endpoint returns the starter template per language so the
+    // editor seeds with code that the harness can actually splice in.
+    useEffect(() => {
+        if (!match?.problemId) return;
+        let cancelled = false;
+        ProblemService.getSnippets(match.problemId)
+            .then((res) => {
+                if (cancelled) return;
+                const map = {};
+                (res.data || []).forEach((s) => {
+                    if (s?.language && s?.starterCode) {
+                        map[s.language] = s.starterCode;
+                    }
+                });
+                setSnippets(map);
+                // Seed the editor with the current language's starter if we
+                // have one. The user can still edit freely afterwards.
+                if (map[language]) {
+                    setCode(map[language]);
+                }
+            })
+            .catch((err) => {
+                console.warn('Failed to load problem snippets', err);
+                // Fall back to the generic STARTER (already in state).
+            });
+        return () => { cancelled = true; };
+    }, [match?.problemId]);  // eslint-disable-line react-hooks/exhaustive-deps
 
     const onCodeChange = useCallback((newCode) => {
         const value = newCode ?? '';
@@ -200,11 +234,15 @@ const DuelArena = () => {
 
     const onLanguageChange = (lang) => {
         setLanguage(lang);
-        // If the user hasn't typed meaningful code yet, swap in the starter so
-        // the syntax highlighting matches. Otherwise leave the buffer alone.
+        // Prefer the problem's per-language starter snippet over the generic
+        // boilerplate. Falls back to STARTER[lang] only if the snippet
+        // endpoint hasn't loaded yet or this language has no snippet.
         const trimmed = (code ?? '').trim();
-        const isStarter = Object.values(STARTER).some((s) => s.trim() === trimmed);
-        if (!trimmed || isStarter) setCode(STARTER[lang] ?? '');
+        const isStarter = Object.values(STARTER).some((s) => s.trim() === trimmed)
+            || Object.values(snippets).some((s) => (s ?? '').trim() === trimmed);
+        if (!trimmed || isStarter) {
+            setCode(snippets[lang] ?? STARTER[lang] ?? '');
+        }
     };
 
     // ── Match countdown ──────────────────────────────────────────────────────
