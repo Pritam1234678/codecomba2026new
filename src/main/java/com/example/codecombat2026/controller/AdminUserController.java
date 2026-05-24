@@ -5,13 +5,17 @@ import com.example.codecombat2026.entity.User;
 import com.example.codecombat2026.repository.UserRepository;
 import com.example.codecombat2026.repository.PasswordResetTokenRepository;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,30 +26,48 @@ import java.util.Map;
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminUserController {
 
-    @Autowired
-    private UserRepository userRepository;
+    private static final String ADMIN_USERS_KEY = "admin:users:all";
+    private static final Duration ADMIN_USERS_TTL = Duration.ofSeconds(60);
 
-    @Autowired
-    private PasswordResetTokenRepository passwordResetTokenRepository;
-
-    @Autowired
-    private com.example.codecombat2026.repository.SubmissionRepository submissionRepository;
-
-    @Autowired
-    private AdminDashboardController adminDashboardController;
+    @Autowired private UserRepository userRepository;
+    @Autowired private PasswordResetTokenRepository passwordResetTokenRepository;
+    @Autowired private com.example.codecombat2026.repository.SubmissionRepository submissionRepository;
+    @Autowired private AdminDashboardController adminDashboardController;
+    @Autowired private StringRedisTemplate redis;
+    @Autowired private ObjectMapper objectMapper;
 
     @GetMapping
     public List<User> getAllUsers() {
-        return userRepository.findAll();
+        try {
+            String cached = redis.opsForValue().get(ADMIN_USERS_KEY);
+            if (cached != null) {
+                return objectMapper.readValue(cached, new TypeReference<List<User>>() {});
+            }
+        } catch (Exception ignored) {}
+
+        List<User> users = userRepository.findAll();
+        try {
+            redis.opsForValue().set(ADMIN_USERS_KEY,
+                objectMapper.writeValueAsString(users), ADMIN_USERS_TTL);
+        } catch (Exception ignored) {}
+        return users;
     }
 
     @GetMapping("/stats")
     public Map<String, Long> getUserStats() {
-        Map<String, Long> stats = new HashMap<>();
-        stats.put("total", userRepository.count());
-        stats.put("enabled", userRepository.countByEnabled(true));
-        stats.put("disabled", userRepository.countByEnabled(false));
-        return stats;
+        // Reuse the admin dashboard stats cache
+        @SuppressWarnings("unchecked")
+        Map<String, Object> stats = adminDashboardController.getCachedStats();
+        @SuppressWarnings("unchecked")
+        Map<String, Long> userStats = (Map<String, Long>) stats.get("userStats");
+        if (userStats != null) return userStats;
+
+        // Fallback
+        Map<String, Long> result = new HashMap<>();
+        result.put("total", userRepository.count());
+        result.put("enabled", userRepository.countByEnabled(true));
+        result.put("disabled", userRepository.countByEnabled(false));
+        return result;
     }
 
     @PutMapping("/{id}/enable")
@@ -54,6 +76,7 @@ public class AdminUserController {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         user.setEnabled(true);
         userRepository.save(user);
+        evictAdminUsersCache();
         adminDashboardController.invalidateStatsCache();
         return ResponseEntity.ok(new MessageResponse("User enabled successfully"));
     }
@@ -63,7 +86,6 @@ public class AdminUserController {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Prevent admin from disabling themselves
         if (currentUser.getId().equals(id)) {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("You cannot disable your own account"));
@@ -71,6 +93,7 @@ public class AdminUserController {
 
         user.setEnabled(false);
         userRepository.save(user);
+        evictAdminUsersCache();
         adminDashboardController.invalidateStatsCache();
         return ResponseEntity.ok(new MessageResponse("User disabled successfully"));
     }
@@ -81,21 +104,20 @@ public class AdminUserController {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Prevent admin from deleting themselves
         if (currentUser.getId().equals(id)) {
             return ResponseEntity.badRequest()
                     .body(new MessageResponse("You cannot delete your own account"));
         }
 
-        // Delete password reset tokens first (foreign key constraint)
         passwordResetTokenRepository.deleteByUser(user);
-
-        // Delete all submissions by this user
         submissionRepository.deleteByUser_Id(id);
-
-        // Finally delete the user
         userRepository.delete(user);
+        evictAdminUsersCache();
         adminDashboardController.invalidateStatsCache();
         return ResponseEntity.ok(new MessageResponse("User and all their data deleted successfully"));
+    }
+
+    public void evictAdminUsersCache() {
+        try { redis.delete(ADMIN_USERS_KEY); } catch (Exception ignored) {}
     }
 }

@@ -106,8 +106,24 @@ public class UserController {
             return profile;
         });
 
-        CompletableFuture<List<Submission>> submissionsFuture = CompletableFuture.supplyAsync(
-                () -> submissionRepository.findByUser_Id(userId));
+        // Cache recent submissions per user (30s TTL, invalidated on new verdict)
+        CompletableFuture<List<Submission>> submissionsFuture = CompletableFuture.supplyAsync(() -> {
+            String subKey = "submissions:user:" + userId;
+            try {
+                String cached = redis.opsForValue().get(subKey);
+                if (cached != null) {
+                    return objectMapper.readValue(cached,
+                        new com.fasterxml.jackson.core.type.TypeReference<List<Submission>>() {});
+                }
+            } catch (Exception ignored) {}
+
+            List<Submission> subs = submissionRepository.findByUser_Id(userId);
+            try {
+                redis.opsForValue().set(subKey, objectMapper.writeValueAsString(subs),
+                    java.time.Duration.ofSeconds(30));
+            } catch (Exception ignored) {}
+            return subs;
+        });
 
         UserProfileResponse profile = profileFuture.join();
         List<Submission> submissions = submissionsFuture.join();

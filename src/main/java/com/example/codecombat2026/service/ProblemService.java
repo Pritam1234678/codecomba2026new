@@ -57,7 +57,26 @@ public class ProblemService {
     }
 
     public List<Problem> getAllProblems() {
-        return problemRepository.findAll();
+        String key = "problems:all";
+        try {
+            String cached = redis.opsForValue().get(key);
+            if (cached != null) {
+                return objectMapper.readValue(cached, new TypeReference<List<Problem>>() {});
+            }
+        } catch (Exception ignored) {}
+
+        List<Problem> problems = problemRepository.findAll();
+
+        try {
+            redis.opsForValue().set(key, objectMapper.writeValueAsString(problems),
+                Duration.ofSeconds(60));
+        } catch (Exception ignored) {}
+
+        return problems;
+    }
+
+    public void evictAllProblems() {
+        try { redis.delete("problems:all"); } catch (Exception ignored) {}
     }
 
     /**

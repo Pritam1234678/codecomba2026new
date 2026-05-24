@@ -38,16 +38,38 @@ public class PracticeController {
     @Autowired private UserProblemSolvedRepository solvedRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private PracticeService practiceService;
+    @Autowired private org.springframework.data.redis.core.StringRedisTemplate redis;
+    @Autowired private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    private static final java.time.Duration SOLVED_TTL = java.time.Duration.ofSeconds(30);
 
     /** Returns all active problems with a "solved" flag for the current user. */
     @GetMapping("/problems")
     @PreAuthorize("isAuthenticated()")
     public List<PracticeProblemDTO> listProblems(@AuthenticationPrincipal UserDetailsImpl user) {
-        Set<Long> solvedIds = solvedRepository.findByUserId(user.getId()).stream()
-                .map(UserProblemSolved::getProblemId)
-                .collect(Collectors.toCollection(HashSet::new));
+        // Cache solved IDs per user (30s TTL, invalidated on AC verdict)
+        Set<Long> solvedIds = getSolvedIds(user.getId());
 
-        return problemRepository.findAll().stream()
+        // Reuse the problems:all cache from ProblemService (60s TTL)
+        List<Problem> allProblems;
+        try {
+            String cached = redis.opsForValue().get("problems:all");
+            if (cached != null) {
+                allProblems = objectMapper.readValue(cached,
+                    new com.fasterxml.jackson.core.type.TypeReference<List<Problem>>() {});
+            } else {
+                allProblems = problemRepository.findAll();
+                try {
+                    redis.opsForValue().set("problems:all",
+                        objectMapper.writeValueAsString(allProblems),
+                        java.time.Duration.ofSeconds(60));
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {
+            allProblems = problemRepository.findAll();
+        }
+
+        return allProblems.stream()
                 .filter(p -> Boolean.TRUE.equals(p.getActive()))
                 .map(p -> new PracticeProblemDTO(
                         p.getId(),
@@ -60,6 +82,37 @@ public class PracticeController {
                         pointsForLevel(p.getLevel())
                 ))
                 .collect(Collectors.toList());
+    }
+
+    /** Cache-aside for solved IDs — short TTL, invalidated on AC. */
+    @SuppressWarnings("unchecked")
+    private Set<Long> getSolvedIds(Long userId) {
+        String key = "solved:" + userId;
+        try {
+            String cached = redis.opsForValue().get(key);
+            if (cached != null) {
+                List<Long> ids = objectMapper.readValue(cached,
+                    new com.fasterxml.jackson.core.type.TypeReference<List<Long>>() {});
+                return new HashSet<>(ids);
+            }
+        } catch (Exception ignored) {}
+
+        Set<Long> ids = solvedRepository.findByUserId(userId).stream()
+                .map(UserProblemSolved::getProblemId)
+                .collect(Collectors.toCollection(HashSet::new));
+
+        try {
+            redis.opsForValue().set(key,
+                objectMapper.writeValueAsString(new java.util.ArrayList<>(ids)),
+                SOLVED_TTL);
+        } catch (Exception ignored) {}
+
+        return ids;
+    }
+
+    /** Evict solved cache for a user — call after AC verdict. */
+    public void evictSolvedCache(Long userId) {
+        try { redis.delete("solved:" + userId); } catch (Exception ignored) {}
     }
 
     /** Returns a single problem (active only) with full details. */

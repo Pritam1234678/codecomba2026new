@@ -336,7 +336,19 @@ public class SubmissionWorkerPool {
             }
         }
 
-        // 3. Push verdict to user's open SSE connection (if any)
+        // 3. Invalidate user submissions cache so dashboard shows fresh data
+        try {
+            redis.delete("submissions:user:" + job.getUserId());
+        } catch (Exception ignored) {}
+
+        // 4. Invalidate solved cache for practice mode on AC
+        if (!job.isTestRun() && status == Submission.SubmissionStatus.AC) {
+            try {
+                redis.delete("solved:" + job.getUserId());
+            } catch (Exception ignored) {}
+        }
+
+        // 5. Push verdict to user's open SSE connection (if any)
         try {
             sseRegistry.sendVerdict(job.getUserId(), new VerdictEvent(
                 submissionId, status.name(), passed, total, score, timeMs, errorMessage, details,
