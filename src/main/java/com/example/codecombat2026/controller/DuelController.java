@@ -285,6 +285,27 @@ public class DuelController {
                     matchId, ticketUserId, ex.getMessage());
         }
 
+        // Late-joiner shortcut: if the match already finished before this
+        // user opened the SSE stream, immediately push match_finished so
+        // the arena renders the result modal without waiting for a
+        // server-initiated event that will never come (the finalize paths
+        // already fired and the registry's late-event guard would normally
+        // drop a fresh emit, but we exempt match_finished from that guard).
+        if ("FINISHED".equals(view.status())) {
+            try {
+                java.util.Map<String, Object> mfPayload = new java.util.LinkedHashMap<>();
+                mfPayload.put("matchId", matchId.toString());
+                mfPayload.put("outcome", view.outcome());
+                mfPayload.put("winnerUserId", view.winnerUserId());
+                mfPayload.put("endedAt", view.endedAt() != null ? view.endedAt().toString() : null);
+                mfPayload.put("ts", java.time.Instant.now().toString());
+                duelSseEmitterRegistry.emitTo(matchId, ticketUserId, "match_finished", mfPayload);
+            } catch (RuntimeException ex) {
+                log.warn("Failed to emit late-joiner match_finished for match={} user={}: {}",
+                        matchId, ticketUserId, ex.getMessage());
+            }
+        }
+
         return emitter;
     }
 

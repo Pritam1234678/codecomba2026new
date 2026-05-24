@@ -296,9 +296,10 @@ const DuelArena = () => {
     }, [stream?.events, selfUserId]);
 
     // ── Submit ───────────────────────────────────────────────────────────────
+    const isMatchFinished = stream?.status === 'FINISHED' || match?.status === 'FINISHED';
     const handleSubmit = async () => {
         if (submitting) return;
-        if (stream?.status === 'FINISHED') return;
+        if (isMatchFinished) return;
         setSubmitting(true);
         setSubmitErr(null);
         try {
@@ -370,10 +371,17 @@ const DuelArena = () => {
         !participantOk || stream?.error === 'NOT_A_PARTICIPANT';
 
     // ── Result modal ─────────────────────────────────────────────────────────
+    // Shows the modal when EITHER the SSE stream has flipped status to FINISHED
+    // OR the initial GET response already returned a FINISHED match (late
+    // joiner — the user opened this URL after the match already ended).
     const result = useMemo(() => {
-        if (stream?.status !== 'FINISHED') return null;
-        return resultForViewer(stream.outcome, stream.winnerUserId, selfUserId);
-    }, [stream?.status, stream?.outcome, stream?.winnerUserId, selfUserId]);
+        const finished = stream?.status === 'FINISHED' || match?.status === 'FINISHED';
+        if (!finished) return null;
+        const outcome = stream?.outcome ?? match?.outcome;
+        const winnerUserId = stream?.winnerUserId ?? match?.winnerUserId;
+        return resultForViewer(outcome, winnerUserId, selfUserId);
+    }, [stream?.status, stream?.outcome, stream?.winnerUserId,
+        match?.status, match?.outcome, match?.winnerUserId, selfUserId]);
 
     // ── Layout / drag (split-pane) ───────────────────────────────────────────
     const [leftWidth, setLeftWidth] = useState(60); // %
@@ -596,7 +604,7 @@ const DuelArena = () => {
                         <div style={{ display: 'flex', gap: '8px' }}>
                             <button
                                 onClick={() => setShowForfeitConfirm(true)}
-                                disabled={stream?.status === 'FINISHED' || forfeiting}
+                                disabled={isMatchFinished || forfeiting}
                                 style={{
                                     padding: '6px 14px',
                                     border: `1px solid ${C.error}`,
@@ -604,15 +612,15 @@ const DuelArena = () => {
                                     fontFamily: "'JetBrains Mono', monospace",
                                     fontSize: '11px', letterSpacing: '0.1em',
                                     textTransform: 'uppercase',
-                                    cursor: stream?.status === 'FINISHED' ? 'not-allowed' : 'pointer',
-                                    opacity: stream?.status === 'FINISHED' ? 0.4 : 1,
+                                    cursor: isMatchFinished ? 'not-allowed' : 'pointer',
+                                    opacity: isMatchFinished ? 0.4 : 1,
                                 }}
                             >
                                 Forfeit
                             </button>
                             <button
                                 onClick={handleSubmit}
-                                disabled={submitting || stream?.status === 'FINISHED'}
+                                disabled={submitting || isMatchFinished}
                                 style={{
                                     padding: '6px 18px',
                                     border: `1px solid ${C.secondary}`,
@@ -620,10 +628,10 @@ const DuelArena = () => {
                                     fontFamily: "'JetBrains Mono', monospace",
                                     fontSize: '11px', letterSpacing: '0.1em',
                                     textTransform: 'uppercase',
-                                    cursor: (submitting || stream?.status === 'FINISHED')
+                                    cursor: (submitting || isMatchFinished)
                                         ? 'not-allowed' : 'pointer',
                                     fontWeight: 600,
-                                    opacity: (submitting || stream?.status === 'FINISHED') ? 0.5 : 1,
+                                    opacity: (submitting || isMatchFinished) ? 0.5 : 1,
                                 }}
                             >
                                 {submitting ? 'Submitting…' : 'Submit'}

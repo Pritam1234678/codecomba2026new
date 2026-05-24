@@ -137,9 +137,17 @@ public class DuelSseEmitterRegistry {
      * every subscription on this match. Drops the event with a WARN log if
      * the match has already ended. A single dead emitter does not abort the
      * fan-out — the broken subscription is removed and the loop continues.
+     *
+     * <p>Two event names are exempt from the late-event guard:
+     * {@code room_state} (snapshot for new subscribers, including those who
+     * connect after a match finished) and {@code match_finished} (terminal
+     * event that MUST reach late joiners so they can render the result
+     * modal). Without these exemptions a user who opens the arena page
+     * after the match ended would see "Loading…" forever because the
+     * registry would silently swallow the only event that closes the page.
      */
     public void emit(UUID matchId, String eventName, Object payload) {
-        if (isLate(matchId, eventName)) return;
+        if (isTerminalOrSnapshot(eventName) ? false : isLate(matchId, eventName)) return;
 
         ConcurrentHashMap<Long, ConcurrentHashMap<String, SseEmitter>> users = emitters.get(matchId);
         if (users == null || users.isEmpty()) return;
@@ -150,10 +158,10 @@ public class DuelSseEmitterRegistry {
     /**
      * Send {@code payload} only to the given user's subscriptions on this
      * match. Used for typing-to-opponent events where only one side should
-     * see the heartbeat.
+     * see the heartbeat. Same late-event exemptions as {@link #emit}.
      */
     public void emitTo(UUID matchId, Long userId, String eventName, Object payload) {
-        if (isLate(matchId, eventName)) return;
+        if (isTerminalOrSnapshot(eventName) ? false : isLate(matchId, eventName)) return;
 
         ConcurrentHashMap<Long, ConcurrentHashMap<String, SseEmitter>> users = emitters.get(matchId);
         if (users == null) return;
@@ -161,6 +169,11 @@ public class DuelSseEmitterRegistry {
         if (subs == null || subs.isEmpty()) return;
 
         sendToSubs(matchId, userId, subs, eventName, payload);
+    }
+
+    /** True for events that MUST be delivered even after the match ended. */
+    private static boolean isTerminalOrSnapshot(String eventName) {
+        return "room_state".equals(eventName) || "match_finished".equals(eventName);
     }
 
     /**
