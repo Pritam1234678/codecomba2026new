@@ -7,10 +7,14 @@ import com.example.codecombat2026.exception.ResourceNotFoundException;
 import com.example.codecombat2026.repository.DuelEligibleProblemRepository;
 import com.example.codecombat2026.repository.ProblemRepository;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
+import com.example.codecombat2026.service.DuelService;
 import com.example.codecombat2026.util.TimeUtil;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,6 +26,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -75,14 +80,36 @@ public class DuelEligibleProblemAdminController {
     @Autowired
     private ProblemRepository problemRepo;
 
+    @Autowired
+    private StringRedisTemplate redis;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
     /**
      * List every row in {@code duel_eligible_problems} joined with the
-     * matching {@code problems.title}. Uses per-row {@code findById} on the
-     * problem table — the pool is small (curated) so the N+1 is acceptable;
-     * a JOIN-fetch query can replace this if the pool ever grows.
+     * matching {@code problems.title}. Cached in Valkey under
+     * {@link DuelService#ELIGIBLE_LIST_CACHE_KEY} for
+     * {@link DuelService#ELIGIBLE_LIST_CACHE_TTL_SEC} seconds; invalidated
+     * on every {@code add} / {@code remove} so admins see their own writes
+     * immediately. Uses per-row {@code findById} on the cache miss path —
+     * the pool is small (curated) so the N+1 is acceptable; a JOIN-fetch
+     * query can replace this if the pool ever grows.
      */
     @GetMapping
     public List<EligibleProblemListItem> list() {
+        // Cache fast path
+        try {
+            String cached = redis.opsForValue().get(DuelService.ELIGIBLE_LIST_CACHE_KEY);
+            if (cached != null) {
+                return objectMapper.readValue(
+                        cached, new TypeReference<List<EligibleProblemListItem>>() {});
+            }
+        } catch (Exception e) {
+            log.debug("Eligible-list cache read failed: {}", e.getMessage());
+        }
+
+        // Cache miss — build the list from DB.
         List<DuelEligibleProblem> rows = eligibleRepo.findAll();
         List<EligibleProblemListItem> result = new ArrayList<>(rows.size());
         for (DuelEligibleProblem row : rows) {
@@ -93,6 +120,17 @@ public class DuelEligibleProblemAdminController {
             result.add(new EligibleProblemListItem(
                     problemId, title, row.getAddedAt(), row.getAddedBy()));
         }
+
+        // Best-effort cache write — tolerate any failure silently.
+        try {
+            redis.opsForValue().set(
+                    DuelService.ELIGIBLE_LIST_CACHE_KEY,
+                    objectMapper.writeValueAsString(result),
+                    Duration.ofSeconds(DuelService.ELIGIBLE_LIST_CACHE_TTL_SEC));
+        } catch (Exception e) {
+            log.debug("Eligible-list cache write failed: {}", e.getMessage());
+        }
+
         return result;
     }
 
@@ -125,6 +163,7 @@ public class DuelEligibleProblemAdminController {
         row.setAddedBy(currentUser != null ? currentUser.getId() : null);
 
         DuelEligibleProblem saved = eligibleRepo.save(row);
+        invalidateEligibleListCache();
         log.info("Duel eligible problem added: problemId={} addedBy={}",
                 problemId, saved.getAddedBy());
 
@@ -143,11 +182,25 @@ public class DuelEligibleProblemAdminController {
     public ResponseEntity<Void> remove(@PathVariable Long problemId) {
         if (eligibleRepo.existsById(problemId)) {
             eligibleRepo.deleteById(problemId);
+            invalidateEligibleListCache();
             log.info("Duel eligible problem removed: problemId={}", problemId);
         } else {
             log.debug("Duel eligible problem remove no-op (not in pool): problemId={}",
                     problemId);
         }
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Drop the eligible-list cache. Called on every successful add/remove so
+     * the admin UI sees its own writes on the very next poll instead of
+     * waiting out the TTL.
+     */
+    private void invalidateEligibleListCache() {
+        try {
+            redis.delete(DuelService.ELIGIBLE_LIST_CACHE_KEY);
+        } catch (Exception e) {
+            log.debug("Eligible-list cache invalidate failed: {}", e.getMessage());
+        }
     }
 }

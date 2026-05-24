@@ -361,6 +361,7 @@ public class DuelService {
         emitMatched(maxId, matchId, userAUsername, problemId, startedAt);
 
         log.info("Duel paired match={} users=({},{}) problem={}", matchId, minId, maxId, problemId);
+        invalidateMetricsCache();
         return matchId;
     }
 
@@ -1061,10 +1062,74 @@ public class DuelService {
                 "Match already finished: " + matchId);
     }
 
+    // ─── Cache keys for hot read paths (added to absorb 5s admin polling) ────
+
+    /** Admin metrics cache key — only the DB-derived counts; live members not cached. */
+    static final String METRICS_CACHE_KEY = "duel:metrics:db";
+
+    /** Metrics cache TTL — short so live state stays current. */
+    private static final long METRICS_CACHE_TTL_SEC = 4L;
+
+    /** Eligible-problem list cache key. */
+    static final String ELIGIBLE_LIST_CACHE_KEY = "duel:eligible:list";
+
+    /** Eligible list cache TTL — only invalidated by admin add/delete. */
+    static final long ELIGIBLE_LIST_CACHE_TTL_SEC = 60L;
+
     /** Snapshot of duel runtime metrics for the admin dashboard. */
     public DuelMetrics getMetrics() {
-        long active = duelMatchRepository.countByStatusIn(
-                List.of(DuelMatch.Status.WAITING, DuelMatch.Status.IN_PROGRESS));
+        // Try the Valkey cache first — admin dashboard polls every 5s, so
+        // a 4s TTL absorbs the steady-state load without making the panel
+        // feel stale.
+        long active;
+        long finishedToday;
+        long abandonedToday;
+        boolean cacheHit = false;
+        try {
+            String cached = redis.opsForValue().get(METRICS_CACHE_KEY);
+            if (cached != null) {
+                String[] parts = cached.split(",");
+                if (parts.length == 3) {
+                    active = Long.parseLong(parts[0]);
+                    finishedToday = Long.parseLong(parts[1]);
+                    abandonedToday = Long.parseLong(parts[2]);
+                    cacheHit = true;
+                } else {
+                    active = 0;
+                    finishedToday = 0;
+                    abandonedToday = 0;
+                }
+            } else {
+                active = 0;
+                finishedToday = 0;
+                abandonedToday = 0;
+            }
+        } catch (Exception e) {
+            log.debug("Metrics cache read failed: {}", e.getMessage());
+            active = 0;
+            finishedToday = 0;
+            abandonedToday = 0;
+        }
+
+        if (!cacheHit) {
+            active = duelMatchRepository.countByStatusIn(
+                    List.of(DuelMatch.Status.WAITING, DuelMatch.Status.IN_PROGRESS));
+            LocalDateTime startOfToday = TimeUtil.now().toLocalDate().atStartOfDay();
+            finishedToday = duelMatchRepository.countFinishedSince(startOfToday);
+            abandonedToday = duelMatchRepository.countAbandonedSince(startOfToday);
+            try {
+                redis.opsForValue().set(
+                        METRICS_CACHE_KEY,
+                        active + "," + finishedToday + "," + abandonedToday,
+                        METRICS_CACHE_TTL_SEC,
+                        TimeUnit.SECONDS);
+            } catch (Exception e) {
+                log.debug("Metrics cache write failed: {}", e.getMessage());
+            }
+        }
+
+        // queueDepth and sseConnectionCount are always live — they read
+        // Valkey list size and an in-memory map respectively, both cheap.
         int qd;
         try {
             qd = matchmakingService.queueDepth();
@@ -1072,9 +1137,6 @@ public class DuelService {
             log.debug("queueDepth metric lookup failed: {}", e.getMessage());
             qd = 0;
         }
-        LocalDateTime startOfToday = TimeUtil.now().toLocalDate().atStartOfDay();
-        long finishedToday = duelMatchRepository.countFinishedSince(startOfToday);
-        long abandonedToday = duelMatchRepository.countAbandonedSince(startOfToday);
         int sseConns;
         try {
             sseConns = duelSseEmitterRegistry.connectionCount();
@@ -1083,6 +1145,21 @@ public class DuelService {
             sseConns = 0;
         }
         return new DuelMetrics(active, qd, finishedToday, abandonedToday, sseConns);
+    }
+
+    /**
+     * Drop the metrics cache. Called from every state-mutating path that
+     * could move {@code activeMatchCount} / {@code matchesFinishedToday} /
+     * {@code matchesAbandonedToday} out of date — i.e. immediately after
+     * any successful {@code finalizeIfActive} / {@code adminCancelIfActive}
+     * / {@code finalizeAsDrawIfActive} / {@code startIfWaiting}.
+     */
+    void invalidateMetricsCache() {
+        try {
+            redis.delete(METRICS_CACHE_KEY);
+        } catch (Exception e) {
+            log.debug("Metrics cache invalidate failed: {}", e.getMessage());
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -1098,6 +1175,10 @@ public class DuelService {
         if (match == null) {
             return;
         }
+        // Invalidate the metrics cache — every match_finished moves the
+        // active / finished_today / abandoned_today counters.
+        invalidateMetricsCache();
+
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("matchId", match.getMatchId().toString());
         payload.put("outcome", match.getOutcome() != null ? match.getOutcome().name() : null);

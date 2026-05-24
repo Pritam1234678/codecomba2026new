@@ -21,7 +21,7 @@ Tasks marked with `*` in the checkbox (e.g. `- [ ]* 6.1`) are optional in the se
   - _Requirements: 2.3, 2.4, 6.5, 9.2, 10.1, 12.1, 12.2, 12.3, 12.5, 12.6, 14.3_
   - _Properties: 3, 7, 12_
 
-- [ ] 2. Implement persistence layer (entities and repositories)
+- [x] 2. Implement persistence layer (entities and repositories)
 
   - [x] 2.1 Create `DuelMatch` JPA entity
     - File: `src/main/java/com/example/codecombat2026/entity/DuelMatch.java`.
@@ -424,7 +424,7 @@ Tasks marked with `*` in the checkbox (e.g. `- [ ]* 6.1`) are optional in the se
     - Document the rollback: `DROP TRIGGER trg_duel_matches_winner_immutable; DROP FUNCTION duel_matches_winner_immutable(); DROP TABLE duel_submissions, duel_eligible_problems, duel_matches;` then `DELETE FROM flyway_schema_history WHERE version = '3';`. Note the rollback is data-destructive for any duel data already collected.
     - _Requirements: 12.6_
 
-- [-] 12. Smoke deploy and live verification
+- [x] 12. Smoke deploy and live verification
   - Build the production WAR: `./mvnw clean package -DskipTests`.
   - Push the WAR and updated frontend bundle to the Oracle A1 VM (existing deploy script).
   - Restart the Spring Boot service. Flyway will apply `V3__live_duel_mode.sql` automatically.
