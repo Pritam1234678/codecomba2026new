@@ -142,7 +142,7 @@ public class DuelService {
     @Value("${DUEL_DRAW_TIMEOUT_SEC:600}")
     long drawTimeoutSec;
 
-    @Value("${DUEL_GRACE_PERIOD_SEC:30}")
+    @Value("${DUEL_GRACE_PERIOD_SEC:120}")
     long gracePeriodSec;
 
     @Value("${DUEL_COOLDOWN_SEC:5}")
@@ -462,6 +462,16 @@ public class DuelService {
     // ─────────────────────────────────────────────────────────────────────
     // getMatch / listMatches
     // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Return active (WAITING or IN_PROGRESS) matches for the given user.
+     * Used by the {@code GET /api/duels/active} endpoint so the lobby can
+     * show a "Resume Match" button during the reconnect grace window.
+     */
+    public List<DuelMatch> getActiveMatchesForUser(Long userId) {
+        if (userId == null) return List.of();
+        return duelMatchRepository.findActiveByUser(userId);
+    }
 
     /**
      * Read-model lookup. Returns 404 via {@link DuelNotFoundException} if

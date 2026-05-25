@@ -221,36 +221,6 @@ const DuelArena = () => {
         };
     }, []);
 
-    // ── beforeunload → auto-forfeit ─────────────────────────────────────────
-    // Refresh / close-tab / back-button all fire beforeunload. We use a
-    // keepalive fetch (modern browsers honor up to 64KiB) so the JWT in
-    // the Authorization header reaches the backend before the page tears
-    // down. Best-effort — if the network swallows it the reconnect-grace
-    // timer on the server will still finalise the match in our absence.
-    useEffect(() => {
-        if (!matchId) return undefined;
-        const onBeforeUnload = () => {
-            try {
-                const userRaw = localStorage.getItem('user');
-                if (!userRaw) return;
-                const user = JSON.parse(userRaw);
-                const token = user?.token;
-                if (!token) return;
-                const base = import.meta.env.VITE_API_URL ?? '/api';
-                fetch(`${base}/duels/${matchId}/forfeit`, {
-                    method: 'POST',
-                    keepalive: true,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-            } catch { /* ignore — best effort */ }
-        };
-        window.addEventListener('beforeunload', onBeforeUnload);
-        return () => window.removeEventListener('beforeunload', onBeforeUnload);
-    }, [matchId]);
-
     // ── Editor state ─────────────────────────────────────────────────────────
     const [language, setLanguage] = useState('JAVA');
     const [code,     setCode]     = useState(STARTER.JAVA);

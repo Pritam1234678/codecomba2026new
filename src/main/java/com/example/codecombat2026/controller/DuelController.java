@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -139,6 +140,34 @@ public class DuelController {
     // ─────────────────────────────────────────────────────────────────────
     // Match read-model and gameplay
     // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Check if the authenticated user has an active (WAITING or IN_PROGRESS)
+     * duel match. Returns 204 if no active match exists, or 200 with minimal
+     * match info for the "Resume Match" button in the lobby.
+     *
+     * <p>IMPORTANT: This endpoint MUST be declared before {@code /{matchId}}
+     * so Spring does not attempt to parse "active" as a UUID path variable.
+     */
+    @GetMapping("/active")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getActiveMatch(
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        Long userId = userDetails.getId();
+        List<com.example.codecombat2026.entity.DuelMatch> active =
+                duelService.getActiveMatchesForUser(userId);
+        if (active.isEmpty()) {
+            return ResponseEntity.noContent().build(); // 204 = no active match
+        }
+        com.example.codecombat2026.entity.DuelMatch m = active.get(0);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("matchId", m.getMatchId().toString());
+        body.put("status", m.getStatus().name());
+        body.put("startedAt", m.getStartedAt() != null ? m.getStartedAt().toString() : null);
+        body.put("difficulty", m.getDifficulty());
+        body.put("timeLimitSec", m.getTimeLimitSec());
+        return ResponseEntity.ok(body);
+    }
 
     /**
      * Fetch a duel match's read-model. Returns 403 via

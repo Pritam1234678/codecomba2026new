@@ -75,6 +75,16 @@ export const getDuelHistory = (limit = 10) =>
 export const getMatchSubmissions = (matchId) =>
   api.get(`/duels/${matchId}/submissions`).then((r) => r.data);
 
+/**
+ * Check if the current user has an active (IN_PROGRESS or WAITING) duel match.
+ * Returns the match info or null if no active match (204 response).
+ */
+export const getActiveMatch = () =>
+  api.get('/duels/active').then((r) => r.data).catch((err) => {
+    if (err?.response?.status === 204) return null;
+    throw err;
+  });
+
 // ─── Admin endpoints (require ROLE_ADMIN) ────────────────────────────────────
 
 /**
@@ -132,6 +142,7 @@ const DuelService = {
   issueDuelTicket,
   getDuelHistory,
   getMatchSubmissions,
+  getActiveMatch,
   getDuelMetrics,
   listAdminMatches,
   adminCancelMatch,

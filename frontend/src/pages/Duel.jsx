@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useDuelMatchmaking from '../hooks/useDuelMatchmaking';
-import { getDuelHistory } from '../services/duelService';
+import { getDuelHistory, getActiveMatch } from '../services/duelService';
 
 // ── Color palette — mirrors AdminDashboard.jsx ──────────────────────────────
 const C = {
@@ -60,6 +60,36 @@ const Duel = () => {
     const [history, setHistory]     = useState([]);
     const [historyErr, setHistoryErr] = useState(false);
     const [historyLoading, setHistoryLoading] = useState(true);
+    const [activeMatch, setActiveMatch] = useState(null);
+    const [resumeCountdown, setResumeCountdown] = useState(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        getActiveMatch()
+            .then((data) => {
+                if (cancelled || !data) return;
+                if (data.status !== 'IN_PROGRESS') return;
+                setActiveMatch(data);
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, []);
+
+    useEffect(() => {
+        if (!activeMatch) return;
+        setResumeCountdown(120);
+        const id = setInterval(() => {
+            setResumeCountdown((s) => {
+                if (s <= 1) {
+                    clearInterval(id);
+                    setActiveMatch(null);
+                    return 0;
+                }
+                return s - 1;
+            });
+        }, 1000);
+        return () => clearInterval(id);
+    }, [activeMatch]);
 
     useEffect(() => {
         if (matchId) navigate(`/duel/${matchId}`);
@@ -150,6 +180,60 @@ const Duel = () => {
                     </p>
                 </motion.header>
 
+                {/* ── Resume Match Banner ──────────────────────────────── */}
+                {activeMatch && (
+                    <motion.section
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        style={{
+                            backgroundColor: 'rgba(74, 222, 128, 0.08)',
+                            border: `2px solid #4ade80`,
+                            padding: '1.25rem 1.5rem',
+                            marginBottom: '1.5rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '1rem',
+                        }}
+                    >
+                        <div>
+                            <div style={{
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '11px', letterSpacing: '0.15em',
+                                color: '#4ade80', textTransform: 'uppercase',
+                                marginBottom: '6px',
+                            }}>
+                                Active Match Found
+                            </div>
+                            <p style={{ margin: 0, fontSize: '14px', color: C.onBg }}>
+                                You have an ongoing {activeMatch.difficulty} duel. Rejoin before the grace window expires.
+                            </p>
+                            {resumeCountdown != null && (
+                                <p style={{ margin: '4px 0 0', fontSize: '12px', color: C.muted, fontFamily: "'JetBrains Mono', monospace" }}>
+                                    Time to rejoin: {Math.floor(resumeCountdown / 60)}:{String(resumeCountdown % 60).padStart(2, '0')}
+                                </p>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => navigate(`/duel/${activeMatch.matchId}`)}
+                            style={{
+                                padding: '12px 28px',
+                                border: '2px solid #4ade80',
+                                color: '#4ade80',
+                                backgroundColor: 'transparent',
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '13px', letterSpacing: '0.15em',
+                                textTransform: 'uppercase',
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            RESUME MATCH
+                        </button>
+                    </motion.section>
+                )}
+
                 {/* ── Rules Card ──────────────────────────────────────── */}
                 <motion.section
                     initial={{ opacity: 0, y: 20 }}
@@ -178,7 +262,7 @@ const Duel = () => {
                         <li>EASY: 20 min &nbsp;|&nbsp; MEDIUM: 40 min &nbsp;|&nbsp; HARD: 65 min</li>
                         <li>5 Runs + 2 Submits per match. Run = examples only, doesn't count toward win.</li>
                         <li>First to pass all test cases wins. On timeout, highest test-cases-passed wins.</li>
-                        <li>Match runs in fullscreen. Refresh / close tab = auto-forfeit.</li>
+                        <li>Match runs in fullscreen. If you refresh or close, you have 2 minutes to rejoin — after that, you forfeit.</li>
                     </ul>
                 </motion.section>
 
