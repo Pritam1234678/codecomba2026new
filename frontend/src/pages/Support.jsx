@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:        '#131313',
@@ -95,6 +96,7 @@ const CategoryCard = ({ label }) => {
 };
 
 const Support = () => {
+    const { isMobile } = useResponsive();
     const [formData, setFormData] = useState({ fullName: '', email: '', phone: '', message: '' });
     const [submitted, setSubmitted] = useState(false);
     const [loading, setLoading]     = useState(false);
@@ -155,7 +157,7 @@ const Support = () => {
             backgroundColor: C.bg, color: C.onBg,
             minHeight: '100vh', fontFamily: "'Geist', sans-serif",
         }}>
-            <main style={{ padding: '2rem 64px 4rem' }}>
+            <main style={{ padding: isMobile ? '2rem 16px 4rem' : '2rem 64px 4rem' }}>
 
                 {/* ── Header ── */}
                 <motion.header
@@ -180,7 +182,7 @@ const Support = () => {
                 {/* ── 12-col grid ── */}
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(12, 1fr)',
+                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)',
                     gap: '32px',
                 }}>
                     {/* ── Left: Form (8 cols) ── */}
@@ -189,7 +191,7 @@ const Support = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.1 }}
                         style={{
-                            gridColumn: 'span 8',
+                            gridColumn: isMobile ? 'span 1' : 'span 8',
                             borderTop: `1px solid ${C.border}`,
                             paddingTop: '3rem',
                             display: 'flex', flexDirection: 'column', gap: '3rem',
@@ -226,7 +228,7 @@ const Support = () => {
 
                         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '768px' }}>
                             {/* Name + Email row */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '2rem' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', color: C.muted, textTransform: 'uppercase' }}>
                                         Operative Name
@@ -285,9 +287,9 @@ const Support = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.2 }}
                         style={{
-                            gridColumn: 'span 4',
-                            borderLeft: `1px solid ${C.border}`,
-                            paddingLeft: '32px',
+                            gridColumn: isMobile ? 'span 1' : 'span 4',
+                            borderLeft: isMobile ? 'none' : `1px solid ${C.border}`,
+                            paddingLeft: isMobile ? '0' : '32px',
                             display: 'flex', flexDirection: 'column', gap: '4rem',
                         }}
                     >

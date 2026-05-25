@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import contestService from '../services/contest.service';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:         '#131313',
@@ -18,6 +19,7 @@ const C = {
 };
 
 export default function CreateContest() {
+    const { isMobile } = useResponsive();
     const navigate = useNavigate();
     const [loading,  setLoading]  = useState(false);
     const [error,    setError]    = useState('');
@@ -55,7 +57,7 @@ export default function CreateContest() {
     const previewStatus = getPreviewStatus();
 
     return (
-        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: '48px 64px' }}>
+        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: isMobile ? '24px 16px' : '48px 64px' }}>
 
             {/* ── Header ── */}
             <motion.header

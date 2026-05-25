@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:         '#131313',
@@ -19,6 +20,7 @@ const C = {
 };
 
 const Leaderboard = () => {
+    const { isMobile } = useResponsive();
     const navigate = useNavigate();
     const [contests, setContests] = useState([]);
     const [loading,  setLoading]  = useState(true);
@@ -58,18 +60,18 @@ const Leaderboard = () => {
     );
 
     return (
-        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: '48px 64px' }}>
+        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: isMobile ? '24px 16px' : '48px 64px' }}>
 
             {/* ── Header ── */}
             <motion.header
                 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '3rem', paddingBottom: '2rem', borderBottom: `1px solid ${C.border}` }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'flex-end', marginBottom: '3rem', paddingBottom: '2rem', borderBottom: `1px solid ${C.border}`, flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '1rem' : '0' }}
             >
                 <div>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.2em', color: C.secondary, textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
                         Leaderboard Control
                     </span>
-                    <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '40px', fontWeight: 600, color: C.onBg, marginBottom: '8px' }}>
+                    <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? '28px' : '40px', fontWeight: 600, color: C.onBg, marginBottom: '8px' }}>
                         Contest Index
                     </h1>
                     <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.outline }}>
@@ -107,6 +109,7 @@ const Leaderboard = () => {
             <motion.section
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
                 style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceCon, overflow: 'hidden' }}
+                className="responsive-table-wrap"
             >
                 {/* Table header */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 120px 120px', gap: '16px', padding: '16px 24px', borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceHi }}>

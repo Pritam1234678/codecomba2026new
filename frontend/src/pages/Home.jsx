@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AuthService from '../services/auth.service';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:         '#131313',
@@ -17,6 +18,7 @@ const C = {
 };
 
 const Home = () => {
+    const { isMobile, isTablet } = useResponsive();
     const [currentUser, setCurrentUser] = useState(null);
     const [isAdmin, setIsAdmin]         = useState(false);
 
@@ -74,16 +76,16 @@ const Home = () => {
                     }} />
                 </div>
 
-                <div style={{ position: 'relative', zIndex: 10, width: '100%', padding: '0 64px' }}>
+                <div style={{ position: 'relative', zIndex: 10, width: '100%', padding: isMobile ? '0 20px' : '0 64px' }}>
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, ease: 'easeOut' }}
-                        style={{ maxWidth: '66%', display: 'flex', flexDirection: 'column' }}
+                        style={{ maxWidth: isMobile ? '100%' : '66%', display: 'flex', flexDirection: 'column' }}
                     >
                         <h1 style={{
                             fontFamily: "'Playfair Display', serif",
-                            fontSize: '72px', fontWeight: 700,
+                            fontSize: isMobile ? '36px' : isTablet ? '52px' : '72px', fontWeight: 700,
                             lineHeight: 1.1, letterSpacing: '-0.02em',
                             color: C.onBg, marginBottom: '2rem',
                         }}>
@@ -134,8 +136,8 @@ const Home = () => {
             >
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(4, 1fr)',
-                    margin: '0 64px',
+                    gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
+                    margin: isMobile ? '0 20px' : '0 64px',
                     borderLeft: `0.5px solid ${C.border}`,
                     borderRight: `0.5px solid ${C.border}`,
                 }}>
@@ -152,11 +154,11 @@ const Home = () => {
 
             {/* ── Features ── */}
             <section style={{
-                padding: '0 64px',
+                padding: isMobile ? '0 20px' : '0 64px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '8rem',
-                marginBottom: '12rem',
+                gap: isMobile ? '4rem' : '8rem',
+                marginBottom: isMobile ? '6rem' : '12rem',
                 maxWidth: '1200px',
                 width: '100%',
                 alignSelf: 'center',
@@ -170,7 +172,7 @@ const Home = () => {
                     transition={{ duration: 0.6 }}
                     className="feature-card"
                     style={{
-                        position: 'relative', height: '600px',
+                        position: 'relative', height: isMobile ? '400px' : '600px',
                         border: `0.5px solid ${C.border}`,
                         overflow: 'hidden',
                     }}
@@ -193,14 +195,14 @@ const Home = () => {
                         backdropFilter: 'blur(2px)',
                     }} />
                     <div style={{
-                        position: 'absolute', top: 0, bottom: 0, left: 0, width: '50%',
-                        padding: '6rem',
+                        position: 'absolute', top: 0, bottom: 0, left: 0, width: isMobile ? '100%' : '50%',
+                        padding: isMobile ? '2rem' : '6rem',
                         display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                        background: 'linear-gradient(to right, rgba(19,19,19,0.92), transparent)',
+                        background: isMobile ? 'rgba(19,19,19,0.85)' : 'linear-gradient(to right, rgba(19,19,19,0.92), transparent)',
                     }}>
                         <h3 style={{
                             fontFamily: "'Playfair Display', serif",
-                            fontSize: '40px', fontWeight: 300,
+                            fontSize: isMobile ? '28px' : '40px', fontWeight: 300,
                             color: C.onBg, marginBottom: '1.5rem',
                         }}>
                             Real-time Verdicts
@@ -222,7 +224,7 @@ const Home = () => {
                         position: 'relative',
                         border: `0.5px solid ${C.border}`,
                         display: 'grid',
-                        gridTemplateColumns: '1fr 1fr',
+                        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
                         overflow: 'hidden',
                     }}
                 >
@@ -249,13 +251,13 @@ const Home = () => {
                     {/* Left: text */}
                     <div style={{
                         position: 'relative', zIndex: 2,
-                        padding: '6rem',
+                        padding: isMobile ? '2rem' : '6rem',
                         display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                        borderRight: `0.5px solid ${C.border}`,
+                        borderRight: isMobile ? 'none' : `0.5px solid ${C.border}`,
                     }}>
                         <h3 style={{
                             fontFamily: "'Playfair Display', serif",
-                            fontSize: '40px', fontWeight: 300,
+                            fontSize: isMobile ? '28px' : '40px', fontWeight: 300,
                             color: C.onBg, marginBottom: '1.5rem',
                         }}>
                             Monaco Intelligence
@@ -318,7 +320,7 @@ const Home = () => {
                     transition={{ duration: 0.6, delay: 0.1 }}
                     className="feature-card"
                     style={{
-                        position: 'relative', height: '600px',
+                        position: 'relative', height: isMobile ? '400px' : '600px',
                         border: `0.5px solid ${C.border}`,
                         overflow: 'hidden',
                     }}
@@ -341,14 +343,14 @@ const Home = () => {
                         backdropFilter: 'blur(2px)',
                     }} />
                     <div style={{
-                        position: 'absolute', top: 0, bottom: 0, right: 0, width: '50%',
-                        padding: '6rem',
-                        display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', textAlign: 'right',
-                        background: 'linear-gradient(to left, rgba(19,19,19,0.92), transparent)',
+                        position: 'absolute', top: 0, bottom: 0, right: isMobile ? 0 : 0, left: isMobile ? 0 : 'auto', width: isMobile ? '100%' : '50%',
+                        padding: isMobile ? '2rem' : '6rem',
+                        display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: isMobile ? 'flex-start' : 'flex-end', textAlign: isMobile ? 'left' : 'right',
+                        background: isMobile ? 'rgba(19,19,19,0.85)' : 'linear-gradient(to left, rgba(19,19,19,0.92), transparent)',
                     }}>
                         <h3 style={{
                             fontFamily: "'Playfair Display', serif",
-                            fontSize: '40px', fontWeight: 300,
+                            fontSize: isMobile ? '28px' : '40px', fontWeight: 300,
                             color: C.onBg, marginBottom: '1.5rem',
                         }}>
                             Elite Rankings
@@ -371,6 +373,7 @@ const Home = () => {
                     borderBottom: `0.5px solid ${C.border}`,
                     backgroundColor: C.bg,
                     display: 'flex',
+                    flexDirection: isMobile ? 'column' : 'row',
                     position: 'relative', zIndex: 10,
                 }}
             >

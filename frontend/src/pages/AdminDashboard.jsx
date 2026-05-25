@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import { getDuelMetrics } from '../services/duelService';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:         '#131313',
@@ -22,6 +23,7 @@ const C = {
 };
 
 const AdminDashboard = () => {
+    const { isMobile, isTablet } = useResponsive();
     const location = useLocation();
     const [userStats,    setUserStats]    = useState({ total: 0, enabled: 0, disabled: 0 });
     const [contestStats, setContestStats] = useState({ total: 0, active: 0, inactive: 0 });
@@ -87,7 +89,7 @@ const AdminDashboard = () => {
             flexDirection: 'column',
         }}>
             {/* ── Main Canvas ── */}
-            <main style={{ flex: 1, padding: '32px 48px 32px', backgroundColor: C.bg, display: 'flex', flexDirection: 'column' }}>
+            <main style={{ flex: 1, padding: isMobile ? '16px' : '32px 48px 32px', backgroundColor: C.bg, display: 'flex', flexDirection: 'column' }}>
 
                 {/* Header */}
                 <motion.header
@@ -95,16 +97,19 @@ const AdminDashboard = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6 }}
                     style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+                        display: 'flex', justifyContent: 'space-between',
                         marginBottom: '2rem',
                         paddingBottom: '1.5rem',
                         borderBottom: `1px solid ${C.border}`,
+                        flexDirection: isMobile ? 'column' : 'row',
+                        alignItems: isMobile ? 'flex-start' : 'flex-end',
+                        gap: isMobile ? '1rem' : '0',
                     }}
                 >
                     <div>
                         <h2 style={{
                             fontFamily: "'Playfair Display', serif",
-                            fontSize: '40px', fontWeight: 700,
+                            fontSize: isMobile ? '28px' : '40px', fontWeight: 700,
                             lineHeight: 1.1, letterSpacing: '-0.02em',
                             color: C.onBg, marginBottom: '6px',
                         }}>
@@ -156,7 +161,7 @@ const AdminDashboard = () => {
                 </motion.header>
 
                 {/* Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '16px', alignItems: 'stretch', flex: 1 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)', gap: '16px', alignItems: 'stretch', flex: 1 }}>
 
                     {/* System Health — 8 cols */}
                     <motion.section
@@ -164,7 +169,7 @@ const AdminDashboard = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.1 }}
                         style={{
-                            gridColumn: 'span 8',
+                            gridColumn: isMobile ? 'span 1' : 'span 8',
                             backgroundColor: C.surfaceCon,
                             border: `1px solid ${C.border}`,
                             padding: '1.5rem',
@@ -191,7 +196,7 @@ const AdminDashboard = () => {
                                 LIVE METRICS
                             </span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px', marginTop: 'auto' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: isMobile ? '16px' : '32px', marginTop: 'auto' }}>
                             {[
                                 { label: 'Total Users',    value: loading ? '—' : userStats.total },
                                 { label: 'Total Contests', value: loading ? '—' : contestStats.total },
@@ -215,7 +220,7 @@ const AdminDashboard = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.2 }}
                         style={{
-                            gridColumn: 'span 4',
+                            gridColumn: isMobile ? 'span 1' : 'span 4',
                             backgroundColor: C.surfaceCon,
                             border: `1px solid ${C.border}`,
                             borderTop: `2px solid ${C.secondary}`,
@@ -271,9 +276,9 @@ const AdminDashboard = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.3 }}
                         style={{
-                            gridColumn: 'span 12',
+                            gridColumn: isMobile ? 'span 1' : 'span 12',
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(4, 1fr)',
+                            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
                             gap: '16px',
                         }}
                     >
@@ -327,7 +332,7 @@ const AdminDashboard = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.35 }}
                         style={{
-                            gridColumn: 'span 12',
+                            gridColumn: isMobile ? 'span 1' : 'span 12',
                             backgroundColor: C.surfaceCon,
                             border: `1px solid ${C.border}`,
                             padding: '1.5rem',
@@ -359,7 +364,7 @@ const AdminDashboard = () => {
                                 {duelMetricsErr ? 'METRICS UNAVAILABLE' : 'POLLING · 5S'}
                             </span>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '32px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: isMobile ? '16px' : '32px' }}>
                             {[
                                 { label: 'Active Matches',   key: 'activeMatchCount',      icon: 'sports_kabaddi' },
                                 { label: 'Queue Depth',      key: 'queueDepth',            icon: 'schedule' },
@@ -399,7 +404,7 @@ const AdminDashboard = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.4 }}
                         style={{
-                            gridColumn: 'span 12',
+                            gridColumn: isMobile ? 'span 1' : 'span 12',
                             backgroundColor: C.surfaceCon,
                             border: `1px solid ${C.border}`,
                             padding: '1.5rem',
@@ -431,7 +436,7 @@ const AdminDashboard = () => {
                                 Edit Profile
                             </Link>
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '16px' }}>
                             {[
                                 { label: 'Username',    value: adminProfile?.username   || '—' },
                                 { label: 'Full Name',   value: adminProfile?.fullName   || '—' },

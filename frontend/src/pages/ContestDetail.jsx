@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import SubmissionService from '../services/submission.service';
+import useResponsive from '../hooks/useResponsive';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -107,6 +108,7 @@ function Countdown({ startTime, endTime }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function ContestDetail() {
+    const { isMobile } = useResponsive();
     const { id }     = useParams();
     const navigate   = useNavigate();
     const [contest,     setContest]     = useState(null);
@@ -211,12 +213,12 @@ export default function ContestDetail() {
 
     return (
         <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", minHeight: '100vh' }}>
-            <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '48px 64px', display: 'flex', flexDirection: 'column', gap: '48px' }}>
+            <div style={{ maxWidth: '1440px', margin: '0 auto', padding: isMobile ? '24px 16px' : '48px 64px', display: 'flex', flexDirection: 'column', gap: '48px' }}>
 
                 {/* ── Hero Section ── */}
                 <motion.section
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
-                    style={{ display: 'grid', gridTemplateColumns: '8fr 4fr', gap: '32px', alignItems: 'end', borderBottom: `1px solid ${C.border}`, paddingBottom: '48px' }}
+                    style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '8fr 4fr', gap: '32px', alignItems: 'end', borderBottom: `1px solid ${C.border}`, paddingBottom: '48px' }}
                 >
                     {/* Left: Contest info */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -286,7 +288,7 @@ export default function ContestDetail() {
                 </motion.section>
 
                 {/* ── Main Content Grid ── */}
-                <section style={{ display: 'grid', gridTemplateColumns: '8fr 4fr', gap: '32px', alignItems: 'start' }}>
+                <section style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '8fr 4fr', gap: '32px', alignItems: 'start' }}>
 
                     {/* ── Left: Problem Set ── */}
                     <motion.div

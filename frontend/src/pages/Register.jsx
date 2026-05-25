@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AuthService from '../services/auth.service';
+import useResponsive from '../hooks/useResponsive';
 
 // ── Stitch Design Tokens ──────────────────────────────────────────────────────
 const C = {
@@ -68,6 +69,7 @@ const Field = ({ label, name, type = 'text', placeholder, value, onChange, onBlu
 );
 
 const Register = () => {
+    const { isMobile } = useResponsive();
     const [formData, setFormData] = useState({
         username: '', email: '', password: '', fullName: ''
     });
@@ -175,9 +177,9 @@ const Register = () => {
                 position: 'relative', zIndex: 1,
                 flexGrow: 1,
                 display: 'grid',
-                gridTemplateColumns: 'repeat(12, 1fr)',
-                gap: '32px',
-                padding: '48px 64px',
+                gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)',
+                gap: isMobile ? '24px' : '32px',
+                padding: isMobile ? '24px 16px' : '48px 64px',
                 maxWidth: '1400px',
                 margin: '0 auto',
                 width: '100%',
@@ -189,11 +191,11 @@ const Register = () => {
                     initial={{ opacity: 0, y: 24 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, ease: 'easeOut' }}
-                    style={{ gridColumn: '1 / span 8', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+                    style={{ gridColumn: isMobile ? '1 / -1' : '1 / span 8', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
                 >
                     <h1 style={{
                         fontFamily: "'Playfair Display', serif",
-                        fontSize: '72px', fontWeight: 700,
+                        fontSize: isMobile ? '36px' : '72px', fontWeight: 700,
                         lineHeight: 1.1, letterSpacing: '-0.02em',
                         color: C.onBg, marginBottom: '3rem',
                     }}>
@@ -251,7 +253,7 @@ const Register = () => {
                             }}>
                                 Identity Directive
                             </legend>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
                                 <Field label="Full Name" name="fullName" placeholder="ENTER NAME"
                                     value={formData.fullName} onChange={handleChange} error={errors.fullName} />
                                 <Field label="Username" name="username" placeholder="CHOOSE ALIAS" required
@@ -344,8 +346,8 @@ const Register = () => {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.6, delay: 0.2, ease: 'easeOut' }}
                     style={{
-                        gridColumn: '9 / span 4',
-                        display: 'flex',
+                        gridColumn: isMobile ? '1 / -1' : '9 / span 4',
+                        display: isMobile ? 'none' : 'flex',
                         flexDirection: 'column',
                         justifyContent: 'center',
                         alignItems: 'flex-end',

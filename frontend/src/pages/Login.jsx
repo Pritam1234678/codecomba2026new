@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AuthService from '../services/auth.service';
 import BlockedAccountModal from '../components/BlockedAccountModal';
+import useResponsive from '../hooks/useResponsive';
 
 // ── Stitch Design Tokens ──────────────────────────────────────────────────────
 const C = {
@@ -19,6 +20,7 @@ const C = {
 };
 
 const Login = () => {
+    const { isMobile, isTablet } = useResponsive();
     const [username, setUsername]         = useState('');
     const [password, setPassword]         = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -100,14 +102,15 @@ const Login = () => {
             <div style={{
                 position: 'relative', zIndex: 10,
                 width: '100%', maxWidth: '1200px',
-                padding: '0 64px',
+                padding: isMobile ? '0 16px' : '0 64px',
                 display: 'grid',
-                gridTemplateColumns: 'repeat(12, 1fr)',
+                gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)',
                 gap: '32px',
                 alignItems: 'start',
             }}>
 
                 {/* ── Security Status Panel (left) ── */}
+                {!isMobile && (
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -144,6 +147,7 @@ const Login = () => {
                         Terminal ID: AX-992<br />Encrypted Connection
                     </p>
                 </motion.div>
+                )}
 
                 {/* ── Main Login Card ── */}
                 <motion.div
@@ -151,11 +155,11 @@ const Login = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, ease: 'easeOut' }}
                     style={{
-                        gridColumn: '4 / span 6',
+                        gridColumn: isMobile ? '1 / -1' : '4 / span 6',
                         backgroundColor: 'rgba(20,19,19,0.75)',
                         backdropFilter: 'blur(20px)',
                         border: `1px solid ${C.border}`,
-                        padding: '3rem',
+                        padding: isMobile ? '2rem 1.5rem' : '3rem',
                         position: 'relative',
                         overflow: 'hidden',
                     }}
@@ -176,7 +180,7 @@ const Login = () => {
                         </span>
                         <h1 style={{
                             fontFamily: "'Playfair Display', serif",
-                            fontSize: '48px', fontWeight: 700,
+                            fontSize: isMobile ? '32px' : '48px', fontWeight: 700,
                             lineHeight: 1.1, color: C.onBg,
                         }}>
                             Return to the Arena.

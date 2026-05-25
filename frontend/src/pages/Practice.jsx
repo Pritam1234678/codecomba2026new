@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import PracticeService from '../services/practice.service';
+import useResponsive from '../hooks/useResponsive';
 
 // ── Theme tokens ──────────────────────────────────────────────────────────────
 const C = {
@@ -26,6 +27,7 @@ const DIFF_CFG = {
 };
 
 const Practice = () => {
+    const { isMobile } = useResponsive();
     const navigate = useNavigate();
     const [problems, setProblems] = useState([]);
     const [stats, setStats]       = useState({ totalPoints: 0, solvedCount: 0 });
@@ -59,7 +61,7 @@ const Practice = () => {
     );
 
     return (
-        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", minHeight: '100vh', padding: '48px 64px' }}>
+        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", minHeight: '100vh', padding: isMobile ? '24px 16px' : '48px 64px' }}>
             {/* ── Hero ── */}
             <motion.section
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}

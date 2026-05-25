@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:        '#131313',
@@ -17,6 +18,7 @@ const C = {
 };
 
 const ForgotPassword = () => {
+    const { isMobile } = useResponsive();
     const [formData, setFormData] = useState({ username: '', email: '' });
     const [loading, setLoading]   = useState(false);
     const [message, setMessage]   = useState('');
@@ -55,7 +57,7 @@ const ForgotPassword = () => {
             <main style={{
                 flexGrow: 1, display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center',
-                padding: '32px 64px',
+                padding: isMobile ? '24px 16px' : '32px 64px',
                 position: 'relative', zIndex: 10,
             }}>
                 <motion.div
@@ -68,7 +70,7 @@ const ForgotPassword = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <h1 style={{
                             fontFamily: "'Playfair Display', serif",
-                            fontSize: '48px', fontWeight: 700,
+                            fontSize: isMobile ? '32px' : '48px', fontWeight: 700,
                             lineHeight: 1.1, color: C.primary, margin: 0,
                         }}>
                             Recovery Protocol

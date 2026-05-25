@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import AdminService from '../services/admin.service';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:         '#131313',
@@ -37,6 +38,7 @@ const statusConfig = {
 };
 
 const AdminContestManagement = () => {
+    const { isMobile } = useResponsive();
     const [contests,     setContests]     = useState([]);
     const [loading,      setLoading]      = useState(true);
     const [error,        setError]        = useState('');
@@ -91,13 +93,13 @@ const AdminContestManagement = () => {
     );
 
     if (error) return (
-        <div style={{ padding: '48px 64px', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.error }}>
+        <div style={{ padding: isMobile ? '24px 16px' : '48px 64px', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.error }}>
             {error}
         </div>
     );
 
     return (
-        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: '48px 64px' }}>
+        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: isMobile ? '24px 16px' : '48px 64px' }}>
 
             {/* ── Header ── */}
             <motion.header

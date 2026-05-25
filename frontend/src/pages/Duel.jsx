@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useDuelMatchmaking from '../hooks/useDuelMatchmaking';
 import { getDuelHistory, getActiveMatch } from '../services/duelService';
+import useResponsive from '../hooks/useResponsive';
 
 // ── Color palette — mirrors AdminDashboard.jsx ──────────────────────────────
 const C = {
@@ -50,6 +51,7 @@ const formatEndedAt = (iso) => {
 };
 
 const Duel = () => {
+    const { isMobile } = useResponsive();
     const navigate = useNavigate();
     const {
         state, matchId, cooldownSeconds, error,
@@ -154,7 +156,7 @@ const Duel = () => {
             display: 'flex',
             flexDirection: 'column',
         }}>
-            <main style={{ flex: 1, padding: '32px 48px 32px', backgroundColor: C.bg, display: 'flex', flexDirection: 'column' }}>
+            <main style={{ flex: 1, padding: isMobile ? '16px' : '32px 48px 32px', backgroundColor: C.bg, display: 'flex', flexDirection: 'column' }}>
 
                 {/* ── Header ───────────────────────────────────────────── */}
                 <motion.header
@@ -532,6 +534,7 @@ const Duel = () => {
                             </p>
                         </div>
                     ) : (
+                        <div className="responsive-table-wrap">
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ borderBottom: `1px solid ${C.border}` }}>
@@ -567,6 +570,7 @@ const Duel = () => {
                                 ))}
                             </tbody>
                         </table>
+                        </div>
                     )}
                 </motion.section>
             </main>

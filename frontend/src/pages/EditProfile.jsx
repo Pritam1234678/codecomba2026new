@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import AuthService from '../services/auth.service';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:         '#131313',
@@ -20,6 +21,7 @@ const C = {
 };
 
 const EditProfile = () => {
+    const { isMobile } = useResponsive();
     const navigate  = useNavigate();
     const [loading,       setLoading]       = useState(true);
     const [saving,        setSaving]        = useState(false);
@@ -96,7 +98,7 @@ const EditProfile = () => {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif" }}>
             {/* ── Main Content ── */}
-            <main style={{ flex: 1, overflowY: 'auto', padding: '48px 64px' }}>
+            <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '24px 16px' : '48px 64px' }}>
 
                 {/* Header */}
                 <motion.header
@@ -114,7 +116,7 @@ const EditProfile = () => {
                 </motion.header>
 
                 {/* Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '32px', alignItems: 'start' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '32px', alignItems: 'start' }}>
 
                     {/* Left: Avatar + Stats */}
                     <motion.aside

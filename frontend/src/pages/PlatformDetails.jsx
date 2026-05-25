@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:         '#131313',
@@ -20,8 +21,10 @@ const fade = (delay = 0) => ({
     transition: { duration: 0.5, delay },
 });
 
-const PlatformDetails = () => (
-    <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: '48px 64px', maxWidth: '1200px', margin: '0 auto' }}>
+const PlatformDetails = () => {
+    const { isMobile } = useResponsive();
+    return (
+    <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: isMobile ? '24px 16px' : '48px 64px', maxWidth: '1200px', margin: '0 auto' }}>
 
         {/* ── Hero Manifesto ── */}
         <motion.section {...fade(0)} style={{ marginBottom: '4rem', paddingBottom: '3rem', borderBottom: `1px solid ${C.border}` }}>
@@ -34,7 +37,7 @@ const PlatformDetails = () => (
         </motion.section>
 
         {/* ── Main Grid: Editor + Tech Stack ── */}
-        <motion.section {...fade(0.1)} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1px', marginBottom: '1px', backgroundColor: C.border }}>
+        <motion.section {...fade(0.1)} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '1px', marginBottom: '1px', backgroundColor: C.border }}>
             {/* Monaco Editor Panel */}
             <div style={{ backgroundColor: C.surfaceCon, padding: '2.5rem', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: `1px solid ${C.border}` }}>
@@ -138,7 +141,7 @@ const PlatformDetails = () => (
         </motion.section>
 
         {/* ── Infrastructure ── */}
-        <motion.section {...fade(0.3)} style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px', backgroundColor: C.border, marginBottom: '1px' }}>
+        <motion.section {...fade(0.3)} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '1px', backgroundColor: C.border, marginBottom: '1px' }}>
             {[
                 {
                     icon: 'cloud',
@@ -199,7 +202,7 @@ const PlatformDetails = () => (
         </motion.section>
 
         {/* ── Platform Stats ── */}
-        <motion.section {...fade(0.4)} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', backgroundColor: C.border, marginBottom: '1px' }}>
+        <motion.section {...fade(0.4)} style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '1px', backgroundColor: C.border, marginBottom: '1px' }}>
             {[
                 { label: 'Languages Supported', value: '5', sub: 'C, C++, Java, Python, JS' },
                 { label: 'Judge Workers', value: '4', sub: 'Parallel execution threads' },
@@ -220,7 +223,7 @@ const PlatformDetails = () => (
                 <span className="material-symbols-outlined" style={{ color: C.secondary, fontSize: '20px' }}>verified</span>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Platform Capabilities</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '16px' }}>
                 {[
                     { icon: 'bolt',           text: 'Real-time SSE verdict streaming — no polling' },
                     { icon: 'code',           text: 'Code harness injection with USER_CODE_START/END markers' },
@@ -245,6 +248,7 @@ const PlatformDetails = () => (
             .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; }
         `}</style>
     </div>
-);
+    );
+};
 
 export default PlatformDetails;

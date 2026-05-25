@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:         '#131313',
@@ -20,6 +21,7 @@ const C = {
 };
 
 const ContestLeaderboard = () => {
+    const { isMobile } = useResponsive();
     const { contestId } = useParams();
     const navigate      = useNavigate();
     const [contest,     setContest]     = useState(null);
@@ -73,7 +75,7 @@ const ContestLeaderboard = () => {
     const highScore = top3[0]?.totalScore?.toFixed(0) || 0;
 
     return (
-        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: '48px 64px' }}>
+        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: isMobile ? '24px 16px' : '48px 64px' }}>
 
             {/* ── Header ── */}
             <motion.header

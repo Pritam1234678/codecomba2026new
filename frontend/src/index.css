@@ -202,3 +202,23 @@ body {
 .shadow-bronze {
   box-shadow: 0 4px 20px rgba(166, 124, 82, 0.2);
 }
+
+/* ── Responsive utilities ─────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .responsive-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .responsive-table-wrap table {
+    min-width: 600px;
+  }
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .hide-desktop {
+    display: none !important;
+  }
+}

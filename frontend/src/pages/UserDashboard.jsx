@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import AuthService from '../services/auth.service';
+import useResponsive from '../hooks/useResponsive';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -46,6 +47,7 @@ const timeAgo = (dateStr) => {
 };
 
 export default function UserDashboard() {
+    const { isMobile } = useResponsive();
     const navigate = useNavigate();
     const [user,        setUser]        = useState(null);
     const [submissions, setSubmissions] = useState([]);
@@ -94,7 +96,7 @@ export default function UserDashboard() {
 
     return (
         <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", minHeight: '100vh' }}>
-            <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '48px 64px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            <div style={{ maxWidth: '1440px', margin: '0 auto', padding: isMobile ? '24px 16px' : '48px 64px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
                 {/* ── Page Header ── */}
                 <motion.header
@@ -134,10 +136,10 @@ export default function UserDashboard() {
                 {/* ── Main Bento Grid ── */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
-                    style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '1px', backgroundColor: C.border, border: `1px solid ${C.border}` }}
+                    style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)', gap: '1px', backgroundColor: C.border, border: `1px solid ${C.border}` }}
                 >
                     {/* ── Profile Panel (4 cols) ── */}
-                    <div style={{ gridColumn: 'span 4', backgroundColor: C.bg, padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ gridColumn: isMobile ? 'span 1' : 'span 4', backgroundColor: C.bg, padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem', position: 'relative', overflow: 'hidden' }}>
                         {/* Amber top accent */}
                         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', backgroundColor: C.secondary }} />
 
@@ -198,7 +200,7 @@ export default function UserDashboard() {
                     </div>
 
                     {/* ── Stats Grid (8 cols, 4 cards) ── */}
-                    <div style={{ gridColumn: 'span 8', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', backgroundColor: C.border }}>
+                    <div style={{ gridColumn: isMobile ? 'span 1' : 'span 8', display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '1px', backgroundColor: C.border }}>
                         {[
                             { icon: 'history_edu',  value: stats.total,          label: 'Submissions',    hoverColor: C.primary },
                             { icon: 'check_circle', value: stats.accepted,        label: 'Accepted',       hoverColor: C.success },
@@ -213,10 +215,10 @@ export default function UserDashboard() {
                 {/* ── Submissions + Skill Vector ── */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}
-                    style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '1px', backgroundColor: C.border, border: `1px solid ${C.border}` }}
+                    style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)', gap: '1px', backgroundColor: C.border, border: `1px solid ${C.border}` }}
                 >
                     {/* Recent Submissions (8 cols) */}
-                    <div style={{ gridColumn: 'span 8', backgroundColor: C.bg, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ gridColumn: isMobile ? 'span 1' : 'span 8', backgroundColor: C.bg, display: 'flex', flexDirection: 'column' }}>
                         <div style={{ padding: '1.5rem 2rem', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', fontWeight: 600, color: C.onBg, margin: 0 }}>
                                 Recent Submissions
@@ -263,7 +265,7 @@ export default function UserDashboard() {
                     </div>
 
                     {/* Skill Vector (4 cols) */}
-                    <div style={{ gridColumn: 'span 4', backgroundColor: C.bg, padding: '2rem', borderLeft: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ gridColumn: isMobile ? 'span 1' : 'span 4', backgroundColor: C.bg, padding: '2rem', borderLeft: isMobile ? 'none' : `1px solid ${C.border}`, display: 'flex', flexDirection: 'column' }}>
                         <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', fontWeight: 600, color: C.onBg, marginBottom: '1.5rem' }}>
                             Skill Vector
                         </h3>

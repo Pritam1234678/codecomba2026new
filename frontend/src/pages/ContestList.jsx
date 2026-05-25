@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import cache from '../services/cache';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:         '#131313',
@@ -59,6 +60,7 @@ const Countdown = ({ endTime, startTime }) => {
 };
 
 const ContestList = () => {
+    const { isMobile } = useResponsive();
     const [contests, setContests] = useState([]);
     const [loading,  setLoading]  = useState(true);
     const [error,    setError]    = useState('');
@@ -98,13 +100,13 @@ const ContestList = () => {
     );
 
     if (error) return (
-        <div style={{ padding: '48px 64px', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.error }}>
+        <div style={{ padding: isMobile ? '24px 16px' : '48px 64px', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.error }}>
             {error}
         </div>
     );
 
     return (
-        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: '48px 64px' }}>
+        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", padding: isMobile ? '24px 16px' : '48px 64px' }}>
 
             {/* ── Featured Live Hero ── */}
             {liveContests.length > 0 && (
@@ -141,7 +143,7 @@ const ContestList = () => {
             {/* ── Search + Filter ── */}
             <motion.div
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.05 }}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: `1px solid ${C.border}` }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: `1px solid ${C.border}`, flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '1rem' : '0' }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: `1px solid ${C.border}`, paddingBottom: '8px', width: '280px' }}>
                     <span className="material-symbols-outlined" style={{ color: C.outline, fontSize: '18px' }}>search</span>
@@ -209,8 +211,8 @@ const ContestRow = ({ contest, status, isLive, isEnded, index }) => {
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             style={{
-                display: 'grid', gridTemplateColumns: '1fr 200px 160px',
-                gap: '24px', padding: '24px 32px',
+                display: 'grid', gridTemplateColumns: window.innerWidth < 768 ? '1fr' : '1fr 200px 160px',
+                gap: window.innerWidth < 768 ? '12px' : '24px', padding: window.innerWidth < 768 ? '16px' : '24px 32px',
                 backgroundColor: hovered ? '#201f1f' : '#131313',
                 borderLeft: `2px solid ${hovered ? accentColor : 'transparent'}`,
                 transition: 'all 0.2s',

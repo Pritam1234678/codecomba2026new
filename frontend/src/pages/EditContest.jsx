@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import contestService from '../services/contest.service';
 import AdminService from '../services/admin.service';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:         '#131313',
@@ -20,6 +21,7 @@ const C = {
 };
 
 export default function EditContest() {
+    const { isMobile } = useResponsive();
     const { id }     = useParams();
     const navigate   = useNavigate();
     const [loading,  setLoading]  = useState(true);
@@ -142,7 +144,7 @@ export default function EditContest() {
             </header>
 
             {/* ── Main Workspace ── */}
-            <main style={{ padding: '48px 64px', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '32px', alignItems: 'start' }}>
+            <main style={{ padding: isMobile ? '24px 16px' : '48px 64px', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr', gap: '32px', alignItems: 'start' }}>
 
                 {/* ── Left: Form ── */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>

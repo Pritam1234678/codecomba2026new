@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
+import useResponsive from '../hooks/useResponsive';
 
 const C = {
     bg:        '#131313',
@@ -17,6 +18,7 @@ const C = {
 };
 
 const ForgotUsername = () => {
+    const { isMobile } = useResponsive();
     const [formData, setFormData] = useState({ email: '' });
     const [loading, setLoading]   = useState(false);
     const [message, setMessage]   = useState('');
@@ -42,10 +44,12 @@ const ForgotUsername = () => {
     return (
         <div style={{
             flex: 1, display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
             backgroundColor: C.bg, color: C.onBg,
             fontFamily: "'Geist', sans-serif",
         }}>
             {/* ── Left cinematic panel ── */}
+            {!isMobile && (
             <div style={{
                 flex: '0 0 50%',
                 backgroundColor: C.surfaceCon,
@@ -77,12 +81,13 @@ const ForgotUsername = () => {
                     }}
                 />
             </div>
+            )}
 
             {/* ── Right form panel ── */}
             <div style={{
                 flex: 1,
                 display: 'flex', flexDirection: 'column', justifyContent: 'center',
-                padding: '64px 48px',
+                padding: isMobile ? '32px 16px' : '64px 48px',
                 backgroundColor: C.bg,
                 position: 'relative', zIndex: 10,
             }}>
