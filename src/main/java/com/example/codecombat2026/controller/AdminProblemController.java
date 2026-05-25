@@ -24,6 +24,11 @@ public class AdminProblemController {
     @Autowired private ProblemService problemService;   // for cache eviction
     @Autowired private CacheService cacheService;       // for snippet cache eviction
 
+    @GetMapping
+    public List<Problem> getAllProblems() {
+        return problemRepository.findAll();
+    }
+
     @GetMapping("/contest/{contestId}")
     public List<Problem> getProblemsByContest(@PathVariable Long contestId) {
         return problemRepository.findByContestId(contestId);

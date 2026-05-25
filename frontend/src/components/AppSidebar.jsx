@@ -19,6 +19,7 @@ const C = {
 const ADMIN_NAV = [
     { label: 'Dashboard',  icon: 'admin_panel_settings', to: '/admin/dashboard' },
     { label: 'Contests',   icon: 'military_tech',        to: '/admin/contests' },
+    { label: 'Problems',   icon: 'code',                 to: '/admin/problems' },
     { label: 'Practice',   icon: 'fitness_center',       to: '/practice' },
     { label: 'Duel',       icon: 'swords',               to: '/duel' },
     { label: 'Users',      icon: 'group',                to: '/admin/users' },

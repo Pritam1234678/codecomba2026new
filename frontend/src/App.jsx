@@ -17,6 +17,7 @@ import ProblemSolve from './pages/ProblemSolve';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminUserManagement from './pages/AdminUserManagement';
 import AdminContestManagement from './pages/AdminContestManagement';
+import AdminProblemManagement from './pages/AdminProblemManagement';
 import CreateContest from './pages/CreateContest';
 import EditContest from './pages/EditContest';
 import ManageContestProblems from './pages/ManageContestProblems';
@@ -94,6 +95,7 @@ function App() {
       <Route path="/admin/contests/:id/edit" element={<div className="p-8 flex-1"><AdminRoute><EditContest /></AdminRoute></div>} />
       <Route path="/admin/contests/:id/problems" element={<div className="p-8 flex-1"><AdminRoute><ManageContestProblems /></AdminRoute></div>} />
       <Route path="/admin/contests/:contestId/problems/add" element={<AdminRoute><AddProblem /></AdminRoute>} />
+      <Route path="/admin/problems" element={<div className="p-8 flex-1"><AdminRoute><AdminProblemManagement /></AdminRoute></div>} />
       <Route path="/admin/problems/:id/edit" element={<div className="p-8 flex-1"><AdminRoute><EditProblem /></AdminRoute></div>} />
       <Route path="/admin/problems/:id/testcases" element={<div className="p-8 flex-1"><AdminRoute><ManageTestCases /></AdminRoute></div>} />
       <Route path="/admin/leaderboard" element={<div className="p-8 flex-1"><AdminRoute><Leaderboard /></AdminRoute></div>} />
