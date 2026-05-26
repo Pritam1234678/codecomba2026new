@@ -39,6 +39,17 @@ public class UserController {
     @Autowired private StringRedisTemplate redis;
     @Autowired private ObjectMapper objectMapper;
 
+    /** Resolve a stored photo URL to a full URL if APP_BASE_URL is configured. */
+    private String resolvePhotoUrl(String photoUrl) {
+        if (photoUrl == null) return null;
+        if (photoUrl.startsWith("http")) return photoUrl; // already absolute
+        String baseUrl = System.getenv("APP_BASE_URL");
+        if (baseUrl != null && !baseUrl.isBlank()) {
+            return baseUrl + photoUrl;
+        }
+        return photoUrl;
+    }
+
     private static final Duration PROFILE_TTL = Duration.ofMinutes(5);
 
     // ─── GET /api/user/profile ────────────────────────────────────────────────
@@ -64,8 +75,8 @@ public class UserController {
                             "ACCOUNT_DISABLED: Your account has been disabled. Please contact support@codecombat.live"));
         }
 
-        String photoUrl = userPhotoRepository.findByUserId(user.getId())
-                .map(UserPhoto::getPhotoUrl).orElse(null);
+        String photoUrl = resolvePhotoUrl(userPhotoRepository.findByUserId(user.getId())
+                .map(UserPhoto::getPhotoUrl).orElse(null));
 
         UserProfileResponse profile = new UserProfileResponse(
                 user.getId(), user.getUsername(), user.getEmail(),
@@ -94,8 +105,8 @@ public class UserController {
 
             User user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("User not found"));
-            String photoUrl = userPhotoRepository.findByUserId(user.getId())
-                    .map(UserPhoto::getPhotoUrl).orElse(null);
+            String photoUrl = resolvePhotoUrl(userPhotoRepository.findByUserId(user.getId())
+                    .map(UserPhoto::getPhotoUrl).orElse(null));
             UserProfileResponse profile = new UserProfileResponse(
                     user.getId(), user.getUsername(), user.getEmail(),
                     user.getFullName(), photoUrl);
@@ -159,8 +170,8 @@ public class UserController {
 
         try { redis.delete("profile:" + username); } catch (Exception ignored) {}
 
-        String photoUrl = userPhotoRepository.findByUserId(user.getId())
-                .map(UserPhoto::getPhotoUrl).orElse(null);
+        String photoUrl = resolvePhotoUrl(userPhotoRepository.findByUserId(user.getId())
+                .map(UserPhoto::getPhotoUrl).orElse(null));
 
         return ResponseEntity.ok(new UserProfileResponse(
                 user.getId(), user.getUsername(), user.getEmail(),
@@ -203,6 +214,13 @@ public class UserController {
             Files.write(filepath, file.getBytes());
 
             String photoUrl = "/uploads/profile-photos/" + filename;
+
+            // For cross-origin setups (frontend on Vercel, backend on separate domain),
+            // store the full URL so the frontend can render it directly.
+            String baseUrl = System.getenv("APP_BASE_URL");
+            if (baseUrl != null && !baseUrl.isBlank()) {
+                photoUrl = baseUrl + photoUrl;
+            }
             Optional<UserPhoto> existingPhoto = userPhotoRepository.findByUserId(user.getId());
             if (existingPhoto.isPresent()) {
                 UserPhoto userPhoto = existingPhoto.get();
