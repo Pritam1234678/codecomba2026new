@@ -24,4 +24,16 @@ public class RegisterRequest {
     private String password;
 
     private String fullName;
+
+    /**
+     * Honeypot — must remain empty. Hidden from real users via CSS, so any
+     * non-blank value is a strong bot signal.
+     */
+    private String website;
+
+    /** CAPTCHA challenge token issued by GET /api/auth/captcha. */
+    private String captchaToken;
+
+    /** CAPTCHA answer submitted by the user. */
+    private String captchaAnswer;
 }

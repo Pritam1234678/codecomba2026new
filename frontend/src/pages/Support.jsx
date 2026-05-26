@@ -97,7 +97,7 @@ const CategoryCard = ({ label }) => {
 
 const Support = () => {
     const { isMobile } = useResponsive();
-    const [formData, setFormData] = useState({ fullName: '', email: '', phone: '', message: '' });
+    const [formData, setFormData] = useState({ fullName: '', email: '', phone: '', message: '', website: '' });
     const [submitted, setSubmitted] = useState(false);
     const [loading, setLoading]     = useState(false);
     const [error, setError]         = useState('');
@@ -117,7 +117,7 @@ const Support = () => {
                 setSubmitted(true);
                 setTimeout(() => {
                     setSubmitted(false);
-                    setFormData({ fullName: '', email: '', phone: '', message: '' });
+                    setFormData({ fullName: '', email: '', phone: '', message: '', website: '' });
                 }, 4000);
             } else {
                 setError('Failed to send message. Please try again.');
@@ -227,6 +227,18 @@ const Support = () => {
                         )}
 
                         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '768px' }}>
+                            {/* Honeypot — hidden from real users */}
+                            <input
+                                type="text" name="website" autoComplete="off" tabIndex={-1}
+                                aria-hidden="true"
+                                value={formData.website}
+                                onChange={handleChange}
+                                style={{
+                                    position: 'absolute', left: '-10000px', top: 'auto',
+                                    width: '1px', height: '1px', overflow: 'hidden',
+                                    opacity: 0, pointerEvents: 'none',
+                                }}
+                            />
                             {/* Name + Email row */}
                             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '2rem' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

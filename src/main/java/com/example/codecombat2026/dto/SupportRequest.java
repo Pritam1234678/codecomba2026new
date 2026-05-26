@@ -8,4 +8,7 @@ public class SupportRequest {
     private String email;
     private String phone;
     private String message;
+
+    /** Honeypot — must remain empty. */
+    private String website;
 }

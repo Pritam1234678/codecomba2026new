@@ -13,7 +13,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/problems")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class ProblemController {
     @Autowired
     private ProblemService problemService;

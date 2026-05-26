@@ -31,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/api/user")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class UserController {
 
     @Autowired private UserRepository userRepository;

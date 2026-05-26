@@ -10,14 +10,20 @@ import com.example.codecombat2026.repository.RoleRepository;
 import com.example.codecombat2026.repository.UserRepository;
 import com.example.codecombat2026.security.jwt.JwtUtils;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
+import com.example.codecombat2026.service.AuthRateLimiterService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -27,7 +33,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -52,16 +57,65 @@ public class AuthController {
     @Autowired
     com.example.codecombat2026.service.EmailService emailService;
 
-    @PostMapping("/signin")
-    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+    @Autowired
+    AuthRateLimiterService authRateLimiter;
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+    @Autowired
+    com.example.codecombat2026.service.JwtBlacklistService jwtBlacklistService;
+
+    @Autowired
+    com.example.codecombat2026.service.CaptchaService captchaService;
+
+    @GetMapping("/captcha")
+    public ResponseEntity<?> getCaptcha() {
+        return ResponseEntity.ok(captchaService.issue());
+    }
+
+    @PostMapping("/signin")
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest, HttpServletRequest request) {
+        // Honeypot: real users never fill the hidden 'website' field.
+        if (loginRequest.getWebsite() != null && !loginRequest.getWebsite().isBlank()) {
+            // Pretend success so bots can't tell they were caught.
+            return ResponseEntity.status(401).body(new MessageResponse("Invalid credentials"));
+        }
+
+        String ip = getClientIp(request);
+        String username = loginRequest.getUsername();
+
+        // Per-IP login attempt rate limit
+        if (!authRateLimiter.allowLogin(ip)) {
+            long retry = authRateLimiter.loginRetryAfter(ip);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", String.valueOf(retry))
+                    .body(new MessageResponse("Too many login attempts. Try again in " + retry + "s."));
+        }
+
+        // Per-account lockout (only meaningful if username is non-blank)
+        if (username != null && !username.isBlank() && authRateLimiter.isAccountLocked(username)) {
+            long lockSec = authRateLimiter.lockedUntilSec(username);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", String.valueOf(lockSec))
+                    .body(new MessageResponse(
+                            "Account temporarily locked due to too many failed attempts. Try again in " + lockSec + "s."));
+        }
+
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(username, loginRequest.getPassword()));
+        } catch (DisabledException ex) {
+            // Disabled account: don't count as a failed credential attempt.
+            throw ex;
+        } catch (AuthenticationException ex) {
+            // Bad credentials, locked, or any other auth failure → record + bubble up.
+            authRateLimiter.recordFailedLogin(username);
+            throw ex;
+        }
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // Check if user account is enabled
-        User user = userRepository.findByUsername(loginRequest.getUsername())
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         if (!user.getEnabled()) {
@@ -77,6 +131,9 @@ public class AuthController {
                 .map(item -> item.getAuthority())
                 .collect(Collectors.toList());
 
+        // Successful auth — clear failed-login counter / lock
+        authRateLimiter.clearFailedLogins(username);
+
         return ResponseEntity.ok(new JwtResponse(jwt,
                 userDetails.getId(),
                 userDetails.getUsername(),
@@ -85,7 +142,26 @@ public class AuthController {
     }
 
     @PostMapping("/signup")
-    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest signUpRequest) {
+    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest signUpRequest, HttpServletRequest request) {
+        // Honeypot — silently fake-success for bots.
+        if (signUpRequest.getWebsite() != null && !signUpRequest.getWebsite().isBlank()) {
+            return ResponseEntity.ok(new MessageResponse("Request received."));
+        }
+
+        String ip = getClientIp(request);
+        if (!authRateLimiter.allowRegister(ip)) {
+            long retry = authRateLimiter.registerRetryAfter(ip);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", String.valueOf(retry))
+                    .body(new MessageResponse("Too many registration attempts. Try again in " + retry + "s."));
+        }
+
+        // CAPTCHA verification — single-use math challenge.
+        if (!captchaService.verify(signUpRequest.getCaptchaToken(), signUpRequest.getCaptchaAnswer())) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("CAPTCHA verification failed. Please try again."));
+        }
+
         // 1. Format Validations
         if (signUpRequest.getUsername().contains(" ")) {
             return ResponseEntity.badRequest().body(new MessageResponse("Error: Username cannot contain spaces."));
@@ -114,28 +190,12 @@ public class AuthController {
 
         user.setFullName(signUpRequest.getFullName());
 
-        Set<String> strRoles = signUpRequest.getRole();
+        // SECURITY: never trust client-provided role. New users always get ROLE_USER.
+        // Admin promotion must happen via DB or admin API only.
         Set<Role> roles = new HashSet<>();
-
-        if (strRoles == null) {
-            Role userRole = roleRepository.findByName(Role.ERole.ROLE_USER)
-                    .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-            roles.add(userRole);
-        } else {
-            strRoles.forEach(role -> {
-                switch (role) {
-                    case "admin":
-                        Role adminRole = roleRepository.findByName(Role.ERole.ROLE_ADMIN)
-                                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-                        roles.add(adminRole);
-                        break;
-                    default:
-                        Role userRole = roleRepository.findByName(Role.ERole.ROLE_USER)
-                                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
-                        roles.add(userRole);
-                }
-            });
-        }
+        Role userRole = roleRepository.findByName(Role.ERole.ROLE_USER)
+                .orElseThrow(() -> new RuntimeException("Error: Role is not found."));
+        roles.add(userRole);
 
         user.setRoles(roles);
         userRepository.save(user);
@@ -155,9 +215,31 @@ public class AuthController {
     private com.example.codecombat2026.repository.PasswordResetTokenRepository passwordResetTokenRepository;
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody java.util.Map<String, String> request) {
+    public ResponseEntity<?> forgotPassword(@RequestBody java.util.Map<String, String> request, HttpServletRequest httpRequest) {
         String username = request.get("username");
         String email = request.get("email");
+        String ip = getClientIp(httpRequest);
+
+        // Honeypot
+        String honeypot = request.get("website");
+        if (honeypot != null && !honeypot.isBlank()) {
+            return ResponseEntity.ok(new MessageResponse("Password reset link has been sent to your email."));
+        }
+
+        if (!authRateLimiter.allowPasswordReset(email == null ? "_" : email, ip)) {
+            long retry = email != null
+                    ? authRateLimiter.passwordResetRetryAfter(email)
+                    : 3600L;
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", String.valueOf(retry))
+                    .body(new MessageResponse("Too many password reset attempts. Try again later."));
+        }
+
+        // CAPTCHA verification (token + answer come from the same JSON map)
+        if (!captchaService.verify(request.get("captchaToken"), request.get("captchaAnswer"))) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("CAPTCHA verification failed. Please try again."));
+        }
 
         java.util.Optional<User> userOpt = userRepository.findByUsername(username);
 
@@ -202,7 +284,7 @@ public class AuthController {
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<?> resetPassword(@RequestBody java.util.Map<String, String> request) {
+    public ResponseEntity<?> resetPassword(@RequestBody java.util.Map<String, String> request, HttpServletRequest httpRequest) {
         String token = request.get("token");
         String newPassword = request.get("newPassword");
 
@@ -243,12 +325,32 @@ public class AuthController {
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
 
+        // SECURITY: invalidate every JWT issued for this user before now.
+        // Anyone who got a token via stolen credentials is now signed out.
+        jwtBlacklistService.invalidateAllUserTokens(user.getId());
+
+        // Notify the user that their password just changed (defensive against takeover)
+        try {
+            String ip = getClientIp(httpRequest);
+            emailService.sendPasswordChangedNotification(user.getEmail(), user.getUsername(), ip);
+        } catch (Exception e) {
+            log.warn("Failed to send password-changed notification to {}: {}", user.getEmail(), e.getMessage());
+        }
+
         return ResponseEntity.ok(new MessageResponse("Your password has been updated successfully."));
     }
 
     @PostMapping("/forgot-username")
-    public ResponseEntity<?> forgotUsername(@RequestBody java.util.Map<String, String> request) {
+    public ResponseEntity<?> forgotUsername(@RequestBody java.util.Map<String, String> request, HttpServletRequest httpRequest) {
         String email = request.get("email");
+        String ip = getClientIp(httpRequest);
+
+        if (!authRateLimiter.allowForgotUsername(ip)) {
+            long retry = authRateLimiter.forgotUsernameRetryAfter(ip);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", String.valueOf(retry))
+                    .body(new MessageResponse("Too many username recovery attempts. Try again later."));
+        }
 
         java.util.Optional<User> userOpt = userRepository.findByEmail(email);
 
@@ -267,5 +369,41 @@ public class AuthController {
         }
 
         return ResponseEntity.ok(new MessageResponse("Your username has been sent to your email."));
+    }
+
+    @PostMapping("/logout")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> logout(HttpServletRequest request) {
+        String jwt = parseJwt(request);
+        if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
+            String jti = jwtUtils.getJtiFromJwtToken(jwt);
+            long expiry = jwtUtils.getExpiryFromJwtToken(jwt);
+            long now = System.currentTimeMillis();
+            long ttlSec = Math.max(1L, (expiry - now) / 1000L);
+            if (jti != null) {
+                jwtBlacklistService.blacklist(jti, ttlSec);
+            }
+        }
+        return ResponseEntity.ok(new MessageResponse("Logged out"));
+    }
+
+    /** Extract a Bearer token from the Authorization header, mirroring AuthTokenFilter. */
+    private String parseJwt(HttpServletRequest request) {
+        String headerAuth = request.getHeader("Authorization");
+        if (headerAuth != null && headerAuth.startsWith("Bearer ")) {
+            return headerAuth.substring(7);
+        }
+        return null;
+    }
+
+    /** Extract client IP from common proxy headers (X-Forwarded-For wins, then X-Real-IP). */
+    private String getClientIp(HttpServletRequest req) {
+        String xff = req.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            return xff.split(",")[0].trim();
+        }
+        String real = req.getHeader("X-Real-IP");
+        if (real != null && !real.isBlank()) return real;
+        return req.getRemoteAddr();
     }
 }

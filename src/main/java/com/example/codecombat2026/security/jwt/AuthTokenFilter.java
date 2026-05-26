@@ -1,6 +1,8 @@
 package com.example.codecombat2026.security.jwt;
 
+import com.example.codecombat2026.security.services.UserDetailsImpl;
 import com.example.codecombat2026.security.services.UserDetailsServiceImpl;
+import com.example.codecombat2026.service.JwtBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +25,9 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
     @Autowired
     private UserDetailsServiceImpl userDetailsService;
+
+    @Autowired
+    private JwtBlacklistService jwtBlacklistService;
 
     private static final Logger logger = LoggerFactory.getLogger(AuthTokenFilter.class);
 
@@ -54,9 +59,29 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         try {
             String jwt = parseJwt(request);
             if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
-                String username = jwtUtils.getUserNameFromJwtToken(jwt);
 
+                // Check blacklist (logout / explicit revocation)
+                String jti = jwtUtils.getJtiFromJwtToken(jwt);
+                if (jti != null && jwtBlacklistService.isBlacklisted(jti)) {
+                    logger.debug("Rejecting blacklisted JWT jti={}", jti);
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
+                String username = jwtUtils.getUserNameFromJwtToken(jwt);
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+                // Check per-user "invalidate-before" cutoff (set on password change)
+                if (userDetails instanceof UserDetailsImpl impl) {
+                    long cutoff = jwtBlacklistService.invalidateBeforeMillis(impl.getId());
+                    long iat = jwtUtils.getIssuedAtMillis(jwt);
+                    if (cutoff > 0 && iat > 0 && iat < cutoff) {
+                        logger.debug("Rejecting JWT for userId={} issued before invalidate cutoff", impl.getId());
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+                }
+
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,

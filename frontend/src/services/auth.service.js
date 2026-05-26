@@ -1,19 +1,23 @@
 import api from './api';
 import cache from './cache';
 
-const register = (username, email, password, fullName) => {
+const register = (username, email, password, fullName, extras = {}) => {
   return api.post('/auth/signup', {
     username,
     email,
     password,
-    fullName
+    fullName,
+    website: extras.website || '',
+    captchaToken: extras.captchaToken || '',
+    captchaAnswer: extras.captchaAnswer || '',
   });
 };
 
-const login = (username, password) => {
+const login = (username, password, extras = {}) => {
   return api.post('/auth/signin', {
     username,
     password,
+    website: extras.website || '',
   })
   .then((response) => {
     if (response.data.token) {

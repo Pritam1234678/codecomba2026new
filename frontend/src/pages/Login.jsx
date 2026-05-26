@@ -23,6 +23,7 @@ const Login = () => {
     const { isMobile, isTablet } = useResponsive();
     const [username, setUsername]         = useState('');
     const [password, setPassword]         = useState('');
+    const [website, setWebsite]           = useState(''); // honeypot
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading]           = useState(false);
     const [message, setMessage]           = useState('');
@@ -34,7 +35,7 @@ const Login = () => {
         setMessage('');
         setLoading(true);
 
-        AuthService.login(username, password).then(
+        AuthService.login(username, password, { website }).then(
             (data) => {
                 if (data.roles && data.roles.includes('ROLE_ADMIN')) {
                     navigate('/admin/dashboard');
@@ -213,6 +214,19 @@ const Login = () => {
 
                     {/* Form */}
                     <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+
+                        {/* Honeypot — hidden from real users */}
+                        <input
+                            type="text" name="website" autoComplete="off" tabIndex={-1}
+                            aria-hidden="true"
+                            value={website}
+                            onChange={(e) => setWebsite(e.target.value)}
+                            style={{
+                                position: 'absolute', left: '-10000px', top: 'auto',
+                                width: '1px', height: '1px', overflow: 'hidden',
+                                opacity: 0, pointerEvents: 'none',
+                            }}
+                        />
 
                         {/* Username */}
                         <div>

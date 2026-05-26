@@ -18,7 +18,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/contests")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class ContestController {
     @Autowired
     private ContestService contestService;

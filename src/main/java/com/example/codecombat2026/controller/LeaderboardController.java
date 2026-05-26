@@ -19,7 +19,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/admin/leaderboard")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class LeaderboardController {
 
     @Autowired private LeaderboardCacheService leaderboardCache;

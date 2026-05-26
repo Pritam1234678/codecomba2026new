@@ -25,7 +25,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/compiler")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class CompilerController {
 
     @Autowired private CompilerService compilerService;

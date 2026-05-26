@@ -13,7 +13,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/problems/{problemId}/snippets")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class CodeSnippetController {
 
     @Autowired

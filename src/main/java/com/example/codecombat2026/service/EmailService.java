@@ -104,16 +104,22 @@ public class EmailService {
             MimeMessage msg = mailSender.createMimeMessage();
             MimeMessageHelper h = new MimeMessageHelper(msg, true, "UTF-8");
             h.setTo("support@codecombat.live");
-            h.setSubject("Support Request from " + name);
+            // Escape sender-controlled fields used in headers/HTML to prevent injection.
+            String safeName    = org.springframework.web.util.HtmlUtils.htmlEscape(name == null ? "" : name);
+            String safeEmail   = org.springframework.web.util.HtmlUtils.htmlEscape(senderEmail == null ? "" : senderEmail);
+            String safePhone   = org.springframework.web.util.HtmlUtils.htmlEscape(phone == null ? "" : phone);
+            String safeMessage = org.springframework.web.util.HtmlUtils.htmlEscape(message == null ? "" : message);
+            // Subject is plain text; use the escaped name to avoid exotic header chars.
+            h.setSubject("Support Request from " + safeName);
             h.setReplyTo(senderEmail);
 
             String content = "<h2 style='color:#10b981;margin-top:0;'>New Support Request</h2>"
                 + "<div style='background:rgba(255,255,255,0.05);padding:20px;border-radius:8px;border-left:4px solid #10b981;'>"
-                + "<p><strong style='color:#10b981;'>Name:</strong> " + name + "</p>"
-                + "<p><strong style='color:#10b981;'>Email:</strong> " + senderEmail + "</p>"
-                + "<p><strong style='color:#10b981;'>Phone:</strong> " + (phone != null && !phone.isEmpty() ? phone : "Not provided") + "</p>"
+                + "<p><strong style='color:#10b981;'>Name:</strong> " + safeName + "</p>"
+                + "<p><strong style='color:#10b981;'>Email:</strong> " + safeEmail + "</p>"
+                + "<p><strong style='color:#10b981;'>Phone:</strong> " + (!safePhone.isEmpty() ? safePhone : "Not provided") + "</p>"
                 + "<p><strong style='color:#10b981;'>Message:</strong></p>"
-                + "<p style='padding:15px;background:rgba(0,0,0,0.2);border-radius:8px;'>" + message + "</p>"
+                + "<p style='padding:15px;background:rgba(0,0,0,0.2);border-radius:8px;white-space:pre-wrap;'>" + safeMessage + "</p>"
                 + "</div>";
 
             h.setText(wrap(content), true);
@@ -126,7 +132,8 @@ public class EmailService {
 
     public void sendWelcomeEmail(String userEmail, String fullName) {
         try {
-            String content = "<h2 style='color:#10b981;margin-top:0;'>Welcome, " + fullName + "! 🚀</h2>"
+            String safeFullName = org.springframework.web.util.HtmlUtils.htmlEscape(fullName == null ? "user" : fullName);
+            String content = "<h2 style='color:#10b981;margin-top:0;'>Welcome, " + safeFullName + "! 🚀</h2>"
                 + "<p style='font-size:16px;line-height:1.6;'>Thank you for joining CodeCombat!</p>"
                 + "<div style='background:rgba(16,185,129,0.1);padding:20px;border-radius:12px;margin:20px 0;border:1px solid rgba(16,185,129,0.3);'>"
                 + "<h3 style='color:#10b981;margin-top:0;'>What you can do:</h3>"
@@ -151,9 +158,10 @@ public class EmailService {
     public void sendPasswordResetEmail(String userEmail, String fullName, String resetToken) {
         try {
             String resetLink = appUrl + "/reset-password?token=" + resetToken;
+            String safeFullName = org.springframework.web.util.HtmlUtils.htmlEscape(fullName == null ? "user" : fullName);
 
             String content = "<h2 style='color:#10b981;margin-top:0;'>Password Reset Request</h2>"
-                + "<p style='font-size:16px;'>Dear " + fullName + ",</p>"
+                + "<p style='font-size:16px;'>Dear " + safeFullName + ",</p>"
                 + "<p style='font-size:16px;line-height:1.6;'>We received a request to reset your CodeCombat password.</p>"
                 + "<div style='background:rgba(239,68,68,0.1);padding:20px;border-radius:12px;margin:20px 0;border-left:4px solid #ef4444;'>"
                 + "<p style='margin:0;color:#fca5a5;'><strong>⏰ This link expires in 15 minutes.</strong></p>"
@@ -174,11 +182,12 @@ public class EmailService {
 
     public void sendUsernameRecoveryEmail(String userEmail, String username) {
         try {
+            String safeUsername = org.springframework.web.util.HtmlUtils.htmlEscape(username == null ? "" : username);
             String content = "<h2 style='color:#10b981;margin-top:0;'>Username Recovery</h2>"
                 + "<p style='font-size:16px;'>Hello,</p>"
                 + "<p style='font-size:16px;line-height:1.6;'>Your CodeCombat username is:</p>"
                 + "<div style='background:rgba(16,185,129,0.2);padding:25px;border-radius:12px;margin:25px 0;text-align:center;border:2px solid rgba(16,185,129,0.5);'>"
-                + "<p style='margin:0;font-size:28px;font-weight:bold;color:#10b981;'>" + username + "</p>"
+                + "<p style='margin:0;font-size:28px;font-weight:bold;color:#10b981;'>" + safeUsername + "</p>"
                 + "</div>"
                 + "<div style='text-align:center;margin:30px 0;'>"
                 + "<a href='" + appUrl + "/login' style='background:linear-gradient(135deg,#10b981,#059669);color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;'>Login Now</a>"
@@ -206,6 +215,38 @@ public class EmailService {
         } catch (Exception e) {
             log.error("Failed to send username recovery email to {}: {}", userEmail, e.getMessage());
             throw new RuntimeException("Failed to send username recovery email", e);
+        }
+    }
+
+    /**
+     * Notify the user that their password just changed. Sent on password
+     * reset / password change so an account-takeover attempt is visible
+     * even if the attacker controls the next login.
+     */
+    public void sendPasswordChangedNotification(String userEmail, String username, String ipAddress) {
+        try {
+            String safeUsername = org.springframework.web.util.HtmlUtils.htmlEscape(username == null ? "user" : username);
+            String safeIp = org.springframework.web.util.HtmlUtils.htmlEscape(ipAddress == null || ipAddress.isBlank() ? "unknown" : ipAddress);
+            String time = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new java.util.Date());
+
+            String content = "<h2 style='color:#10b981;margin-top:0;'>Password Changed</h2>"
+                + "<p style='font-size:16px;'>Hello " + safeUsername + ",</p>"
+                + "<p style='font-size:16px;line-height:1.6;'>This is a confirmation that your CodeCombat password was just changed.</p>"
+                + "<div style='background:rgba(255,255,255,0.04);padding:16px;border-radius:8px;margin:16px 0;border-left:4px solid #10b981;'>"
+                + "<p style='margin:4px 0;'><strong style='color:#10b981;'>When:</strong> " + time + "</p>"
+                + "<p style='margin:4px 0;'><strong style='color:#10b981;'>From IP:</strong> " + safeIp + "</p>"
+                + "</div>"
+                + "<div style='background:rgba(239,68,68,0.1);padding:16px;border-radius:8px;margin:20px 0;border-left:4px solid #ef4444;'>"
+                + "<p style='margin:0;color:#fca5a5;'><strong>If this wasn't you</strong>, contact "
+                + "<a href='mailto:support@codecombat.live' style='color:#fca5a5;'>support@codecombat.live</a> immediately. "
+                + "Your account may be compromised.</p>"
+                + "</div>"
+                + "<p style='color:#9ca3af;font-size:14px;'>For security, all existing sessions have been signed out.</p>";
+
+            sendHtml(userEmail, "Your CodeCombat password was changed", content);
+        } catch (Exception e) {
+            // Non-fatal — password change has already succeeded.
+            log.error("Failed to send password-changed notification to {}: {}", userEmail, e.getMessage());
         }
     }
 }

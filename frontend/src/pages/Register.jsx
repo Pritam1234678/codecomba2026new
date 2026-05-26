@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AuthService from '../services/auth.service';
+import api from '../services/api';
 import useResponsive from '../hooks/useResponsive';
 
 // ── Stitch Design Tokens ──────────────────────────────────────────────────────
@@ -71,13 +72,27 @@ const Field = ({ label, name, type = 'text', placeholder, value, onChange, onBlu
 const Register = () => {
     const { isMobile } = useResponsive();
     const [formData, setFormData] = useState({
-        username: '', email: '', password: '', fullName: ''
+        username: '', email: '', password: '', fullName: '', website: '',
+        captchaAnswer: '',
     });
     const [errors, setErrors]         = useState({});
     const [loading, setLoading]       = useState(false);
     const [message, setMessage]       = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [captcha, setCaptcha]       = useState({ token: '', question: '' });
     const navigate = useNavigate();
+
+    // Fetch CAPTCHA on mount and after a failed verification
+    const refreshCaptcha = async () => {
+        try {
+            const res = await api.get('/auth/captcha');
+            setCaptcha({ token: res.data.token, question: res.data.question });
+            setFormData(prev => ({ ...prev, captchaAnswer: '' }));
+        } catch (e) {
+            setCaptcha({ token: '', question: 'Failed to load CAPTCHA' });
+        }
+    };
+    useEffect(() => { refreshCaptcha(); }, []);
 
     // ── Validation ────────────────────────────────────────────────────────────
     const validateField = (name, value, currentFormData) => {
@@ -118,21 +133,32 @@ const Register = () => {
         e.preventDefault();
         setMessage('');
         const formErrors = {};
-        Object.keys(formData).forEach(k => {
+        ['username', 'email', 'password', 'fullName'].forEach(k => {
             const err = validateField(k, formData[k], formData);
             if (err) formErrors[k] = err;
         });
         if (Object.keys(formErrors).length > 0) { setErrors(formErrors); return; }
+        if (!captcha.token || !formData.captchaAnswer) {
+            setMessage('Please answer the CAPTCHA.');
+            return;
+        }
         setLoading(true);
         AuthService.register(
             formData.username, formData.email, formData.password,
-            formData.fullName
+            formData.fullName,
+            {
+                website: formData.website,
+                captchaToken: captcha.token,
+                captchaAnswer: formData.captchaAnswer,
+            }
         ).then(
             () => { setLoading(false); setMessage('success'); setTimeout(() => navigate('/login'), 2000); },
             (error) => {
                 const msg = error.response?.data?.message || error.message || error.toString();
                 setLoading(false);
                 setMessage(msg);
+                // Re-fetch CAPTCHA so the user has a fresh challenge.
+                refreshCaptcha();
             }
         );
     };
@@ -140,7 +166,8 @@ const Register = () => {
     const isFormValid = () => {
         const hasErrors = Object.values(errors).some(e => e !== '');
         const hasEmpty  = ['username', 'email', 'password'].some(f => !formData[f]);
-        return !hasErrors && !hasEmpty;
+        const hasCaptcha = captcha.token && (formData.captchaAnswer || '').toString().trim().length > 0;
+        return !hasErrors && !hasEmpty && hasCaptcha;
     };
 
     // Password strength
@@ -309,6 +336,68 @@ const Register = () => {
                                     </div>
                                 </div>
                             )}
+                        </fieldset>
+
+                        {/* ── Honeypot (hidden from real users) ── */}
+                        <input
+                            type="text" name="website" autoComplete="off" tabIndex={-1}
+                            aria-hidden="true"
+                            value={formData.website}
+                            onChange={handleChange}
+                            style={{
+                                position: 'absolute', left: '-10000px', top: 'auto',
+                                width: '1px', height: '1px', overflow: 'hidden',
+                                opacity: 0, pointerEvents: 'none',
+                            }}
+                        />
+
+                        {/* ── Fieldset 3: CAPTCHA ── */}
+                        <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
+                            <legend style={{
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '12px', letterSpacing: '0.1em',
+                                color: C.primary, textTransform: 'uppercase',
+                                borderBottom: `1px solid ${C.border}`,
+                                width: '100%', paddingBottom: '8px',
+                                marginBottom: '1.5rem', display: 'block',
+                            }}>
+                                Verification
+                            </legend>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px', alignItems: 'end' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                        fontSize: '12px', letterSpacing: '0.1em',
+                                        color: C.muted, textTransform: 'uppercase',
+                                    }}>
+                                        Challenge
+                                    </label>
+                                    <div style={{
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                        fontSize: '16px', color: C.onBg,
+                                        padding: '10px 0',
+                                        borderBottom: `1px solid ${C.border}`,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+                                    }}>
+                                        <span>{captcha.question || 'Loading...'}</span>
+                                        <button type="button" onClick={refreshCaptcha}
+                                            style={{
+                                                background: 'none', border: `1px solid ${C.border}`,
+                                                color: C.muted, fontSize: '11px',
+                                                fontFamily: "'JetBrains Mono', monospace",
+                                                padding: '4px 8px', cursor: 'pointer',
+                                            }}>
+                                            ↻ New
+                                        </button>
+                                    </div>
+                                </div>
+                                <Field
+                                    label="Answer" name="captchaAnswer" type="text"
+                                    placeholder="ENTER NUMBER" required
+                                    value={formData.captchaAnswer}
+                                    onChange={handleChange}
+                                />
+                            </div>
                         </fieldset>
 
                         {/* ── Submit ── */}

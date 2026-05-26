@@ -10,4 +10,7 @@ public class LoginRequest {
 
     @NotBlank
     private String password;
+
+    /** Honeypot — must remain empty. */
+    private String website;
 }

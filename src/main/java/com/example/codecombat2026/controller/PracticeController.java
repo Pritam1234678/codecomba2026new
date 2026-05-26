@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/api/practice")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class PracticeController {
 
     @Autowired private ProblemRepository problemRepository;

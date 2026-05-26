@@ -21,7 +21,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/submissions")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class SubmissionController {
 
     @Autowired private SubmissionService submissionService;

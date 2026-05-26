@@ -11,7 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/support")
-@CrossOrigin(origins = "*")
 public class SupportController {
 
     @Autowired
@@ -19,6 +18,13 @@ public class SupportController {
 
     @PostMapping("/send")
     public ResponseEntity<?> sendSupportEmail(@RequestBody SupportRequest request) {
+        // Honeypot — bots typically fill the hidden 'website' field.
+        if (request.getWebsite() != null && !request.getWebsite().isBlank()) {
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Support request sent successfully! We'll get back to you soon.");
+            return ResponseEntity.ok(response);
+        }
+
         try {
             emailService.sendSupportEmail(
                     request.getEmail(),

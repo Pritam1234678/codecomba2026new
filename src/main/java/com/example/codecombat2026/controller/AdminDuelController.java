@@ -45,7 +45,6 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/admin/duels")
-@CrossOrigin(origins = "*", maxAge = 3600)
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminDuelController {
 

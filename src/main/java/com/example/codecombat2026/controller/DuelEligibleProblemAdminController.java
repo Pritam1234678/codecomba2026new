@@ -54,7 +54,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/admin/duels/eligible-problems")
-@CrossOrigin(origins = "*", maxAge = 3600)
 @PreAuthorize("hasRole('ADMIN')")
 public class DuelEligibleProblemAdminController {
 
