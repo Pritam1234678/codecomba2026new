@@ -8,8 +8,7 @@ const register = (username, email, password, fullName, extras = {}) => {
     password,
     fullName,
     website: extras.website || '',
-    captchaToken: extras.captchaToken || '',
-    captchaAnswer: extras.captchaAnswer || '',
+    turnstileToken: extras.turnstileToken || '',
   });
 };
 
@@ -18,6 +17,7 @@ const login = (username, password, extras = {}) => {
     username,
     password,
     website: extras.website || '',
+    turnstileToken: extras.turnstileToken || '',
   })
   .then((response) => {
     if (response.data.token) {

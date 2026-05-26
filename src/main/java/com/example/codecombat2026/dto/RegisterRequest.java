@@ -31,9 +31,6 @@ public class RegisterRequest {
      */
     private String website;
 
-    /** CAPTCHA challenge token issued by GET /api/auth/captcha. */
-    private String captchaToken;
-
-    /** CAPTCHA answer submitted by the user. */
-    private String captchaAnswer;
+    /** Cloudflare Turnstile response token submitted by the widget. */
+    private String turnstileToken;
 }

@@ -13,4 +13,7 @@ public class LoginRequest {
 
     /** Honeypot — must remain empty. */
     private String website;
+
+    /** Cloudflare Turnstile response token submitted by the widget. */
+    private String turnstileToken;
 }

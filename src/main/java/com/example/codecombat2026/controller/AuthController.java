@@ -64,12 +64,7 @@ public class AuthController {
     com.example.codecombat2026.service.JwtBlacklistService jwtBlacklistService;
 
     @Autowired
-    com.example.codecombat2026.service.CaptchaService captchaService;
-
-    @GetMapping("/captcha")
-    public ResponseEntity<?> getCaptcha() {
-        return ResponseEntity.ok(captchaService.issue());
-    }
+    com.example.codecombat2026.service.TurnstileService turnstileService;
 
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest, HttpServletRequest request) {
@@ -81,6 +76,12 @@ public class AuthController {
 
         String ip = getClientIp(request);
         String username = loginRequest.getUsername();
+
+        // Cloudflare Turnstile verification — required on every login.
+        if (!turnstileService.verify(loginRequest.getTurnstileToken(), ip)) {
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Captcha verification failed. Please try again."));
+        }
 
         // Per-IP login attempt rate limit
         if (!authRateLimiter.allowLogin(ip)) {
@@ -156,10 +157,10 @@ public class AuthController {
                     .body(new MessageResponse("Too many registration attempts. Try again in " + retry + "s."));
         }
 
-        // CAPTCHA verification — single-use math challenge.
-        if (!captchaService.verify(signUpRequest.getCaptchaToken(), signUpRequest.getCaptchaAnswer())) {
+        // Cloudflare Turnstile verification.
+        if (!turnstileService.verify(signUpRequest.getTurnstileToken(), ip)) {
             return ResponseEntity.badRequest()
-                    .body(new MessageResponse("CAPTCHA verification failed. Please try again."));
+                    .body(new MessageResponse("Captcha verification failed. Please try again."));
         }
 
         // 1. Format Validations
@@ -235,10 +236,10 @@ public class AuthController {
                     .body(new MessageResponse("Too many password reset attempts. Try again later."));
         }
 
-        // CAPTCHA verification (token + answer come from the same JSON map)
-        if (!captchaService.verify(request.get("captchaToken"), request.get("captchaAnswer"))) {
+        // Cloudflare Turnstile verification (token comes from the same JSON map)
+        if (!turnstileService.verify(request.get("turnstileToken"), ip)) {
             return ResponseEntity.badRequest()
-                    .body(new MessageResponse("CAPTCHA verification failed. Please try again."));
+                    .body(new MessageResponse("Captcha verification failed. Please try again."));
         }
 
         java.util.Optional<User> userOpt = userRepository.findByUsername(username);

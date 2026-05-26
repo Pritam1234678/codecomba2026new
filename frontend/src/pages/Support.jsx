@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import useResponsive from '../hooks/useResponsive';
+import TurnstileWidget from '../components/TurnstileWidget';
 
 const C = {
     bg:        '#131313',
@@ -101,29 +102,50 @@ const Support = () => {
     const [submitted, setSubmitted] = useState(false);
     const [loading, setLoading]     = useState(false);
     const [error, setError]         = useState('');
+    const [turnstileToken, setTurnstileToken] = useState('');
+    const turnstileWidgetRef = useRef(null);
+
+    const resetTurnstile = () => {
+        setTurnstileToken('');
+        try { window.turnstile?.reset(turnstileWidgetRef.current); } catch { /* ignore */ }
+    };
 
     const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true); setError('');
+        setError('');
+        if (!turnstileToken) {
+            setError('Please complete the captcha.');
+            return;
+        }
+        setLoading(true);
         try {
             const res = await fetch('/api/support/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({ ...formData, turnstileToken }),
             });
             if (res.ok) {
                 setSubmitted(true);
+                setTurnstileToken('');
+                try { window.turnstile?.reset(turnstileWidgetRef.current); } catch { /* ignore */ }
                 setTimeout(() => {
                     setSubmitted(false);
                     setFormData({ fullName: '', email: '', phone: '', message: '', website: '' });
                 }, 4000);
             } else {
-                setError('Failed to send message. Please try again.');
+                let msg = 'Failed to send message. Please try again.';
+                try {
+                    const data = await res.json();
+                    if (data?.error) msg = data.error;
+                } catch { /* ignore */ }
+                setError(msg);
+                resetTurnstile();
             }
         } catch {
             setError('Error sending message. Please try again later.');
+            resetTurnstile();
         } finally {
             setLoading(false);
         }
@@ -282,6 +304,18 @@ const Support = () => {
                                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.muted, opacity: 0.5, textAlign: 'right', marginTop: '8px' }}>
                                     Target: support@codecombat.live
                                 </span>
+                            </div>
+
+                            {/* Turnstile verification */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '0.5rem' }}>
+                                <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', color: C.muted, textTransform: 'uppercase' }}>
+                                    Verification
+                                </label>
+                                <TurnstileWidget
+                                    onToken={setTurnstileToken}
+                                    onExpire={() => setTurnstileToken('')}
+                                    widgetIdRef={turnstileWidgetRef}
+                                />
                             </div>
 
                             {/* Submit */}

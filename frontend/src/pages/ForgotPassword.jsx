@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import useResponsive from '../hooks/useResponsive';
+import TurnstileWidget from '../components/TurnstileWidget';
 
 const C = {
     bg:        '#131313',
@@ -19,42 +20,41 @@ const C = {
 
 const ForgotPassword = () => {
     const { isMobile } = useResponsive();
-    const [formData, setFormData] = useState({ username: '', email: '', website: '', captchaAnswer: '' });
+    const [formData, setFormData] = useState({ username: '', email: '', website: '' });
     const [loading, setLoading]   = useState(false);
     const [message, setMessage]   = useState('');
     const [success, setSuccess]   = useState(false);
-    const [captcha, setCaptcha]   = useState({ token: '', question: '' });
+    const [turnstileToken, setTurnstileToken] = useState('');
+    const turnstileWidgetRef = useRef(null);
 
-    const refreshCaptcha = async () => {
-        try {
-            const res = await api.get('/auth/captcha');
-            setCaptcha({ token: res.data.token, question: res.data.question });
-            setFormData(prev => ({ ...prev, captchaAnswer: '' }));
-        } catch (e) {
-            setCaptcha({ token: '', question: 'Failed to load CAPTCHA' });
-        }
+    const resetTurnstile = () => {
+        setTurnstileToken('');
+        try { window.turnstile?.reset(turnstileWidgetRef.current); } catch { /* ignore */ }
     };
-    useEffect(() => { refreshCaptcha(); }, []);
 
     const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setMessage(''); setLoading(true);
+        setMessage('');
+        if (!turnstileToken) {
+            setMessage('Please complete the captcha.');
+            return;
+        }
+        setLoading(true);
         try {
             const res = await api.post('/auth/forgot-password', {
                 username: formData.username,
                 email: formData.email,
                 website: formData.website,
-                captchaToken: captcha.token,
-                captchaAnswer: formData.captchaAnswer,
+                turnstileToken,
             });
             setSuccess(true);
             setMessage(res.data.message);
         } catch (err) {
             setSuccess(false);
             setMessage(err.response?.data?.message || 'An error occurred. Please try again.');
-            refreshCaptcha();
+            resetTurnstile();
         } finally {
             setLoading(false);
         }
@@ -191,36 +191,16 @@ const ForgotPassword = () => {
                                     </div>
                                 </div>
 
-                                {/* CAPTCHA */}
+                                {/* Turnstile */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', color: C.primary, textTransform: 'uppercase' }}>
                                         Verification
                                     </label>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderBottom: `1px solid ${C.border}`, paddingBottom: '4px' }}>
-                                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '14px', color: C.onBg, flex: 1 }}>
-                                            {captcha.question || 'Loading...'}
-                                        </span>
-                                        <input
-                                            name="captchaAnswer" type="text" placeholder="?"
-                                            value={formData.captchaAnswer} onChange={handleChange} required
-                                            style={{
-                                                width: '80px', backgroundColor: 'transparent',
-                                                border: 'none',
-                                                color: C.onBg, fontFamily: "'JetBrains Mono', monospace",
-                                                fontSize: '14px', padding: '8px 0', outline: 'none',
-                                                textAlign: 'center', boxSizing: 'border-box',
-                                            }}
-                                        />
-                                        <button type="button" onClick={refreshCaptcha}
-                                            style={{
-                                                background: 'none', border: `1px solid ${C.border}`,
-                                                color: C.muted, fontSize: '11px',
-                                                fontFamily: "'JetBrains Mono', monospace",
-                                                padding: '4px 8px', cursor: 'pointer',
-                                            }}>
-                                            ↻
-                                        </button>
-                                    </div>
+                                    <TurnstileWidget
+                                        onToken={setTurnstileToken}
+                                        onExpire={() => setTurnstileToken('')}
+                                        widgetIdRef={turnstileWidgetRef}
+                                    />
                                 </div>
 
                                 {/* Honeypot — hidden from real users */}

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AuthService from '../services/auth.service';
 import BlockedAccountModal from '../components/BlockedAccountModal';
 import useResponsive from '../hooks/useResponsive';
+import TurnstileWidget from '../components/TurnstileWidget';
 
 // ── Stitch Design Tokens ──────────────────────────────────────────────────────
 const C = {
@@ -28,14 +29,25 @@ const Login = () => {
     const [loading, setLoading]           = useState(false);
     const [message, setMessage]           = useState('');
     const [showBlockedModal, setShowBlockedModal] = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
+    const turnstileWidgetRef = useRef(null);
     const navigate = useNavigate();
+
+    const resetTurnstile = () => {
+        setTurnstileToken('');
+        try { window.turnstile?.reset(turnstileWidgetRef.current); } catch { /* ignore */ }
+    };
 
     const handleLogin = (e) => {
         e.preventDefault();
         setMessage('');
+        if (!turnstileToken) {
+            setMessage('Please complete the captcha.');
+            return;
+        }
         setLoading(true);
 
-        AuthService.login(username, password, { website }).then(
+        AuthService.login(username, password, { website, turnstileToken }).then(
             (data) => {
                 if (data.roles && data.roles.includes('ROLE_ADMIN')) {
                     navigate('/admin/dashboard');
@@ -57,6 +69,7 @@ const Login = () => {
                 }
                 setLoading(false);
                 setMessage(resMessage);
+                resetTurnstile();
             }
         );
     };
@@ -352,6 +365,23 @@ const Login = () => {
                                     Forgot Key?
                                 </Link>
                             </div>
+                        </div>
+
+                        {/* Turnstile widget */}
+                        <div>
+                            <label style={{
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: '12px', letterSpacing: '0.1em',
+                                color: C.muted, textTransform: 'uppercase',
+                                display: 'block', marginBottom: '8px',
+                            }}>
+                                Verification
+                            </label>
+                            <TurnstileWidget
+                                onToken={setTurnstileToken}
+                                onExpire={() => setTurnstileToken('')}
+                                widgetIdRef={turnstileWidgetRef}
+                            />
                         </div>
 
                         {/* Submit Button — slide-fill effect */}

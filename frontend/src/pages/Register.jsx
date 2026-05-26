@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AuthService from '../services/auth.service';
-import api from '../services/api';
 import useResponsive from '../hooks/useResponsive';
+import TurnstileWidget from '../components/TurnstileWidget';
 
 // ── Stitch Design Tokens ──────────────────────────────────────────────────────
 const C = {
@@ -73,26 +73,19 @@ const Register = () => {
     const { isMobile } = useResponsive();
     const [formData, setFormData] = useState({
         username: '', email: '', password: '', fullName: '', website: '',
-        captchaAnswer: '',
     });
     const [errors, setErrors]         = useState({});
     const [loading, setLoading]       = useState(false);
     const [message, setMessage]       = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [captcha, setCaptcha]       = useState({ token: '', question: '' });
+    const [turnstileToken, setTurnstileToken] = useState('');
+    const turnstileWidgetRef = useRef(null);
     const navigate = useNavigate();
 
-    // Fetch CAPTCHA on mount and after a failed verification
-    const refreshCaptcha = async () => {
-        try {
-            const res = await api.get('/auth/captcha');
-            setCaptcha({ token: res.data.token, question: res.data.question });
-            setFormData(prev => ({ ...prev, captchaAnswer: '' }));
-        } catch (e) {
-            setCaptcha({ token: '', question: 'Failed to load CAPTCHA' });
-        }
+    const resetTurnstile = () => {
+        setTurnstileToken('');
+        try { window.turnstile?.reset(turnstileWidgetRef.current); } catch { /* ignore */ }
     };
-    useEffect(() => { refreshCaptcha(); }, []);
 
     // ── Validation ────────────────────────────────────────────────────────────
     const validateField = (name, value, currentFormData) => {
@@ -138,8 +131,8 @@ const Register = () => {
             if (err) formErrors[k] = err;
         });
         if (Object.keys(formErrors).length > 0) { setErrors(formErrors); return; }
-        if (!captcha.token || !formData.captchaAnswer) {
-            setMessage('Please answer the CAPTCHA.');
+        if (!turnstileToken) {
+            setMessage('Please complete the captcha.');
             return;
         }
         setLoading(true);
@@ -148,8 +141,7 @@ const Register = () => {
             formData.fullName,
             {
                 website: formData.website,
-                captchaToken: captcha.token,
-                captchaAnswer: formData.captchaAnswer,
+                turnstileToken,
             }
         ).then(
             () => { setLoading(false); setMessage('success'); setTimeout(() => navigate('/login'), 2000); },
@@ -157,8 +149,8 @@ const Register = () => {
                 const msg = error.response?.data?.message || error.message || error.toString();
                 setLoading(false);
                 setMessage(msg);
-                // Re-fetch CAPTCHA so the user has a fresh challenge.
-                refreshCaptcha();
+                // Reset Turnstile so the user has a fresh challenge.
+                resetTurnstile();
             }
         );
     };
@@ -166,8 +158,7 @@ const Register = () => {
     const isFormValid = () => {
         const hasErrors = Object.values(errors).some(e => e !== '');
         const hasEmpty  = ['username', 'email', 'password'].some(f => !formData[f]);
-        const hasCaptcha = captcha.token && (formData.captchaAnswer || '').toString().trim().length > 0;
-        return !hasErrors && !hasEmpty && hasCaptcha;
+        return !hasErrors && !hasEmpty && !!turnstileToken;
     };
 
     // Password strength
@@ -351,7 +342,7 @@ const Register = () => {
                             }}
                         />
 
-                        {/* ── Fieldset 3: CAPTCHA ── */}
+                        {/* ── Fieldset 3: Verification (Turnstile) ── */}
                         <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
                             <legend style={{
                                 fontFamily: "'JetBrains Mono', monospace",
@@ -363,41 +354,11 @@ const Register = () => {
                             }}>
                                 Verification
                             </legend>
-                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px', alignItems: 'end' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    <label style={{
-                                        fontFamily: "'JetBrains Mono', monospace",
-                                        fontSize: '12px', letterSpacing: '0.1em',
-                                        color: C.muted, textTransform: 'uppercase',
-                                    }}>
-                                        Challenge
-                                    </label>
-                                    <div style={{
-                                        fontFamily: "'JetBrains Mono', monospace",
-                                        fontSize: '16px', color: C.onBg,
-                                        padding: '10px 0',
-                                        borderBottom: `1px solid ${C.border}`,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-                                    }}>
-                                        <span>{captcha.question || 'Loading...'}</span>
-                                        <button type="button" onClick={refreshCaptcha}
-                                            style={{
-                                                background: 'none', border: `1px solid ${C.border}`,
-                                                color: C.muted, fontSize: '11px',
-                                                fontFamily: "'JetBrains Mono', monospace",
-                                                padding: '4px 8px', cursor: 'pointer',
-                                            }}>
-                                            ↻ New
-                                        </button>
-                                    </div>
-                                </div>
-                                <Field
-                                    label="Answer" name="captchaAnswer" type="text"
-                                    placeholder="ENTER NUMBER" required
-                                    value={formData.captchaAnswer}
-                                    onChange={handleChange}
-                                />
-                            </div>
+                            <TurnstileWidget
+                                onToken={setTurnstileToken}
+                                onExpire={() => setTurnstileToken('')}
+                                widgetIdRef={turnstileWidgetRef}
+                            />
                         </fieldset>
 
                         {/* ── Submit ── */}
