@@ -15,13 +15,12 @@ const C = {
     error:      '#ffb4ab',
 };
 
-// ── Admin nav links (mirrors Navbar admin links) ──────────────────────────────
+// ── Admin nav links ───────────────────────────────────────────────────────────
 const ADMIN_NAV = [
     { label: 'Dashboard',  icon: 'admin_panel_settings', to: '/admin/dashboard' },
     { label: 'Contests',   icon: 'military_tech',        to: '/admin/contests' },
     { label: 'Problems',   icon: 'code',                 to: '/admin/problems' },
-    { label: 'Practice',   icon: 'fitness_center',       to: '/practice' },
-    { label: 'Duel',       icon: 'swords',               to: '/duel' },
+    { label: 'Duel',       icon: 'swords',               to: '/admin/duels' },
     { label: 'Users',      icon: 'group',                to: '/admin/users' },
     { label: 'Rankings',   icon: 'leaderboard',          to: '/admin/leaderboard' },
     { label: 'Compiler',   icon: 'terminal',             to: '/compiler' },
