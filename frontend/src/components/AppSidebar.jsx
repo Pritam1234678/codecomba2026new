@@ -26,6 +26,7 @@ const ADMIN_NAV = [
     { label: 'Compiler',   icon: 'terminal',             to: '/compiler' },
     { label: 'Platform',   icon: 'tune',                 to: '/admin/platform-details' },
     { label: 'Support',    icon: 'help_outline',         to: '/support' },
+    { label: 'Mail',       icon: 'mail',                 to: 'https://mail.codecoder.in', external: true },
 ];
 
 // ── User nav links (mirrors Navbar user links) ────────────────────────────────
@@ -104,11 +105,11 @@ const AppSidebar = () => {
 
             {/* ── Nav links ── */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0 10px', flexGrow: 1 }}>
-                {navItems.map(({ label, icon, to }) => {
-                    const active = location.pathname === to ||
-                        (to !== '/' && location.pathname.startsWith(to) && to.length > 1);
+                {navItems.map(({ label, icon, to, external }) => {
+                    const active = !external && (location.pathname === to ||
+                        (to !== '/' && location.pathname.startsWith(to) && to.length > 1));
                     return (
-                        <SidebarLink key={to} to={to} icon={icon} label={label} active={active} open={open} />
+                        <SidebarLink key={to} to={to} icon={icon} label={label} active={active} open={open} external={external} />
                     );
                 })}
             </div>
@@ -175,36 +176,61 @@ const AppSidebar = () => {
 };
 
 // ── Single sidebar link ───────────────────────────────────────────────────────
-const SidebarLink = ({ to, icon, label, active, open }) => (
-    <Link
-        to={to}
-        style={{
-            display: 'flex', alignItems: 'center', gap: '12px',
-            padding: '10px 12px',
-            textDecoration: 'none',
-            color: active ? '#f1bc8b' : '#d4c4b7',
-            borderLeft: active ? '2px solid #f1bc8b' : '2px solid transparent',
-            backgroundColor: active ? 'rgba(53,53,52,0.7)' : 'transparent',
-            transition: 'all 0.2s',
-            overflow: 'hidden', whiteSpace: 'nowrap',
-            opacity: active ? 1 : 0.65,
-            borderRadius: '0 4px 4px 0',
-        }}
-        onMouseEnter={e => { if (!active) { e.currentTarget.style.backgroundColor = 'rgba(42,42,42,0.6)'; e.currentTarget.style.opacity = '1'; } }}
-        onMouseLeave={e => { if (!active) { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.opacity = '0.65'; } }}
-    >
-        <span
-            className="material-symbols-outlined"
-            style={{ fontSize: '20px', flexShrink: 0, fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}
-        >
-            {icon}
-        </span>
-        {open && (
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                {label}
+const SidebarLink = ({ to, icon, label, active, open, external }) => {
+    const style = {
+        display: 'flex', alignItems: 'center', gap: '12px',
+        padding: '10px 12px',
+        textDecoration: 'none',
+        color: active ? '#f1bc8b' : '#d4c4b7',
+        borderLeft: active ? '2px solid #f1bc8b' : '2px solid transparent',
+        backgroundColor: active ? 'rgba(53,53,52,0.7)' : 'transparent',
+        transition: 'all 0.2s',
+        overflow: 'hidden', whiteSpace: 'nowrap',
+        opacity: active ? 1 : 0.65,
+        borderRadius: '0 4px 4px 0',
+    };
+
+    const content = (
+        <>
+            <span
+                className="material-symbols-outlined"
+                style={{ fontSize: '20px', flexShrink: 0, fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}
+            >
+                {icon}
             </span>
-        )}
-    </Link>
-);
+            {open && (
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                    {label}
+                </span>
+            )}
+        </>
+    );
+
+    if (external) {
+        return (
+            <a
+                href={to}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={style}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(42,42,42,0.6)'; e.currentTarget.style.opacity = '1'; }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.opacity = '0.65'; }}
+            >
+                {content}
+            </a>
+        );
+    }
+
+    return (
+        <Link
+            to={to}
+            style={style}
+            onMouseEnter={e => { if (!active) { e.currentTarget.style.backgroundColor = 'rgba(42,42,42,0.6)'; e.currentTarget.style.opacity = '1'; } }}
+            onMouseLeave={e => { if (!active) { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.opacity = '0.65'; } }}
+        >
+            {content}
+        </Link>
+    );
+};
 
 export default AppSidebar;
