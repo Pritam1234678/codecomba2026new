@@ -23,10 +23,9 @@ const DIFFICULTY_COLORS = {
 };
 
 const STATUS_COLORS = {
+    WAITING: C.warning,
     IN_PROGRESS: C.primary,
-    COMPLETED: C.success,
-    ABANDONED: C.outline,
-    CANCELLED: C.error,
+    FINISHED: C.success,
 };
 
 const AdminDuelMonitor = () => {
@@ -45,7 +44,7 @@ const AdminDuelMonitor = () => {
                     params: { status: 'IN_PROGRESS', limit: 100, offset: 0 }
                 }),
                 api.get('/admin/duels', {
-                    params: { status: 'COMPLETED', limit: historyLimit, offset: historyOffset }
+                    params: { status: 'FINISHED', limit: historyLimit, offset: historyOffset }
                 }),
             ]);
             setLiveMatches(liveRes.data.content || []);
@@ -264,17 +263,43 @@ const AdminDuelMonitor = () => {
                                             {match.winnerUsername || (match.outcome === 'DRAW' ? 'Draw' : '-')}
                                         </td>
                                         <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                                            <span style={{
-                                                padding: '2px 8px',
-                                                borderRadius: '4px',
-                                                fontSize: '10px',
-                                                letterSpacing: '0.08em',
-                                                textTransform: 'uppercase',
-                                                backgroundColor: STATUS_COLORS[match.status] + '20',
-                                                color: STATUS_COLORS[match.status],
-                                            }}>
-                                                {match.status}
-                                            </span>
+                                            {match.outcome === 'DRAW' ? (
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '10px',
+                                                    letterSpacing: '0.08em',
+                                                    textTransform: 'uppercase',
+                                                    backgroundColor: C.warning + '20',
+                                                    color: C.warning,
+                                                }}>
+                                                    DRAW
+                                                </span>
+                                            ) : match.outcome === 'ABANDONED' ? (
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '10px',
+                                                    letterSpacing: '0.08em',
+                                                    textTransform: 'uppercase',
+                                                    backgroundColor: C.outline + '20',
+                                                    color: C.outline,
+                                                }}>
+                                                    ABANDONED
+                                                </span>
+                                            ) : (
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '10px',
+                                                    letterSpacing: '0.08em',
+                                                    textTransform: 'uppercase',
+                                                    backgroundColor: C.success + '20',
+                                                    color: C.success,
+                                                }}>
+                                                    {match.outcome || 'FINISHED'}
+                                                </span>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
