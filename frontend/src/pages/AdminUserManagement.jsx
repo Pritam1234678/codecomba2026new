@@ -72,8 +72,7 @@ const AdminUserManagement = () => {
 
     const filtered = users.filter(u => {
         const matchSearch = u.username?.toLowerCase().includes(search.toLowerCase()) ||
-                            u.email?.toLowerCase().includes(search.toLowerCase()) ||
-                            u.rollNumber?.toLowerCase().includes(search.toLowerCase());
+                            u.email?.toLowerCase().includes(search.toLowerCase());
         const matchFilter = filter === 'ALL' || (filter === 'ACTIVE' && u.enabled) || (filter === 'DISABLED' && !u.enabled);
         return matchSearch && matchFilter;
     });
@@ -165,9 +164,9 @@ const AdminUserManagement = () => {
                 style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceCon, overflow: 'hidden' }}
             >
                 {/* Table header */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px 120px 100px 160px', gap: '16px', padding: '14px 24px', borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceHi }}>
-                    {['Operative', 'Identifier', 'Roll ID', 'Status', 'Actions'].map((h, i) => (
-                        <span key={h} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase', textAlign: i >= 3 ? 'center' : 'left' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px 100px 160px', gap: '16px', padding: '14px 24px', borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceHi }}>
+                    {['Operative', 'Identifier', 'Status', 'Actions'].map((h, i) => (
+                        <span key={h} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase', textAlign: i >= 2 ? 'center' : 'left' }}>
                             {h}
                         </span>
                     ))}
@@ -314,7 +313,7 @@ const UserRow = ({ user, index, onToggle, onDelete }) => {
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             style={{
-                display: 'grid', gridTemplateColumns: '1fr 200px 120px 100px 160px',
+                display: 'grid', gridTemplateColumns: '1fr 200px 100px 160px',
                 gap: '16px', padding: '18px 24px',
                 borderBottom: `1px solid ${C.border}`,
                 borderLeft: `2px solid ${user.enabled ? '#66bb6a' : C.border}`,
@@ -344,11 +343,6 @@ const UserRow = ({ user, index, onToggle, onDelete }) => {
             {/* Email */}
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
-            </div>
-
-            {/* Roll */}
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline, display: 'flex', alignItems: 'center' }}>
-                {user.rollNumber || '—'}
             </div>
 
             {/* Status */}
