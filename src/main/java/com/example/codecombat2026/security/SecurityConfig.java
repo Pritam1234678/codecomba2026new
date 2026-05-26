@@ -86,9 +86,14 @@ public class SecurityConfig {
                                 "form-action 'self'"
                         ))
                         .frameOptions(frame -> frame.deny())
-                        .httpStrictTransportSecurity(hsts -> hsts
-                                .includeSubDomains(true)
-                                .maxAgeInSeconds(31536000))
+                        // HSTS via static writer — Spring's built-in HSTS only fires on
+                        // requests it considers secure. Behind nginx TLS termination the
+                        // backend sees HTTP, so the header would never be sent. The
+                        // edge is HTTPS-only, so emitting unconditionally is safe.
+                        .httpStrictTransportSecurity(hsts -> hsts.disable())
+                        .addHeaderWriter(new org.springframework.security.web.header.writers.StaticHeadersWriter(
+                                "Strict-Transport-Security",
+                                "max-age=31536000; includeSubDomains"))
                         .contentTypeOptions(opts -> {})
                         .referrerPolicy(rp -> rp.policy(
                                 org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
