@@ -26,7 +26,7 @@ const EditProfile = () => {
     const [loading,       setLoading]       = useState(true);
     const [saving,        setSaving]        = useState(false);
     const [toast,         setToast]         = useState(null);
-    const [formData,      setFormData]      = useState({ email: '', fullName: '', phoneNumber: '', rollNumber: '', branch: '' });
+    const [formData,      setFormData]      = useState({ email: '', fullName: '', branch: '' });
     const [selectedPhoto, setSelectedPhoto] = useState(null);
     const [photoPreview,  setPhotoPreview]  = useState(null);
     const [currentPhotoUrl, setCurrentPhotoUrl] = useState(null);
@@ -41,8 +41,6 @@ const EditProfile = () => {
                 setFormData({
                     email:       res.data.email       || '',
                     fullName:    res.data.fullName     || '',
-                    phoneNumber: res.data.phoneNumber  || '',
-                    rollNumber:  res.data.rollNumber   || '',
                     branch:      res.data.branch       || '',
                 });
                 setCurrentPhotoUrl(res.data.photoUrl);
@@ -163,7 +161,6 @@ const EditProfile = () => {
                                 {[
                                     { label: 'Username',  value: displayName },
                                     { label: 'Branch',    value: formData.branch || '—' },
-                                    { label: 'Roll No.',  value: formData.rollNumber || '—' },
                                     { label: 'Clearance', value: 'Architect' },
                                 ].map(({ label, value }) => (
                                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: `1px solid rgba(80,69,59,0.3)`, paddingBottom: '10px' }}>
@@ -193,8 +190,6 @@ const EditProfile = () => {
                                     <TerminalField label="Designation / Full Name" name="fullName" type="text" value={formData.fullName} onChange={handleChange} placeholder="Enter designation" required />
                                 </div>
                                 <TerminalField label="Comms / Email"          name="email"       type="email" value={formData.email}       onChange={handleChange} placeholder="Enter comms address" required />
-                                <TerminalField label="Terminal ID / Phone"    name="phoneNumber" type="tel"   value={formData.phoneNumber} onChange={handleChange} placeholder="+91 9876543210" />
-                                <TerminalField label="Registry Number / Roll" name="rollNumber"  type="text"  value={formData.rollNumber}  onChange={handleChange} placeholder="Enter registry number" />
                                 <TerminalField label="Sector / Branch"        name="branch"      type="text"  value={formData.branch}      onChange={handleChange} placeholder="Enter sector" />
                                 <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'flex-end', gap: '24px', marginTop: '1rem', paddingTop: '2rem', borderTop: `1px solid rgba(80,69,59,0.5)` }}>
                                     <button type="button" onClick={() => navigate(-1)}
