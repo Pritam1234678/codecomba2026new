@@ -6,20 +6,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Email sender with bounded exponential backoff for transient SMTP failures.
- *
- * Gmail SMTP returns 421/4xx for rate limiting and connection issues — those
- * are exactly the failures worth retrying. 5xx errors (auth, malformed) fail
- * fast on the first attempt.
+ * Uses HTML templates from classpath:email-templates/ for all transactional emails.
  */
 @Service
 public class EmailService {
@@ -32,31 +33,36 @@ public class EmailService {
     @Autowired
     private JavaMailSender mailSender;
 
-    @Value("${APP_URL:https://codecombat.live}")
+    @Value("${APP_URL:https://codecoder.in}")
     private String appUrl;
 
     @Value("${spring.mail.username}")
     private String fromEmail;
 
-    // ─── Email Template ───────────────────────────────────────────────────────
+    // ─── Template loader ──────────────────────────────────────────────────────
 
-    private String wrap(String content) {
-        return "<!DOCTYPE html><html><head>"
-            + "<meta charset='UTF-8'>"
-            + "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
-            + "</head><body style='margin:0;padding:0;font-family:Arial,sans-serif;background:#000;'>"
-            + "<div style='max-width:600px;margin:40px auto;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:16px;overflow:hidden;'>"
-            + "<div style='background:linear-gradient(135deg,#10b981,#059669);padding:30px;text-align:center;'>"
-            + "<h1 style='margin:0;color:white;font-size:28px;font-weight:bold;'>CodeCombat</h1>"
-            + "<p style='margin:5px 0 0;color:rgba(255,255,255,0.9);font-size:14px;'>Competitive Programming Platform</p>"
-            + "</div>"
-            + "<div style='padding:40px 30px;color:#e5e7eb;'>" + content + "</div>"
-            + "<div style='background:rgba(0,0,0,0.3);padding:20px 30px;text-align:center;border-top:1px solid rgba(255,255,255,0.1);'>"
-            + "<p style='margin:0 0 8px;color:#9ca3af;font-size:12px;'>This is an automated email. Please do not reply.</p>"
-            + "<p style='margin:0 0 8px;color:#10b981;font-size:12px;font-weight:bold;'>⚠️ Check spam/junk if you don't see this in your inbox.</p>"
-            + "<p style='margin:0;color:#6b7280;font-size:11px;'>© 2026 CodeCombat. All rights reserved.</p>"
-            + "<p style='margin:5px 0 0;'><a href='" + appUrl + "' style='color:#10b981;text-decoration:none;font-size:12px;'>Visit CodeCombat</a></p>"
-            + "</div></div></body></html>";
+    /**
+     * Load an HTML template from classpath:email-templates/{name}.html
+     * and replace {{PLACEHOLDER}} tokens with provided values.
+     * Falls back to a plain-text body if the template file is missing.
+     */
+    private String loadTemplate(String templateName, String... replacements) {
+        try {
+            ClassPathResource resource = new ClassPathResource("email-templates/" + templateName + ".html");
+            try (InputStream is = resource.getInputStream()) {
+                String html = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                // Always inject APP_URL
+                html = html.replace("{{APP_URL}}", appUrl);
+                // Apply caller-supplied key=value pairs
+                for (int i = 0; i + 1 < replacements.length; i += 2) {
+                    html = html.replace("{{" + replacements[i] + "}}", replacements[i + 1]);
+                }
+                return html;
+            }
+        } catch (IOException e) {
+            log.error("Email template '{}' not found, using fallback: {}", templateName, e.getMessage());
+            return "<p>Please visit <a href='" + appUrl + "'>" + appUrl + "</a></p>";
+        }
     }
 
     /**
@@ -87,13 +93,13 @@ public class EmailService {
         throw new MessagingException("Email send failed after " + MAX_ATTEMPTS + " attempts", last);
     }
 
-    private void sendHtml(String to, String subject, String content) throws MessagingException {
+    private void sendHtml(String to, String subject, String htmlBody) throws MessagingException {
         MimeMessage msg = mailSender.createMimeMessage();
         MimeMessageHelper h = new MimeMessageHelper(msg, true, "UTF-8");
-        h.setFrom("no-reply@codecombat.live");
+        h.setFrom("no-reply@codecoder.in");
         h.setTo(to);
         h.setSubject(subject);
-        h.setText(wrap(content), true);
+        h.setText(htmlBody, true);
         sendWithRetry(msg);
     }
 
@@ -132,23 +138,9 @@ public class EmailService {
 
     public void sendWelcomeEmail(String userEmail, String fullName) {
         try {
-            String safeFullName = org.springframework.web.util.HtmlUtils.htmlEscape(fullName == null ? "user" : fullName);
-            String content = "<h2 style='color:#10b981;margin-top:0;'>Welcome, " + safeFullName + "! 🚀</h2>"
-                + "<p style='font-size:16px;line-height:1.6;'>Thank you for joining CodeCombat!</p>"
-                + "<div style='background:rgba(16,185,129,0.1);padding:20px;border-radius:12px;margin:20px 0;border:1px solid rgba(16,185,129,0.3);'>"
-                + "<h3 style='color:#10b981;margin-top:0;'>What you can do:</h3>"
-                + "<ul style='list-style:none;padding:0;'>"
-                + "<li style='padding:8px 0;'>✅ Participate in coding contests</li>"
-                + "<li style='padding:8px 0;'>✅ Solve challenging problems</li>"
-                + "<li style='padding:8px 0;'>✅ Compete and climb the leaderboard</li>"
-                + "</ul></div>"
-                + "<div style='text-align:center;margin:30px 0;'>"
-                + "<a href='" + appUrl + "/contests' style='background:linear-gradient(135deg,#10b981,#059669);color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;'>Explore Contests</a>"
-                + "</div>"
-                + "<p style='color:#9ca3af;font-size:14px;'>Questions? Contact <a href='mailto:support@codecombat.live' style='color:#10b981;'>support@codecombat.live</a></p>"
-                + "<p style='font-size:18px;'>Happy Coding! 💻</p>";
-
-            sendHtml(userEmail, "Welcome to CodeCombat! 🎉", content);
+            String safeName = org.springframework.web.util.HtmlUtils.htmlEscape(fullName == null ? "Architect" : fullName);
+            String html = loadTemplate("welcome", "FULL_NAME", safeName);
+            sendHtml(userEmail, "Welcome to the Arena | CodeCoder", html);
         } catch (Exception e) {
             log.error("Failed to send welcome email to {} after retries: {}", userEmail, e.getMessage());
             // Don't throw — welcome email failure shouldn't block registration
@@ -158,22 +150,13 @@ public class EmailService {
     public void sendPasswordResetEmail(String userEmail, String fullName, String resetToken) {
         try {
             String resetLink = appUrl + "/reset-password?token=" + resetToken;
-            String safeFullName = org.springframework.web.util.HtmlUtils.htmlEscape(fullName == null ? "user" : fullName);
-
-            String content = "<h2 style='color:#10b981;margin-top:0;'>Password Reset Request</h2>"
-                + "<p style='font-size:16px;'>Dear " + safeFullName + ",</p>"
-                + "<p style='font-size:16px;line-height:1.6;'>We received a request to reset your CodeCombat password.</p>"
-                + "<div style='background:rgba(239,68,68,0.1);padding:20px;border-radius:12px;margin:20px 0;border-left:4px solid #ef4444;'>"
-                + "<p style='margin:0;color:#fca5a5;'><strong>⏰ This link expires in 15 minutes.</strong></p>"
-                + "</div>"
-                + "<div style='text-align:center;margin:30px 0;'>"
-                + "<a href='" + resetLink + "' style='background:linear-gradient(135deg,#10b981,#059669);color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;'>Reset Password</a>"
-                + "</div>"
-                + "<p style='font-size:12px;color:#9ca3af;word-break:break-all;'>Or copy: <span style='color:#10b981;'>" + resetLink + "</span></p>"
-                + "<p style='color:#9ca3af;font-size:14px;'>If you didn't request this, ignore this email.</p>"
-                + "<p style='color:#ef4444;font-size:14px;'><strong>⚠️ Never share this link with anyone.</strong></p>";
-
-            sendHtml(userEmail, "Password Reset Request - CodeCombat", content);
+            String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new java.util.Date());
+            String html = loadTemplate("password-reset",
+                "RESET_LINK", resetLink,
+                "IP_ADDRESS", "—",
+                "TIMESTAMP", timestamp
+            );
+            sendHtml(userEmail, "Identity Verification | CodeCoder", html);
         } catch (Exception e) {
             log.error("Failed to send password reset email to {} after retries: {}", userEmail, e.getMessage());
             throw new RuntimeException("Failed to send password reset email", e);
@@ -183,30 +166,19 @@ public class EmailService {
     public void sendUsernameRecoveryEmail(String userEmail, String username) {
         try {
             String safeUsername = org.springframework.web.util.HtmlUtils.htmlEscape(username == null ? "" : username);
-            String content = "<h2 style='color:#10b981;margin-top:0;'>Username Recovery</h2>"
-                + "<p style='font-size:16px;'>Hello,</p>"
-                + "<p style='font-size:16px;line-height:1.6;'>Your CodeCombat username is:</p>"
-                + "<div style='background:rgba(16,185,129,0.2);padding:25px;border-radius:12px;margin:25px 0;text-align:center;border:2px solid rgba(16,185,129,0.5);'>"
-                + "<p style='margin:0;font-size:28px;font-weight:bold;color:#10b981;'>" + safeUsername + "</p>"
-                + "</div>"
-                + "<div style='text-align:center;margin:30px 0;'>"
-                + "<a href='" + appUrl + "/login' style='background:linear-gradient(135deg,#10b981,#059669);color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;'>Login Now</a>"
-                + "</div>"
-                + "<p style='color:#9ca3af;font-size:14px;'>If you didn't request this, ignore this email.</p>";
-
-            sendHtml(userEmail, "Username Recovery - CodeCombat", content);
+            String html = loadTemplate("username-recovery", "USERNAME", safeUsername);
+            sendHtml(userEmail, "Access Restored | CodeCoder", html);
             log.info("Username recovery email sent to {}", userEmail);
-
         } catch (MessagingException e) {
-            // HTML send failed across all retries — try plain-text once as a last resort
+            // HTML send failed — try plain-text fallback
             log.error("HTML email failed for {}, trying plain text fallback: {}", userEmail, e.getMessage());
             try {
                 SimpleMailMessage plain = new SimpleMailMessage();
-                plain.setFrom("no-reply@codecombat.live");
+                plain.setFrom("no-reply@codecoder.in");
                 plain.setTo(userEmail);
-                plain.setSubject("Username Recovery - CodeCombat");
-                plain.setText("Hello,\n\nYour CodeCombat username is: " + username
-                    + "\n\nLogin at: " + appUrl + "/login\n\nIf you didn't request this, ignore this email.\n\nCodeCombat Team");
+                plain.setSubject("Access Restored | CodeCoder");
+                plain.setText("Hello,\n\nYour CodeCoder username is: " + username
+                    + "\n\nLogin at: " + appUrl + "/login\n\nIf you didn't request this, ignore this email.\n\nCodeCoder Team");
                 mailSender.send(plain);
             } catch (Exception fallback) {
                 log.error("Plain text fallback also failed: {}", fallback.getMessage());
@@ -225,25 +197,13 @@ public class EmailService {
      */
     public void sendPasswordChangedNotification(String userEmail, String username, String ipAddress) {
         try {
-            String safeUsername = org.springframework.web.util.HtmlUtils.htmlEscape(username == null ? "user" : username);
             String safeIp = org.springframework.web.util.HtmlUtils.htmlEscape(ipAddress == null || ipAddress.isBlank() ? "unknown" : ipAddress);
             String time = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new java.util.Date());
-
-            String content = "<h2 style='color:#10b981;margin-top:0;'>Password Changed</h2>"
-                + "<p style='font-size:16px;'>Hello " + safeUsername + ",</p>"
-                + "<p style='font-size:16px;line-height:1.6;'>This is a confirmation that your CodeCombat password was just changed.</p>"
-                + "<div style='background:rgba(255,255,255,0.04);padding:16px;border-radius:8px;margin:16px 0;border-left:4px solid #10b981;'>"
-                + "<p style='margin:4px 0;'><strong style='color:#10b981;'>When:</strong> " + time + "</p>"
-                + "<p style='margin:4px 0;'><strong style='color:#10b981;'>From IP:</strong> " + safeIp + "</p>"
-                + "</div>"
-                + "<div style='background:rgba(239,68,68,0.1);padding:16px;border-radius:8px;margin:20px 0;border-left:4px solid #ef4444;'>"
-                + "<p style='margin:0;color:#fca5a5;'><strong>If this wasn't you</strong>, contact "
-                + "<a href='mailto:support@codecombat.live' style='color:#fca5a5;'>support@codecombat.live</a> immediately. "
-                + "Your account may be compromised.</p>"
-                + "</div>"
-                + "<p style='color:#9ca3af;font-size:14px;'>For security, all existing sessions have been signed out.</p>";
-
-            sendHtml(userEmail, "Your CodeCombat password was changed", content);
+            String html = loadTemplate("password-changed",
+                "TIME_STAMP", time,
+                "IP_ADDRESS", safeIp
+            );
+            sendHtml(userEmail, "Security Update | CodeCoder", html);
         } catch (Exception e) {
             // Non-fatal — password change has already succeeded.
             log.error("Failed to send password-changed notification to {}: {}", userEmail, e.getMessage());
