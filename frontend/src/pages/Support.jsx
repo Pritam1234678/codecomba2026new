@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import useResponsive from '../hooks/useResponsive';
 import TurnstileWidget from '../components/TurnstileWidget';
+import api from '../services/api';
 
 const C = {
     bg:        '#131313',
@@ -121,30 +122,17 @@ const Support = () => {
         }
         setLoading(true);
         try {
-            const res = await fetch('/api/support/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...formData, turnstileToken }),
-            });
-            if (res.ok) {
-                setSubmitted(true);
-                setTurnstileToken('');
-                try { window.turnstile?.reset(turnstileWidgetRef.current); } catch { /* ignore */ }
-                setTimeout(() => {
-                    setSubmitted(false);
-                    setFormData({ fullName: '', email: '', phone: '', message: '', website: '' });
-                }, 4000);
-            } else {
-                let msg = 'Failed to send message. Please try again.';
-                try {
-                    const data = await res.json();
-                    if (data?.error) msg = data.error;
-                } catch { /* ignore */ }
-                setError(msg);
-                resetTurnstile();
-            }
-        } catch {
-            setError('Error sending message. Please try again later.');
+            await api.post('/support/send', { ...formData, turnstileToken });
+            setSubmitted(true);
+            setTurnstileToken('');
+            try { window.turnstile?.reset(turnstileWidgetRef.current); } catch { /* ignore */ }
+            setTimeout(() => {
+                setSubmitted(false);
+                setFormData({ fullName: '', email: '', phone: '', message: '', website: '' });
+            }, 4000);
+        } catch (err) {
+            const msg = err.response?.data?.error || err.response?.data?.message || 'Error sending message. Please try again later.';
+            setError(msg);
             resetTurnstile();
         } finally {
             setLoading(false);
