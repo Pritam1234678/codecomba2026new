@@ -119,16 +119,21 @@ public class EmailService {
             h.setSubject("Support Request from " + safeName);
             h.setReplyTo(senderEmail);
 
-            String content = "<h2 style='color:#10b981;margin-top:0;'>New Support Request</h2>"
-                + "<div style='background:rgba(255,255,255,0.05);padding:20px;border-radius:8px;border-left:4px solid #10b981;'>"
-                + "<p><strong style='color:#10b981;'>Name:</strong> " + safeName + "</p>"
-                + "<p><strong style='color:#10b981;'>Email:</strong> " + safeEmail + "</p>"
-                + "<p><strong style='color:#10b981;'>Phone:</strong> " + (!safePhone.isEmpty() ? safePhone : "Not provided") + "</p>"
-                + "<p><strong style='color:#10b981;'>Message:</strong></p>"
-                + "<p style='padding:15px;background:rgba(0,0,0,0.2);border-radius:8px;white-space:pre-wrap;'>" + safeMessage + "</p>"
-                + "</div>";
+            String content = "<!DOCTYPE html><html><head><meta charset='UTF-8'></head>"
+                + "<body style='margin:0;padding:0;background:#131313;font-family:Arial,sans-serif;'>"
+                + "<div style='max-width:600px;margin:0 auto;background:#1c1b1b;border:1px solid #50453b;padding:32px;'>"
+                + "<h2 style='color:#f1bc8b;margin-top:0;font-family:Georgia,serif;'>New Support Request</h2>"
+                + "<div style='background:#0e0e0e;padding:20px;border-left:2px solid #f1bc8b;'>"
+                + "<p style='color:#d4c4b7;'><strong style='color:#f1bc8b;'>Name:</strong> " + safeName + "</p>"
+                + "<p style='color:#d4c4b7;'><strong style='color:#f1bc8b;'>Email:</strong> " + safeEmail + "</p>"
+                + "<p style='color:#d4c4b7;'><strong style='color:#f1bc8b;'>Phone:</strong> " + (!safePhone.isEmpty() ? safePhone : "Not provided") + "</p>"
+                + "<p style='color:#d4c4b7;'><strong style='color:#f1bc8b;'>Message:</strong></p>"
+                + "<p style='color:#d4c4b7;padding:12px;background:#131313;white-space:pre-wrap;'>" + safeMessage + "</p>"
+                + "</div>"
+                + "<p style='color:#9d8e83;font-size:11px;margin-top:24px;'>Sent via codecoder.in support form</p>"
+                + "</div></body></html>";
 
-            h.setText(wrap(content), true);
+            h.setText(content, true);
             sendWithRetry(msg);
         } catch (Exception e) {
             log.error("Failed to send support email after retries: {}", e.getMessage());
