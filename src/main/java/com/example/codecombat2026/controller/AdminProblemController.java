@@ -6,6 +6,7 @@ import com.example.codecombat2026.entity.Problem;
 import com.example.codecombat2026.repository.ContestRepository;
 import com.example.codecombat2026.repository.ProblemRepository;
 import com.example.codecombat2026.service.CacheService;
+import com.example.codecombat2026.service.ContestProblemService;
 import com.example.codecombat2026.service.ProblemService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ public class AdminProblemController {
     @Autowired private ContestRepository contestRepository;
     @Autowired private ProblemService problemService;   // for cache eviction
     @Autowired private CacheService cacheService;       // for snippet cache eviction
+    @Autowired private ContestProblemService contestProblemService; // dual-write to junction
 
     @GetMapping
     public List<Problem> getAllProblems() {
@@ -31,6 +33,36 @@ public class AdminProblemController {
     @GetMapping("/contest/{contestId}")
     public List<Problem> getProblemsByContest(@PathVariable Long contestId) {
         return problemRepository.findByContestId(contestId);
+    }
+
+    /**
+     * Return every contest the given problem currently belongs to.
+     * Powers the "Contest Associations" panel in EditProblem.
+     * 404 if the problem does not exist.
+     */
+    @GetMapping("/{problemId}/contests")
+    public List<Contest> getContestsForProblem(@PathVariable Long problemId) {
+        return contestProblemService.listContestsForProblem(problemId);
+    }
+
+    /**
+     * Standalone problem creation — no contest binding.
+     * Mirrors the defaults of {@link #createProblem(Long, Problem)} but does
+     * NOT call {@code problem.setContest(...)} and does NOT insert a junction
+     * row, so the persisted row has {@code contest_id IS NULL} and zero
+     * rows in {@code contest_problems}.
+     */
+    @PostMapping
+    public Problem createStandaloneProblem(@RequestBody Problem problem) {
+        if (problem.getActive() == null) {
+            problem.setActive(true);
+        }
+        if (problem.getLevel() == null || problem.getLevel().isBlank()) {
+            problem.setLevel("MEDIUM");
+        }
+        Problem saved = problemRepository.save(problem);
+        problemService.evictAllProblems();
+        return saved;
     }
 
     @PostMapping("/contest/{contestId}")
@@ -45,6 +77,12 @@ public class AdminProblemController {
             problem.setLevel("MEDIUM");
         }
         Problem saved = problemRepository.save(problem);
+        // Dual-write the M:N junction so the new problem is visible through
+        // contest_problems immediately. attach() is idempotent and also
+        // evicts problems:contest:{contestId}, but we keep the explicit
+        // evictContestProblems call below for safety — double eviction is
+        // harmless.
+        contestProblemService.attach(contestId, saved.getId());
         problemService.evictContestProblems(contestId);
         return saved;
     }

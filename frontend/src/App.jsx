@@ -97,6 +97,7 @@ function App() {
       <Route path="/admin/contests/:id/problems" element={<div className="p-8 flex-1"><AdminRoute><ManageContestProblems /></AdminRoute></div>} />
       <Route path="/admin/contests/:contestId/problems/add" element={<AdminRoute><AddProblem /></AdminRoute>} />
       <Route path="/admin/problems" element={<div className="p-8 flex-1"><AdminRoute><AdminProblemManagement /></AdminRoute></div>} />
+      <Route path="/admin/problems/new" element={<div className="p-8 flex-1"><AdminRoute><AddProblem /></AdminRoute></div>} />
       <Route path="/admin/problems/:id/edit" element={<div className="p-8 flex-1"><AdminRoute><EditProblem /></AdminRoute></div>} />
       <Route path="/admin/problems/:id/testcases" element={<div className="p-8 flex-1"><AdminRoute><ManageTestCases /></AdminRoute></div>} />
       <Route path="/admin/duels" element={<div className="p-8 flex-1"><AdminRoute><AdminDuelMonitor /></AdminRoute></div>} />

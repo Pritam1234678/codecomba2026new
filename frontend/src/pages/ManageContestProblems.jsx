@@ -23,8 +23,54 @@ export default function ManageContestProblems() {
     const [loading,  setLoading]  = useState(true);
     const [delModal, setDelModal] = useState({ show:false, problemId:null, problemTitle:'' });
     const [toast,    setToast]    = useState(null);
+    const [browseModalOpen, setBrowseModalOpen] = useState(false);
+    const [browseSearch, setBrowseSearch] = useState('');
+    const [browseLevel, setBrowseLevel] = useState('ALL');
+    const [available, setAvailable] = useState([]);
+    const [browseLoading, setBrowseLoading] = useState(false);
+    const [selectedIds, setSelectedIds] = useState(new Set());
 
     useEffect(() => { load(); }, [id]);
+
+    // Debounced fetch of available problems while modal is open
+    useEffect(() => {
+        if (!browseModalOpen) return;
+        const handle = setTimeout(async () => {
+            setBrowseLoading(true);
+            try {
+                const res = await api.get(`/admin/contests/${id}/available-problems`, {
+                    params: {
+                        search: browseSearch || undefined,
+                        level: browseLevel === 'ALL' ? undefined : browseLevel,
+                    },
+                });
+                setAvailable(res.data || []);
+            } catch (err) {
+                console.error('Browse load error:', err);
+                setAvailable([]);
+            } finally {
+                setBrowseLoading(false);
+            }
+        }, 300);
+        return () => clearTimeout(handle);
+    }, [browseModalOpen, browseSearch, browseLevel, id]);
+
+    const closeBrowseModal = () => {
+        setBrowseModalOpen(false);
+        setBrowseSearch('');
+        setBrowseLevel('ALL');
+        setAvailable([]);
+        setSelectedIds(new Set());
+    };
+
+    const toggleSelected = (pid) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(pid)) next.delete(pid);
+            else next.add(pid);
+            return next;
+        });
+    };
 
     const load = async () => {
         try {
@@ -55,11 +101,11 @@ export default function ManageContestProblems() {
 
     const confirmDelete = async () => {
         try {
-            await api.delete(`/admin/problems/${delModal.problemId}`);
+            await api.delete(`/admin/contests/${id}/problems/${delModal.problemId}`);
             setDelModal({ show: false });
-            showToast('Problem removed.');
+            showToast('Problem detached.');
             load();
-        } catch { showToast('Failed to delete.', 'error'); setDelModal({ show: false }); }
+        } catch { showToast('Failed to detach.', 'error'); setDelModal({ show: false }); }
     };
 
     if (loading) return (
@@ -93,6 +139,13 @@ export default function ManageContestProblems() {
                             onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
                         >
                             ← Edit Contest
+                        </button>
+                        <button onClick={() => setBrowseModalOpen(true)}
+                            style={{ display:'flex', alignItems:'center', gap:'8px', padding:'12px 24px', border:`1px solid ${C.secondary}`, color: C.secondary, backgroundColor: C.surfaceCon, fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', letterSpacing:'0.1em', textTransform:'uppercase', cursor:'pointer', transition:'all 0.2s' }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = C.surfaceCon; e.currentTarget.style.color = C.secondary; }}
+                        >
+                            Browse Existing
                         </button>
                         <button onClick={() => navigate(`/admin/contests/${id}/problems/add`)}
                             style={{ display:'flex', alignItems:'center', gap:'8px', padding:'12px 24px', border:`1px solid ${C.secondary}`, color: C.secondary, backgroundColor: C.surfaceCon, fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', letterSpacing:'0.1em', textTransform:'uppercase', cursor:'pointer', transition:'all 0.2s' }}
@@ -190,9 +243,9 @@ export default function ManageContestProblems() {
                             style={{ backgroundColor: C.surfaceCon, border:`1px solid ${C.error}`, maxWidth:'420px', width:'100%', padding:'2.5rem', position:'relative' }}
                         >
                             <div style={{ position:'absolute', top:0, left:0, right:0, height:'2px', backgroundColor: C.error }} />
-                            <h3 style={{ fontFamily:"'Playfair Display', serif", fontSize:'24px', color: C.error, marginBottom:'1rem' }}>Remove Problem</h3>
+                            <h3 style={{ fontFamily:"'Playfair Display', serif", fontSize:'24px', color: C.error, marginBottom:'1rem' }}>Detach Problem</h3>
                             <p style={{ fontFamily:"'Geist', sans-serif", fontSize:'14px', color: C.muted, lineHeight:1.6, marginBottom:'2rem' }}>
-                                Permanently remove <span style={{ fontFamily:"'JetBrains Mono', monospace", color: C.onBg }}>{delModal.problemTitle}</span> from this contest?
+                                Detach <span style={{ fontFamily:"'JetBrains Mono', monospace", color: C.onBg }}>{delModal.problemTitle}</span> from this contest? The problem will remain available in other contests and the standalone pool.
                             </p>
                             <div style={{ display:'flex', justifyContent:'flex-end', gap:'16px' }}>
                                 <button onClick={() => setDelModal({show:false})}
@@ -203,7 +256,179 @@ export default function ManageContestProblems() {
                                     style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', letterSpacing:'0.1em', textTransform:'uppercase', border:`1px solid ${C.error}`, color: C.error, backgroundColor:'transparent', padding:'10px 24px', cursor:'pointer', transition:'all 0.2s' }}
                                     onMouseEnter={e=>{e.currentTarget.style.backgroundColor=C.error;e.currentTarget.style.color=C.bg;}}
                                     onMouseLeave={e=>{e.currentTarget.style.backgroundColor='transparent';e.currentTarget.style.color=C.error;}}
-                                >Delete</button>
+                                >Detach</button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ── Browse Existing Modal ── */}
+            <AnimatePresence>
+                {browseModalOpen && (
+                    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}
+                        style={{ position:'fixed', inset:0, zIndex:70, display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'rgba(0,0,0,0.7)', backdropFilter:'blur(8px)', padding:'24px' }}
+                    >
+                        <motion.div initial={{scale:0.95,y:16}} animate={{scale:1,y:0}}
+                            style={{ backgroundColor: C.surfaceCon, border:`1px solid ${C.border}`, maxWidth:'720px', width:'100%', maxHeight:'80vh', display:'flex', flexDirection:'column', position:'relative' }}
+                        >
+                            <div style={{ position:'absolute', top:0, left:0, right:0, height:'2px', backgroundColor: C.secondary }} />
+
+                            {/* Header */}
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'1.75rem 2rem 1rem', borderBottom:`1px solid ${C.border}` }}>
+                                <div>
+                                    <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'10px', letterSpacing:'0.2em', color: C.secondary, textTransform:'uppercase', display:'block', marginBottom:'6px' }}>
+                                        Pool Selection
+                                    </span>
+                                    <h3 style={{ fontFamily:"'Playfair Display', serif", fontSize:'26px', fontWeight:600, color: C.onBg, lineHeight:1.1 }}>Browse Existing Problems</h3>
+                                </div>
+                                <button onClick={closeBrowseModal}
+                                    style={{ background:'none', border:`1px solid ${C.border}`, color: C.outline, cursor:'pointer', width:'36px', height:'36px', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.2s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = C.error; e.currentTarget.style.color = C.error; }}
+                                    onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.outline; }}
+                                    aria-label="Close"
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize:'18px' }}>close</span>
+                                </button>
+                            </div>
+
+                            {/* Filter row */}
+                            <div style={{ padding:'1rem 2rem', borderBottom:`1px solid ${C.border}`, display:'flex', flexDirection:'column', gap:'12px' }}>
+                                <input
+                                    type="text"
+                                    value={browseSearch}
+                                    onChange={e => setBrowseSearch(e.target.value)}
+                                    placeholder="Search problems..."
+                                    style={{ width:'100%', backgroundColor: C.surfaceMin, border:`1px solid ${C.border}`, color: C.onBg, padding:'10px 14px', fontFamily:"'JetBrains Mono', monospace", fontSize:'12px', letterSpacing:'0.05em', outline:'none' }}
+                                />
+                                <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
+                                    {['ALL','EASY','MEDIUM','HARD'].map(lvl => {
+                                        const active = browseLevel === lvl;
+                                        const cfg = LEVEL_CFG[lvl];
+                                        const activeColor = cfg ? cfg.color : C.secondary;
+                                        const activeBorder = cfg ? cfg.border : C.secondary;
+                                        const activeBg = cfg ? cfg.bg : 'rgba(233,193,118,0.12)';
+                                        return (
+                                            <button key={lvl} onClick={() => setBrowseLevel(lvl)}
+                                                style={{
+                                                    fontFamily:"'JetBrains Mono', monospace",
+                                                    fontSize:'10px',
+                                                    letterSpacing:'0.15em',
+                                                    textTransform:'uppercase',
+                                                    padding:'6px 14px',
+                                                    cursor:'pointer',
+                                                    transition:'all 0.2s',
+                                                    border: active ? `1px solid ${activeBorder}` : `1px solid ${C.border}`,
+                                                    color: active ? activeColor : C.outline,
+                                                    backgroundColor: active ? activeBg : 'transparent',
+                                                }}
+                                            >
+                                                {lvl}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Scrollable list */}
+                            <div style={{ flex:1, overflowY:'auto', padding:'8px 0' }}>
+                                {browseLoading ? (
+                                    <div style={{ padding:'3rem', textAlign:'center', fontFamily:"'JetBrains Mono', monospace", fontSize:'12px', color: C.outline }}>
+                                        Loading...
+                                    </div>
+                                ) : available.length === 0 ? (
+                                    <div style={{ padding:'3rem', textAlign:'center', fontFamily:"'JetBrains Mono', monospace", fontSize:'12px', color: C.outline }}>
+                                        No available problems match your filters.
+                                    </div>
+                                ) : (
+                                    <div style={{ display:'flex', flexDirection:'column' }}>
+                                        {available.map(p => {
+                                            const lc = LEVEL_CFG[p.level] || LEVEL_CFG.MEDIUM;
+                                            const checked = selectedIds.has(p.id);
+                                            return (
+                                                <div key={p.id}
+                                                    onClick={() => toggleSelected(p.id)}
+                                                    style={{ display:'flex', alignItems:'center', gap:'14px', padding:'12px 2rem', cursor:'pointer', borderBottom:`1px solid ${C.surfaceHi}`, backgroundColor: checked ? C.surfaceHi : 'transparent', transition:'background-color 0.15s' }}
+                                                    onMouseEnter={e => { if (!checked) e.currentTarget.style.backgroundColor = C.surfaceLow; }}
+                                                    onMouseLeave={e => { if (!checked) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={checked}
+                                                        onChange={() => toggleSelected(p.id)}
+                                                        onClick={e => e.stopPropagation()}
+                                                        style={{ width:'16px', height:'16px', accentColor: C.secondary, cursor:'pointer', flexShrink:0 }}
+                                                    />
+                                                    <div style={{ flex:1, minWidth:0 }}>
+                                                        <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'4px' }}>
+                                                            <span style={{ fontFamily:"'Geist', sans-serif", fontSize:'15px', fontWeight:500, color: C.onBg, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.title}</span>
+                                                            <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'9px', letterSpacing:'0.12em', color: lc.color, border:`1px solid ${lc.border}`, backgroundColor: lc.bg, padding:'2px 8px', textTransform:'uppercase', flexShrink:0 }}>
+                                                                {p.level || 'MEDIUM'}
+                                                            </span>
+                                                        </div>
+                                                        <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'10px', color: C.outline, letterSpacing:'0.05em' }}>
+                                                            PRB-{String(p.id).padStart(3,'0')}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'1.25rem 2rem', borderTop:`1px solid ${C.border}`, backgroundColor: C.surfaceLow }}>
+                                <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', color: C.outline, letterSpacing:'0.1em', textTransform:'uppercase' }}>
+                                    {selectedIds.size} selected
+                                </span>
+                                <div style={{ display:'flex', gap:'12px' }}>
+                                    <button onClick={closeBrowseModal}
+                                        style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', letterSpacing:'0.1em', textTransform:'uppercase', color: C.outline, background:'none', border:'none', cursor:'pointer', padding:'10px 20px', transition:'color 0.2s' }}
+                                        onMouseEnter={e=>e.currentTarget.style.color=C.secondary} onMouseLeave={e=>e.currentTarget.style.color=C.outline}
+                                    >Cancel</button>
+                                    <button
+                                        disabled={selectedIds.size === 0}
+                                        onClick={async () => {
+                                            const ids = Array.from(selectedIds);
+                                            const total = ids.length;
+                                            if (total === 0) return;
+                                            const results = await Promise.allSettled(
+                                                ids.map(pid => api.post(`/admin/contests/${id}/problems/${pid}`))
+                                            );
+                                            const success = results.filter(r => r.status === 'fulfilled').length;
+                                            const failed = total - success;
+                                            if (failed === 0) {
+                                                showToast(`Attached ${success} problem(s).`);
+                                            } else if (success === 0) {
+                                                showToast('Failed to attach problems.', 'error');
+                                            } else {
+                                                showToast(`Attached ${success} of ${total}. ${failed} failed.`);
+                                            }
+                                            if (success > 0) {
+                                                closeBrowseModal();
+                                                load();
+                                            }
+                                        }}
+                                        style={{
+                                            fontFamily:"'JetBrains Mono', monospace",
+                                            fontSize:'11px',
+                                            letterSpacing:'0.1em',
+                                            textTransform:'uppercase',
+                                            border: `1px solid ${selectedIds.size === 0 ? C.border : C.secondary}`,
+                                            color: selectedIds.size === 0 ? C.outline : C.secondary,
+                                            backgroundColor:'transparent',
+                                            padding:'10px 24px',
+                                            cursor: selectedIds.size === 0 ? 'not-allowed' : 'pointer',
+                                            opacity: selectedIds.size === 0 ? 0.5 : 1,
+                                            transition:'all 0.2s',
+                                        }}
+                                        onMouseEnter={e => { if (selectedIds.size > 0) { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; } }}
+                                        onMouseLeave={e => { if (selectedIds.size > 0) { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.secondary; } }}
+                                    >
+                                        Confirm
+                                    </button>
+                                </div>
                             </div>
                         </motion.div>
                     </motion.div>

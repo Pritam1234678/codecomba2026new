@@ -102,14 +102,24 @@ const AdminProblemManagement = () => {
                         View, edit, and manage all problems across contests.
                     </p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: `1px solid ${C.border}`, paddingBottom: '8px', width: isMobile ? '100%' : '260px' }}>
-                    <span className="material-symbols-outlined" style={{ color: C.outline, fontSize: '18px' }}>search</span>
-                    <input
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        placeholder="SEARCH PROBLEMS..."
-                        style={{ background: 'transparent', border: 'none', outline: 'none', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.08em', color: C.onBg, width: '100%' }}
-                    />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: `1px solid ${C.border}`, paddingBottom: '8px', width: isMobile ? '100%' : '260px' }}>
+                        <span className="material-symbols-outlined" style={{ color: C.outline, fontSize: '18px' }}>search</span>
+                        <input
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="SEARCH PROBLEMS..."
+                            style={{ background: 'transparent', border: 'none', outline: 'none', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.08em', color: C.onBg, width: '100%' }}
+                        />
+                    </div>
+                    <button
+                        onClick={() => navigate('/admin/problems/new')}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', border: `1px solid ${C.secondary}`, color: C.secondary, backgroundColor: C.surfaceCon, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}
+                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; }}
+                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = C.surfaceCon; e.currentTarget.style.color = C.secondary; }}
+                    >
+                        + Create New Problem
+                    </button>
                 </div>
             </motion.header>
 

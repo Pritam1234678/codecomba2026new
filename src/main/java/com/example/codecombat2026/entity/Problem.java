@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -58,6 +59,26 @@ public class Problem {
 
     @Column(name = "contest_id", insertable = false, updatable = false)
     private Long contestId;
+
+    /**
+     * Canonical M:N relation between problems and contests, backed by the
+     * {@code contest_problems} junction table. All application reads of a
+     * problem's contest membership MUST go through this collection.
+     *
+     * <p>The legacy {@link #contest} / {@link #contestId} fields above are
+     * deprecated transition-only mappings: they are dual-written
+     * (best-effort) by {@code ContestProblemService} during the migration
+     * window and MUST NOT be read by application code. A future migration
+     * will drop the {@code problems.contest_id} column entirely.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "contest_problems",
+            joinColumns = @JoinColumn(name = "problem_id"),
+            inverseJoinColumns = @JoinColumn(name = "contest_id")
+    )
+    @JsonIgnore
+    private List<Contest> contests = new ArrayList<>();
 
     @Column(nullable = false)
     private Boolean active = true;

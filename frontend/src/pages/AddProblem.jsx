@@ -28,8 +28,13 @@ const emptySnippets = () =>
     Object.fromEntries(LANGS.map(l => [l, { solutionTemplate: '' }]));
 
 export default function AddProblem() {
-    const { contestId } = useParams();   // /admin/contests/:contestId/problems/add
+    const { contestId } = useParams();   // /admin/contests/:contestId/problems/add OR /admin/problems/new
     const navigate      = useNavigate();
+
+    // Standalone mode: route is /admin/problems/new (no :contestId param).
+    // Contest-bound mode: route includes :contestId.
+    const isStandalone = !contestId;
+    const backTarget   = isStandalone ? '/admin/problems' : `/admin/contests/${contestId}/problems`;
 
     const [saving,    setSaving]    = useState(false);
     const [error,     setError]     = useState('');
@@ -73,8 +78,10 @@ export default function AddProblem() {
                 images:   formData.images?.trim()   || null,
             };
 
-            // Create problem under this contest
-            const pRes = await api.post(`/admin/problems/contest/${contestId}`, data);
+            // Create problem — standalone or under a contest
+            const pRes = isStandalone
+                ? await api.post('/admin/problems', data)
+                : await api.post(`/admin/problems/contest/${contestId}`, data);
             const newProblemId = pRes.data.id;
 
             // Save all snippets (bulk)
@@ -84,7 +91,11 @@ export default function AddProblem() {
             );
 
             showToast('Problem created successfully.');
-            setTimeout(() => navigate(`/admin/contests/${contestId}/problems`), 1200);
+            setTimeout(() => navigate(
+                isStandalone
+                    ? `/admin/problems/${newProblemId}/edit`
+                    : `/admin/contests/${contestId}/problems`
+            ), 1200);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to create problem');
             setSaving(false);
@@ -117,7 +128,7 @@ export default function AddProblem() {
                 {/* Left */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                     <button
-                        onClick={() => navigate(`/admin/contests/${contestId}/problems`)}
+                        onClick={() => navigate(backTarget)}
                         style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             width: '40px', height: '40px',
@@ -140,7 +151,9 @@ export default function AddProblem() {
                             color: C.outline, textTransform: 'uppercase',
                             display: 'block', marginBottom: '2px',
                         }}>
-                            Contest CC-{String(contestId).padStart(4, '0')}
+                            {isStandalone
+                                ? 'New Standalone Problem'
+                                : `Contest CC-${String(contestId).padStart(4, '0')}`}
                         </span>
                         <h1 style={{
                             fontFamily: "'Playfair Display', serif",
@@ -155,7 +168,7 @@ export default function AddProblem() {
                 {/* Right */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                     <button
-                        onClick={() => navigate(`/admin/contests/${contestId}/problems`)}
+                        onClick={() => navigate(backTarget)}
                         style={{
                             fontFamily: "'JetBrains Mono', monospace",
                             fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase',

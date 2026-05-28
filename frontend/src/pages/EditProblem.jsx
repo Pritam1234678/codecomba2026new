@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import Editor from '@monaco-editor/react';
 import ProblemService from '../services/problem.service';
+import api from '../services/api';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api';
 
@@ -48,6 +49,9 @@ export default function EditProblem() {
         Object.fromEntries(LANGS.map(l => [l, { solutionTemplate: '' }]))
     );
 
+    const [contests, setContests] = useState([]);
+    const [allContests, setAllContests] = useState([]);
+
     useEffect(() => {
         const load = async () => {
             try {
@@ -62,6 +66,14 @@ export default function EditProblem() {
                     const map = Object.fromEntries(LANGS.map(l => [l, { solutionTemplate: '' }]));
                     sRes.data.forEach(s => { map[s.language] = { solutionTemplate: s.solutionTemplate || '' }; });
                     setSnippets(map);
+                } catch {}
+                try {
+                    const cRes = await api.get(`/admin/problems/${id}/contests`);
+                    setContests(Array.isArray(cRes.data) ? cRes.data : []);
+                } catch {}
+                try {
+                    const acRes = await api.get('/admin/contests');
+                    setAllContests(Array.isArray(acRes.data) ? acRes.data : []);
                 } catch {}
             } catch { setError('Failed to load problem'); }
             finally { setLoading(false); }
@@ -246,6 +258,87 @@ export default function EditProblem() {
                             <input type="checkbox" name="active" checked={formData.active} onChange={handleChange} style={{ accentColor: C.primary, width: '16px', height: '16px' }} />
                             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.muted, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Active (visible to users)</span>
                         </label>
+
+                        {/* Contest Associations */}
+                        <div>
+                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase', borderBottom: `1px solid ${C.border}`, paddingBottom: '8px', marginBottom: '1.5rem' }}>Contest Associations</div>
+                            {contests.length === 0 ? (
+                                <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, letterSpacing: '0.05em', lineHeight: 1.6 }}>
+                                    No contests attached. Use the picker below to attach this problem to a contest.
+                                </p>
+                            ) : (
+                                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {contests.map(c => (
+                                        <li key={c.id}
+                                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceLow }}
+                                        >
+                                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.onBg, letterSpacing: '0.05em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                <span style={{ color: C.secondary }}>{c.name || 'Untitled'}</span>
+                                                <span style={{ color: C.outline }}>{` (CC-${String(c.id).padStart(4, '0')})`}</span>
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    if (!window.confirm(`Detach "${c.name}" from this problem? The contest will lose this problem from its roster.`)) return;
+                                                    try {
+                                                        await api.delete(`/admin/contests/${c.id}/problems/${id}`);
+                                                        setContests(prev => prev.filter(x => x.id !== c.id));
+                                                        showToast(`Detached from ${c.name}.`);
+                                                    } catch {
+                                                        showToast('Failed to detach from contest.', 'error');
+                                                    }
+                                                }}
+                                                style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', border: `1px solid ${C.border}`, color: C.outline, backgroundColor: 'transparent', padding: '6px 14px', cursor: 'pointer', transition: 'all 0.2s' }}
+                                                onMouseEnter={e => { e.currentTarget.style.borderColor = C.error; e.currentTarget.style.color = C.error; }}
+                                                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.outline; }}
+                                            >
+                                                Detach
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            {/* Attach to Contest picker */}
+                            {(() => {
+                                const available = allContests.filter(c => !contests.some(x => x.id === c.id));
+                                return (
+                                    <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Add to Contest</label>
+                                        <select
+                                            value=""
+                                            disabled={available.length === 0}
+                                            onChange={async (e) => {
+                                                const cid = e.target.value;
+                                                if (!cid) return;
+                                                const target = allContests.find(c => String(c.id) === String(cid));
+                                                const name = target?.name || `CC-${String(cid).padStart(4, '0')}`;
+                                                try {
+                                                    await api.post(`/admin/contests/${cid}/problems/${id}`);
+                                                    if (target) setContests(prev => [...prev, target]);
+                                                    e.target.value = '';
+                                                    showToast(`Attached to ${name}.`);
+                                                } catch {
+                                                    e.target.value = '';
+                                                    showToast('Failed to attach.', 'error');
+                                                }
+                                            }}
+                                            style={{ width: '100%', backgroundColor: 'transparent', border: 'none', borderBottom: `1px solid ${C.border}`, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '14px', padding: '8px 0', outline: 'none', boxSizing: 'border-box', cursor: available.length === 0 ? 'not-allowed' : 'pointer', appearance: 'none' }}
+                                            onFocus={e => e.target.style.borderBottomColor = C.secondary}
+                                            onBlur={e => e.target.style.borderBottomColor = C.border}
+                                        >
+                                            <option value="" style={{ backgroundColor: C.surfaceLow, color: C.outline }}>
+                                                {available.length === 0 ? 'No contests available' : 'Add to Contest...'}
+                                            </option>
+                                            {available.map(c => (
+                                                <option key={c.id} value={c.id} style={{ backgroundColor: C.surfaceLow, color: C.onBg }}>
+                                                    {(c.name || 'Untitled') + ` (CC-${String(c.id).padStart(4, '0')})`}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                );
+                            })()}
+                        </div>
                     </form>
                 </section>
 

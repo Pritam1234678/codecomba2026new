@@ -1,11 +1,14 @@
 package com.example.codecombat2026.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import com.example.codecombat2026.util.TimeUtil;
 
 @Entity
@@ -32,6 +35,21 @@ public class Contest {
 
     @Column(nullable = false)
     private Boolean active = false;
+
+    /**
+     * Inverse-only navigation side of the M:N relation between contests and
+     * problems. The owning side is {@link Problem#contests} which maps the
+     * {@code contest_problems} junction table.
+     *
+     * <p><b>Do not mutate this collection directly.</b> All attach/detach
+     * operations MUST go through {@code ContestProblemService} so the
+     * dual-write bookkeeping against the legacy {@code problems.contest_id}
+     * column runs. Calling {@code contest.getProblems().add(...)} bypasses
+     * that invariant and will leave the database in an inconsistent state.
+     */
+    @ManyToMany(mappedBy = "contests", fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<Problem> problems = new ArrayList<>();
 
     public enum ContestStatus {
         UPCOMING,

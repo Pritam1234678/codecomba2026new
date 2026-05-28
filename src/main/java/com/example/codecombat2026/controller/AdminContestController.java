@@ -2,7 +2,10 @@ package com.example.codecombat2026.controller;
 
 import com.example.codecombat2026.dto.MessageResponse;
 import com.example.codecombat2026.entity.Contest;
+import com.example.codecombat2026.entity.ContestProblem;
+import com.example.codecombat2026.entity.Problem;
 import com.example.codecombat2026.repository.ContestRepository;
+import com.example.codecombat2026.service.ContestProblemService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +30,7 @@ public class AdminContestController {
     @Autowired private ContestRepository contestRepository;
     @Autowired private AdminDashboardController adminDashboardController;
     @Autowired private com.example.codecombat2026.service.ContestService contestService;
+    @Autowired private ContestProblemService contestProblemService;
     @Autowired private StringRedisTemplate redis;
     @Autowired private ObjectMapper objectMapper;
 
@@ -124,6 +128,32 @@ public class AdminContestController {
         evictAdminContestsCache();
         adminDashboardController.invalidateStatsCache();
         return ResponseEntity.ok(new MessageResponse("Contest deleted successfully"));
+    }
+
+    // ── Problem ↔ Contest M:N management ─────────────────────────────────────
+
+    /** Attach an existing problem to this contest. Idempotent. */
+    @PostMapping("/{contestId}/problems/{problemId}")
+    public ContestProblem attachProblem(@PathVariable Long contestId,
+                                        @PathVariable Long problemId) {
+        return contestProblemService.attach(contestId, problemId);
+    }
+
+    /** Detach a problem from this contest. Does NOT delete the problem. */
+    @DeleteMapping("/{contestId}/problems/{problemId}")
+    public ResponseEntity<Void> detachProblem(@PathVariable Long contestId,
+                                              @PathVariable Long problemId) {
+        contestProblemService.detach(contestId, problemId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Pool of problems NOT in this contest, optionally filtered. */
+    @GetMapping("/{contestId}/available-problems")
+    public List<Problem> getAvailableProblems(
+            @PathVariable Long contestId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String level) {
+        return contestProblemService.findAvailable(contestId, search, level);
     }
 
     public void evictAdminContestsCache() {
