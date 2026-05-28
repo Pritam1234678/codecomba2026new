@@ -28,19 +28,23 @@ public interface ProblemRepository extends JpaRepository<Problem, Long> {
      * Returns problems NOT currently attached to the given contest,
      * optionally filtered by level and title search.
      *
-     * Uses a LEFT JOIN + IS NULL pattern instead of NOT IN subquery to
-     * avoid Hibernate composite-key resolution issues with @IdClass.
+     * Uses a NOT EXISTS correlated subquery (Hibernate composite-key safe).
+     * Search and level filters use COALESCE so PostgreSQL never sees a
+     * bare NULL parameter inside LIKE/= — that triggered
+     * "function lower(bytea) does not exist" because the JDBC driver
+     * binds NULL as bytea by default.
      */
-    @Query("""
-        SELECT p FROM Problem p
+    @Query(value = """
+        SELECT p.* FROM problems p
         WHERE NOT EXISTS (
-            SELECT 1 FROM ContestProblem cp
-            WHERE cp.contestId = :contestId AND cp.problemId = p.id
+            SELECT 1 FROM contest_problems cp
+            WHERE cp.contest_id = :contestId AND cp.problem_id = p.id
         )
-        AND (:level  IS NULL OR p.level = :level)
-        AND (:search IS NULL OR LOWER(p.title) LIKE LOWER(CONCAT('%', :search, '%')))
+        AND (CAST(:level AS text) IS NULL OR p.level = CAST(:level AS text))
+        AND (CAST(:search AS text) IS NULL
+             OR LOWER(p.title) LIKE LOWER(CONCAT('%', CAST(:search AS text), '%')))
         ORDER BY p.id DESC
-        """)
+        """, nativeQuery = true)
     List<Problem> findAvailableForContest(
         @Param("contestId") Long contestId,
         @Param("search")    String search,
