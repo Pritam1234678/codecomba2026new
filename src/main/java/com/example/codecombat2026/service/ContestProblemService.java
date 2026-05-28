@@ -55,7 +55,7 @@ public class ContestProblemService {
     private static final Duration CONTESTS_FOR_PROBLEM_TTL = Duration.ofMinutes(5);
     private static final Duration AVAILABLE_PROBLEMS_TTL   = Duration.ofSeconds(30);
     private static final String  KEY_PROBLEM_CONTESTS     = "problem:contests:";
-    private static final String  KEY_AVAILABLE_PREFIX     = "contest:available:";
+    private static final String  KEY_AVAILABLE_PREFIX     = "contest:available:v2:";
     private static final Set<String> CACHEABLE_LEVELS =
             Set.of("ALL", "EASY", "MEDIUM", "HARD");
 

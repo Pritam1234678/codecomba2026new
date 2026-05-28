@@ -36,9 +36,13 @@ export default function ManageContestProblems() {
 
     useEffect(() => { load(); }, [id]);
 
-    // Debounced fetch of available problems while modal is open
+    // Debounced fetch of available problems while modal is open.
+    // Uses a generation counter to ignore stale responses from earlier
+    // typed states — without this, a slow first request can overwrite
+    // the result of a later, faster one ("list flashes then vanishes").
     useEffect(() => {
         if (!browseModalOpen) return;
+        let cancelled = false;
         const handle = setTimeout(async () => {
             setBrowseLoading(true);
             try {
@@ -50,29 +54,39 @@ export default function ManageContestProblems() {
                         size: PAGE_SIZE,
                     },
                 });
+                if (cancelled) return; // ignore stale response
                 // Handle both paginated response {content, totalElements, totalPages}
-                // and legacy flat array response
-                if (res.data && res.data.content !== undefined) {
-                    setAvailable(res.data.content || []);
-                    setBrowseTotalPages(res.data.totalPages || 0);
-                    setBrowseTotalElements(res.data.totalElements || 0);
-                } else {
-                    // Fallback: flat array
-                    const arr = Array.isArray(res.data) ? res.data : [];
-                    setAvailable(arr);
+                // and legacy flat array response (defensive — backend now always
+                // returns paginated, but cached old shape may still exist briefly).
+                const data = res.data;
+                if (data && Array.isArray(data.content)) {
+                    setAvailable(data.content);
+                    setBrowseTotalPages(data.totalPages || 1);
+                    setBrowseTotalElements(data.totalElements ?? data.content.length);
+                } else if (Array.isArray(data)) {
+                    // Legacy flat-array fallback
+                    setAvailable(data);
                     setBrowseTotalPages(1);
-                    setBrowseTotalElements(arr.length);
+                    setBrowseTotalElements(data.length);
+                } else {
+                    setAvailable([]);
+                    setBrowseTotalPages(0);
+                    setBrowseTotalElements(0);
                 }
             } catch (err) {
-                console.error('Browse load error:', err);
+                if (cancelled) return;
+                console.error('Browse load error:', err?.response?.status, err?.response?.data || err.message);
                 setAvailable([]);
                 setBrowseTotalPages(0);
                 setBrowseTotalElements(0);
             } finally {
-                setBrowseLoading(false);
+                if (!cancelled) setBrowseLoading(false);
             }
         }, 300);
-        return () => clearTimeout(handle);
+        return () => {
+            cancelled = true;
+            clearTimeout(handle);
+        };
     }, [browseModalOpen, browseSearch, browseLevel, browsePage, id]);
 
     const closeBrowseModal = () => {
