@@ -8,13 +8,18 @@ import com.example.codecombat2026.exception.ResourceNotFoundException;
 import com.example.codecombat2026.repository.ContestProblemRepository;
 import com.example.codecombat2026.repository.ContestRepository;
 import com.example.codecombat2026.repository.ProblemRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Owns attach / detach / list operations against the {@code contest_problems}
@@ -40,6 +45,19 @@ public class ContestProblemService {
     @Autowired private ProblemRepository problemRepository;
     @Autowired private ContestRepository contestRepository;
     @Autowired private ProblemService problemService;
+    @Autowired private StringRedisTemplate redis;
+    @Autowired private ObjectMapper objectMapper;
+
+    // ─── Cache configuration ─────────────────────────────────────────────────
+    // Keys:
+    //   problem:contests:{problemId}          -> List<Contest>  (reverse lookup)
+    //   contest:available:{contestId}:{level} -> List<Problem>  (picker, no-search variant only)
+    private static final Duration CONTESTS_FOR_PROBLEM_TTL = Duration.ofMinutes(5);
+    private static final Duration AVAILABLE_PROBLEMS_TTL   = Duration.ofSeconds(30);
+    private static final String  KEY_PROBLEM_CONTESTS     = "problem:contests:";
+    private static final String  KEY_AVAILABLE_PREFIX     = "contest:available:";
+    private static final Set<String> CACHEABLE_LEVELS =
+            Set.of("ALL", "EASY", "MEDIUM", "HARD");
 
     /**
      * Attach an existing problem to a contest.
@@ -77,6 +95,8 @@ public class ContestProblemService {
             // Defensive cache eviction so callers always observe a fresh roster.
             problemService.evictContestProblems(contestId);
             problemService.evictProblem(problemId);
+            evictAvailableProblems(contestId);
+            evictContestsForProblem(problemId);
             return existing;
         }
 
@@ -102,6 +122,8 @@ public class ContestProblemService {
         // reflect the new attachment immediately.
         problemService.evictContestProblems(contestId);
         problemService.evictProblem(problemId);
+        evictAvailableProblems(contestId);
+        evictContestsForProblem(problemId);
 
         return saved;
     }
@@ -156,6 +178,8 @@ public class ContestProblemService {
             // so callers always observe a fresh roster regardless of state.
             problemService.evictContestProblems(contestId);
             problemService.evictProblem(problemId);
+            evictAvailableProblems(contestId);
+            evictContestsForProblem(problemId);
             return;
         }
 
@@ -168,6 +192,8 @@ public class ContestProblemService {
         if (problem == null) {
             problemService.evictContestProblems(contestId);
             problemService.evictProblem(problemId);
+            evictAvailableProblems(contestId);
+            evictContestsForProblem(problemId);
             return;
         }
 
@@ -193,6 +219,8 @@ public class ContestProblemService {
 
         problemService.evictContestProblems(contestId);
         problemService.evictProblem(problemId);
+        evictAvailableProblems(contestId);
+        evictContestsForProblem(problemId);
     }
 
     /**
@@ -220,14 +248,28 @@ public class ContestProblemService {
         if (!problemRepository.existsById(problemId)) {
             throw new ResourceNotFoundException("Problem not found with id: " + problemId);
         }
+
+        // Cache-aside: try Valkey first.
+        String key = KEY_PROBLEM_CONTESTS + problemId;
+        try {
+            String cached = redis.opsForValue().get(key);
+            if (cached != null) {
+                return objectMapper.readValue(cached, new TypeReference<List<Contest>>() {});
+            }
+        } catch (Exception ignored) {}
+
         List<ContestProblem> rows = contestProblemRepository.findByProblemId(problemId);
-        if (rows.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<Long> contestIds = rows.stream()
-                .map(ContestProblem::getContestId)
-                .toList();
-        return contestRepository.findAllById(contestIds);
+        List<Contest> contests = rows.isEmpty()
+                ? Collections.emptyList()
+                : new ArrayList<>(contestRepository.findAllById(
+                        rows.stream().map(ContestProblem::getContestId).toList()));
+
+        try {
+            redis.opsForValue().set(key, objectMapper.writeValueAsString(contests),
+                    CONTESTS_FOR_PROBLEM_TTL);
+        } catch (Exception ignored) {}
+
+        return contests;
     }
 
     /**
@@ -238,10 +280,63 @@ public class ContestProblemService {
      * "not provided".
      */
     public List<Problem> findAvailable(Long contestId, String search, String level) {
-        return problemRepository.findAvailableForContest(
-                contestId,
-                blankToNull(search),
-                blankToNull(level));
+        String normSearch = blankToNull(search);
+        String normLevel  = blankToNull(level);
+
+        // Only cache the no-search variant so a user typing in the picker does
+        // not pollute Valkey with thousands of single-keystroke entries.
+        boolean cacheable = (normSearch == null);
+        String key = null;
+        if (cacheable) {
+            String levelTag = normLevel == null ? "ALL" : normLevel.toUpperCase();
+            // Defensive whitelist so a hostile :level value cannot inject odd
+            // characters into the Redis key namespace.
+            if (CACHEABLE_LEVELS.contains(levelTag)) {
+                key = KEY_AVAILABLE_PREFIX + contestId + ":" + levelTag;
+                try {
+                    String cached = redis.opsForValue().get(key);
+                    if (cached != null) {
+                        return objectMapper.readValue(cached, new TypeReference<List<Problem>>() {});
+                    }
+                } catch (Exception ignored) {}
+            } else {
+                cacheable = false;
+            }
+        }
+
+        List<Problem> result = problemRepository.findAvailableForContest(
+                contestId, normSearch, normLevel);
+
+        if (cacheable && key != null) {
+            try {
+                redis.opsForValue().set(key, objectMapper.writeValueAsString(result),
+                        AVAILABLE_PROBLEMS_TTL);
+            } catch (Exception ignored) {}
+        }
+
+        return result;
+    }
+
+    // ─── Cache eviction helpers ──────────────────────────────────────────────
+
+    /**
+     * Evict every {@code contest:available:{contestId}:*} entry. Called whenever
+     * the set of attached problems for {@code contestId} changes. We also
+     * defensively evict the {@code problems:all} cache because new attachments
+     * never affect the global pool, but standalone-create does — keeping the
+     * eviction surface uniform avoids stale-roster surprises.
+     */
+    public void evictAvailableProblems(Long contestId) {
+        try {
+            for (String levelTag : CACHEABLE_LEVELS) {
+                redis.delete(KEY_AVAILABLE_PREFIX + contestId + ":" + levelTag);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /** Evict the reverse-lookup cache for a single problem. */
+    public void evictContestsForProblem(Long problemId) {
+        try { redis.delete(KEY_PROBLEM_CONTESTS + problemId); } catch (Exception ignored) {}
     }
 
     /**

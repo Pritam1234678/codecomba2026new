@@ -145,8 +145,10 @@ public class AdminProblemController {
         // Evict all caches
         problemService.evictProblem(id);
         cacheService.evictProblem(id);
+        contestProblemService.evictContestsForProblem(id);
         if (contestId != null) {
             problemService.evictContestProblems(contestId);
+            contestProblemService.evictAvailableProblems(contestId);
         }
 
         return ResponseEntity.ok(new MessageResponse("Problem deleted successfully"));
