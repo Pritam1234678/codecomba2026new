@@ -6,40 +6,57 @@ import AppSidebar from './components/AppSidebar';
 import AdminRoute from './components/AdminRoute';
 import UserRoute from './components/UserRoute';
 import GuestRoute from './components/GuestRoute';
+import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import ForgotUsername from './pages/ForgotUsername';
-import ContestList from './pages/ContestList';
-import ContestDetail from './pages/ContestDetail';
-import ProblemSolve from './pages/ProblemSolve';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminUserManagement from './pages/AdminUserManagement';
-import AdminContestManagement from './pages/AdminContestManagement';
-import AdminProblemManagement from './pages/AdminProblemManagement';
-import AdminDuelMonitor from './pages/AdminDuelMonitor';
-import CreateContest from './pages/CreateContest';
-import EditContest from './pages/EditContest';
-import ManageContestProblems from './pages/ManageContestProblems';
-import EditProblem from './pages/EditProblem';
-import AddProblem from './pages/AddProblem';
-import ManageTestCases from './pages/ManageTestCases';
-import Leaderboard from './pages/Leaderboard';
-import ContestLeaderboard from './pages/ContestLeaderboard';
-import UserDashboard from './pages/UserDashboard';
-import EditProfile from './pages/EditProfile';
-import PlatformDetails from './pages/PlatformDetails';
-import Support from './pages/Support';
-import Home from './pages/Home';
-import CoderCompiler from './pages/CoderCompiler';
-import Practice from './pages/Practice';
-import PracticeSolve from './pages/PracticeSolve';
 import api from './services/api';
 import AuthService from './services/auth.service';
-const NotFound = lazy(() => import('./pages/NotFound'));
-const Duel = lazy(() => import('./pages/Duel'));
+
+// ── Lazy-loaded routes (code-split per page) ─────────────────────────────────
+// Public auth flow pages — split out
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword  = lazy(() => import('./pages/ResetPassword'));
+const ForgotUsername = lazy(() => import('./pages/ForgotUsername'));
+const Support        = lazy(() => import('./pages/Support'));
+const CoderCompiler  = lazy(() => import('./pages/CoderCompiler'));
+
+// User pages
+const ContestList    = lazy(() => import('./pages/ContestList'));
+const ContestDetail  = lazy(() => import('./pages/ContestDetail'));
+const ProblemSolve   = lazy(() => import('./pages/ProblemSolve'));
+const UserDashboard  = lazy(() => import('./pages/UserDashboard'));
+const EditProfile    = lazy(() => import('./pages/EditProfile'));
+const Practice       = lazy(() => import('./pages/Practice'));
+const PracticeSolve  = lazy(() => import('./pages/PracticeSolve'));
+const PlatformDetails = lazy(() => import('./pages/PlatformDetails'));
+const Leaderboard    = lazy(() => import('./pages/Leaderboard'));
+const ContestLeaderboard = lazy(() => import('./pages/ContestLeaderboard'));
+
+// Admin pages — heaviest, load only when admin navigates there
+const AdminDashboard       = lazy(() => import('./pages/AdminDashboard'));
+const AdminUserManagement  = lazy(() => import('./pages/AdminUserManagement'));
+const AdminContestManagement = lazy(() => import('./pages/AdminContestManagement'));
+const AdminProblemManagement = lazy(() => import('./pages/AdminProblemManagement'));
+const AdminDuelMonitor     = lazy(() => import('./pages/AdminDuelMonitor'));
+const CreateContest        = lazy(() => import('./pages/CreateContest'));
+const EditContest          = lazy(() => import('./pages/EditContest'));
+const ManageContestProblems = lazy(() => import('./pages/ManageContestProblems'));
+const EditProblem          = lazy(() => import('./pages/EditProblem'));
+const AddProblem           = lazy(() => import('./pages/AddProblem'));
+const ManageTestCases      = lazy(() => import('./pages/ManageTestCases'));
+
+// Already lazy
+const NotFound  = lazy(() => import('./pages/NotFound'));
+const Duel      = lazy(() => import('./pages/Duel'));
 const DuelArena = lazy(() => import('./pages/DuelArena'));
+
+// Loading fallback shown briefly while a chunk loads
+const PageFallback = () => (
+  <div className="flex items-center justify-center min-h-[60vh]" style={{ color: '#9d8e83', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
+    Loading...
+  </div>
+);
+const lazyWrap = (el) => <Suspense fallback={<PageFallback />}>{el}</Suspense>;
 
 // Public routes — no sidebar, no auth required
 // /compiler is special: shown with sidebar if logged in, with navbar if not
@@ -82,56 +99,44 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
       <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/forgot-username" element={<ForgotUsername />} />
-      <Route path="/compiler" element={<CoderCompiler />} />
+      <Route path="/forgot-password" element={lazyWrap(<ForgotPassword />)} />
+      <Route path="/reset-password" element={lazyWrap(<ResetPassword />)} />
+      <Route path="/forgot-username" element={lazyWrap(<ForgotUsername />)} />
+      <Route path="/compiler" element={lazyWrap(<CoderCompiler />)} />
 
       {/* Admin Routes */}
       <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-      <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-      <Route path="/admin/users" element={<div className="p-8 flex-1"><AdminRoute><AdminUserManagement /></AdminRoute></div>} />
-      <Route path="/admin/contests" element={<div className="p-8 flex-1"><AdminRoute><AdminContestManagement /></AdminRoute></div>} />
-      <Route path="/admin/contests/create" element={<div className="p-8 flex-1"><AdminRoute><CreateContest /></AdminRoute></div>} />
-      <Route path="/admin/contests/:id/edit" element={<div className="p-8 flex-1"><AdminRoute><EditContest /></AdminRoute></div>} />
-      <Route path="/admin/contests/:id/problems" element={<div className="p-8 flex-1"><AdminRoute><ManageContestProblems /></AdminRoute></div>} />
-      <Route path="/admin/contests/:contestId/problems/add" element={<AdminRoute><AddProblem /></AdminRoute>} />
-      <Route path="/admin/problems" element={<div className="p-8 flex-1"><AdminRoute><AdminProblemManagement /></AdminRoute></div>} />
-      <Route path="/admin/problems/new" element={<div className="p-8 flex-1"><AdminRoute><AddProblem /></AdminRoute></div>} />
-      <Route path="/admin/problems/:id/edit" element={<div className="p-8 flex-1"><AdminRoute><EditProblem /></AdminRoute></div>} />
-      <Route path="/admin/problems/:id/testcases" element={<div className="p-8 flex-1"><AdminRoute><ManageTestCases /></AdminRoute></div>} />
-      <Route path="/admin/duels" element={<div className="p-8 flex-1"><AdminRoute><AdminDuelMonitor /></AdminRoute></div>} />
-      <Route path="/admin/leaderboard" element={<div className="p-8 flex-1"><AdminRoute><Leaderboard /></AdminRoute></div>} />
-      <Route path="/admin/leaderboard/:contestId" element={<div className="p-8 flex-1"><AdminRoute><ContestLeaderboard /></AdminRoute></div>} />
-      <Route path="/admin/platform-details" element={<div className="p-8 flex-1"><AdminRoute><PlatformDetails /></AdminRoute></div>} />
+      <Route path="/admin/dashboard" element={lazyWrap(<AdminRoute><AdminDashboard /></AdminRoute>)} />
+      <Route path="/admin/users" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><AdminUserManagement /></AdminRoute>)}</div>} />
+      <Route path="/admin/contests" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><AdminContestManagement /></AdminRoute>)}</div>} />
+      <Route path="/admin/contests/create" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><CreateContest /></AdminRoute>)}</div>} />
+      <Route path="/admin/contests/:id/edit" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><EditContest /></AdminRoute>)}</div>} />
+      <Route path="/admin/contests/:id/problems" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><ManageContestProblems /></AdminRoute>)}</div>} />
+      <Route path="/admin/contests/:contestId/problems/add" element={lazyWrap(<AdminRoute><AddProblem /></AdminRoute>)} />
+      <Route path="/admin/problems" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><AdminProblemManagement /></AdminRoute>)}</div>} />
+      <Route path="/admin/problems/new" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><AddProblem /></AdminRoute>)}</div>} />
+      <Route path="/admin/problems/:id/edit" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><EditProblem /></AdminRoute>)}</div>} />
+      <Route path="/admin/problems/:id/testcases" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><ManageTestCases /></AdminRoute>)}</div>} />
+      <Route path="/admin/duels" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><AdminDuelMonitor /></AdminRoute>)}</div>} />
+      <Route path="/admin/leaderboard" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><Leaderboard /></AdminRoute>)}</div>} />
+      <Route path="/admin/leaderboard/:contestId" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><ContestLeaderboard /></AdminRoute>)}</div>} />
+      <Route path="/admin/platform-details" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><PlatformDetails /></AdminRoute>)}</div>} />
 
       {/* User Routes */}
-      <Route path="/dashboard" element={<div className="p-8 flex-1"><UserRoute><UserDashboard /></UserRoute></div>} />
-      <Route path="/profile/edit" element={<UserRoute><EditProfile /></UserRoute>} />
-      <Route path="/contests" element={<div className="p-8 flex-1"><UserRoute><ContestList /></UserRoute></div>} />
-      <Route path="/contests/:id" element={<div className="p-8 flex-1"><UserRoute><ContestDetail /></UserRoute></div>} />
-      <Route path="/problems/:id" element={<div className="flex-1 px-14 py-8"><UserRoute><ProblemSolve /></UserRoute></div>} />
-      <Route path="/practice" element={<UserRoute><Practice /></UserRoute>} />
-      <Route path="/practice/:id" element={<UserRoute><PracticeSolve /></UserRoute>} />
-      <Route path="/duel" element={
-        <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-gray-400">Loading...</div>}>
-          <UserRoute><Duel /></UserRoute>
-        </Suspense>
-      } />
-      <Route path="/duel/:matchId" element={
-        <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-gray-400">Loading...</div>}>
-          <UserRoute><DuelArena /></UserRoute>
-        </Suspense>
-      } />
-      <Route path="/platform-details" element={<div className="p-8 flex-1"><UserRoute><PlatformDetails /></UserRoute></div>} />
-      <Route path="/support" element={<div className="flex-1"><Support /></div>} />
+      <Route path="/dashboard" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><UserDashboard /></UserRoute>)}</div>} />
+      <Route path="/profile/edit" element={lazyWrap(<UserRoute><EditProfile /></UserRoute>)} />
+      <Route path="/contests" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><ContestList /></UserRoute>)}</div>} />
+      <Route path="/contests/:id" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><ContestDetail /></UserRoute>)}</div>} />
+      <Route path="/problems/:id" element={<div className="flex-1 px-14 py-8">{lazyWrap(<UserRoute><ProblemSolve /></UserRoute>)}</div>} />
+      <Route path="/practice" element={lazyWrap(<UserRoute><Practice /></UserRoute>)} />
+      <Route path="/practice/:id" element={lazyWrap(<UserRoute><PracticeSolve /></UserRoute>)} />
+      <Route path="/duel" element={lazyWrap(<UserRoute><Duel /></UserRoute>)} />
+      <Route path="/duel/:matchId" element={lazyWrap(<UserRoute><DuelArena /></UserRoute>)} />
+      <Route path="/platform-details" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><PlatformDetails /></UserRoute>)}</div>} />
+      <Route path="/support" element={<div className="flex-1">{lazyWrap(<Support />)}</div>} />
 
       {/* 404 */}
-      <Route path="*" element={
-        <Suspense fallback={<div className="flex items-center justify-center min-h-screen text-gray-400">Loading...</div>}>
-          <NotFound />
-        </Suspense>
-      } />
+      <Route path="*" element={lazyWrap(<NotFound />)} />
     </Routes>
   );
 
