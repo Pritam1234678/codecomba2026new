@@ -198,8 +198,8 @@ export default function UserDashboard() {
                         </div>
                     </div>
 
-                    {/* ── Stats Grid (8 cols, 4 cards) ── */}
-                    <div style={{ gridColumn: isMobile ? 'span 1' : 'span 8', display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: '1px', backgroundColor: C.border }}>
+                    {/* ── Stats Grid (8 cols, 5 cards) ── */}
+                    <div style={{ gridColumn: isMobile ? 'span 1' : 'span 8', display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: '1px', backgroundColor: C.border }}>
                         {[
                             { icon: 'history_edu',  value: stats.total,          label: 'Submissions',    hoverColor: C.primary },
                             { icon: 'check_circle', value: stats.accepted,        label: 'Accepted',       hoverColor: C.success },
