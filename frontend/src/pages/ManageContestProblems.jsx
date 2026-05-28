@@ -307,7 +307,7 @@ export default function ManageContestProblems() {
                         style={{ position:'fixed', inset:0, zIndex:70, display:'flex', alignItems:'center', justifyContent:'center', backgroundColor:'rgba(0,0,0,0.7)', backdropFilter:'blur(8px)', padding:'24px' }}
                     >
                         <motion.div initial={{scale:0.95,y:16}} animate={{scale:1,y:0}}
-                            style={{ backgroundColor: C.surfaceCon, border:`1px solid ${C.border}`, maxWidth:'720px', width:'100%', maxHeight:'80vh', display:'flex', flexDirection:'column', position:'relative' }}
+                            style={{ backgroundColor: C.surfaceCon, border:`1px solid ${C.border}`, maxWidth:'860px', width:'100%', maxHeight:'85vh', display:'flex', flexDirection:'column', position:'relative' }}
                         >
                             <div style={{ position:'absolute', top:0, left:0, right:0, height:'2px', backgroundColor: C.secondary }} />
 
@@ -367,8 +367,8 @@ export default function ManageContestProblems() {
                                 </div>
                             </div>
 
-                            {/* Scrollable list */}
-                            <div style={{ flex:1, overflowY:'auto', padding:'8px 0' }}>
+                            {/* Card grid */}
+                            <div style={{ flex:1, overflowY:'auto', padding:'1.25rem 1.5rem' }}>
                                 {browseLoading ? (
                                     <div style={{ padding:'3rem', textAlign:'center', fontFamily:"'JetBrains Mono', monospace", fontSize:'12px', color: C.outline }}>
                                         Loading...
@@ -378,36 +378,18 @@ export default function ManageContestProblems() {
                                         No available problems match your filters.
                                     </div>
                                 ) : (
-                                    <div style={{ display:'flex', flexDirection:'column' }}>
+                                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))', gap:'14px' }}>
                                         {available.map(p => {
                                             const lc = LEVEL_CFG[p.level] || LEVEL_CFG.MEDIUM;
                                             const checked = selectedIds.has(p.id);
                                             return (
-                                                <div key={p.id}
-                                                    onClick={() => toggleSelected(p.id)}
-                                                    style={{ display:'flex', alignItems:'center', gap:'14px', padding:'12px 2rem', cursor:'pointer', borderBottom:`1px solid ${C.surfaceHi}`, backgroundColor: checked ? C.surfaceHi : 'transparent', transition:'background-color 0.15s' }}
-                                                    onMouseEnter={e => { if (!checked) e.currentTarget.style.backgroundColor = C.surfaceLow; }}
-                                                    onMouseLeave={e => { if (!checked) e.currentTarget.style.backgroundColor = 'transparent'; }}
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={checked}
-                                                        onChange={() => toggleSelected(p.id)}
-                                                        onClick={e => e.stopPropagation()}
-                                                        style={{ width:'16px', height:'16px', accentColor: C.secondary, cursor:'pointer', flexShrink:0 }}
-                                                    />
-                                                    <div style={{ flex:1, minWidth:0 }}>
-                                                        <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'4px' }}>
-                                                            <span style={{ fontFamily:"'Geist', sans-serif", fontSize:'15px', fontWeight:500, color: C.onBg, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.title}</span>
-                                                            <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'9px', letterSpacing:'0.12em', color: lc.color, border:`1px solid ${lc.border}`, backgroundColor: lc.bg, padding:'2px 8px', textTransform:'uppercase', flexShrink:0 }}>
-                                                                {p.level || 'MEDIUM'}
-                                                            </span>
-                                                        </div>
-                                                        <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'10px', color: C.outline, letterSpacing:'0.05em' }}>
-                                                            PRB-{String(p.id).padStart(3,'0')}
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                                <BrowseProblemCard
+                                                    key={p.id}
+                                                    problem={p}
+                                                    lc={lc}
+                                                    checked={checked}
+                                                    onToggle={() => toggleSelected(p.id)}
+                                                />
                                             );
                                         })}
                                     </div>
@@ -516,6 +498,82 @@ export default function ManageContestProblems() {
         </div>
     );
 }
+
+/* ── Browse Problem Card (Practice-style, with checkbox + Add toggle) ── */
+const BrowseProblemCard = ({ problem: p, lc, checked, onToggle }) => {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <div
+            onClick={onToggle}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                border: `1px solid ${checked ? lc.color : hovered ? lc.color : C.border}`,
+                backgroundColor: checked ? C.surfaceHi : hovered ? C.surfaceCon : C.surfaceLow,
+                padding: '1.25rem',
+                display: 'flex', flexDirection: 'column', gap: '10px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                position: 'relative',
+                overflow: 'hidden',
+            }}
+        >
+            {/* Top accent bar */}
+            <div style={{ position:'absolute', top:0, left:0, right:0, height:'2px', backgroundColor: lc.color, opacity: checked || hovered ? 1 : 0.3, transition:'opacity 0.2s' }} />
+
+            {/* Difficulty + checkbox */}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ padding:'3px 10px', border:`1px solid ${lc.color}`, fontFamily:"'JetBrains Mono', monospace", fontSize:'9px', letterSpacing:'0.12em', color: lc.color, textTransform:'uppercase' }}>
+                    {p.level || 'MEDIUM'}
+                </span>
+                <div style={{
+                    width:'20px', height:'20px', border:`2px solid ${checked ? lc.color : C.border}`,
+                    backgroundColor: checked ? lc.color : 'transparent',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    transition:'all 0.2s', flexShrink:0,
+                }}>
+                    {checked && <span className="material-symbols-outlined" style={{ fontSize:'14px', color: C.bg, fontVariationSettings:"'FILL' 1" }}>check</span>}
+                </div>
+            </div>
+
+            {/* Title */}
+            <h4 style={{ fontFamily:"'Playfair Display', serif", fontSize:'16px', fontWeight:600, color: checked || hovered ? C.primary : C.onBg, margin:0, lineHeight:1.3, transition:'color 0.2s' }}>
+                {p.title}
+            </h4>
+
+            {/* Description preview */}
+            <p style={{ fontFamily:"'Geist', sans-serif", fontSize:'12px', color: C.outline, margin:0, lineHeight:1.5, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
+                {p.description}
+            </p>
+
+            {/* Meta */}
+            <div style={{ display:'flex', gap:'10px', fontFamily:"'JetBrains Mono', monospace", fontSize:'10px', color: C.outline, marginTop:'2px' }}>
+                <span>⏱ {p.timeLimit}s</span>
+                <span>·</span>
+                <span>💾 {p.memoryLimit}MB</span>
+                <span style={{ marginLeft:'auto', fontFamily:"'JetBrains Mono', monospace", fontSize:'10px', color: C.outline }}>
+                    PRB-{String(p.id).padStart(3,'0')}
+                </span>
+            </div>
+
+            {/* Add / Added indicator */}
+            <div style={{
+                marginTop:'2px', padding:'8px 12px',
+                border: `1px solid ${checked ? lc.color : C.secondary}`,
+                backgroundColor: checked ? lc.color : hovered ? C.secondary : 'transparent',
+                color: checked ? C.bg : hovered ? C.bg : C.secondary,
+                fontFamily:"'JetBrains Mono', monospace", fontSize:'10px', letterSpacing:'0.12em', textTransform:'uppercase',
+                display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+                transition:'all 0.2s',
+            }}>
+                <span className="material-symbols-outlined" style={{ fontSize:'13px', fontVariationSettings:`'FILL' ${checked ? 1 : 0}` }}>
+                    {checked ? 'check_circle' : 'add_circle'}
+                </span>
+                {checked ? 'Selected' : 'Select'}
+            </div>
+        </div>
+    );
+};
 
 /* ── Action button with icon + label ── */
 const ActionBtn = ({ icon, label, color, hoverColor, onClick }) => {
