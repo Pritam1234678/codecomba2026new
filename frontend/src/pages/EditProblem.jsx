@@ -115,7 +115,7 @@ export default function EditProblem() {
             <header style={{ height: '72px', flexShrink: 0, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', backgroundColor: C.bg, zIndex: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                     <button
-                        onClick={() => contestId ? navigate(`/admin/contests/${contestId}/problems`) : navigate('/admin/contests')}
+                        onClick={() => navigate('/admin/problems')}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', border: `1px solid transparent`, color: C.outline, background: 'none', cursor: 'pointer', transition: 'all 0.2s' }}
                         onMouseEnter={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.secondary; }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = C.outline; }}
@@ -138,14 +138,6 @@ export default function EditProblem() {
                         </div>
                     )}
                     <div style={{ width: '1px', height: '32px', backgroundColor: C.border }} />
-                    <button
-                        onClick={() => navigate(`/admin/problems/${id}/testcases`)}
-                        style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: C.outline, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
-                        onMouseEnter={e => e.currentTarget.style.color = C.secondary}
-                        onMouseLeave={e => e.currentTarget.style.color = C.outline}
-                    >
-                        Manage Test Cases
-                    </button>
                     <button
                         form="edit-problem-form"
                         type="submit"
@@ -354,10 +346,6 @@ export default function EditProblem() {
                             >{t.label}</button>
                         ))}
                         <div style={{ flex: 1 }} />
-                        <button type="button" style={{ padding: '10px 16px', color: C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', background: 'none', border: 'none', borderLeft: `1px solid ${C.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>visibility</span>
-                            Preview
-                        </button>
                     </div>
 
                     {/* Lang Tabs + Toolbar */}

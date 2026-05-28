@@ -318,13 +318,6 @@ const AdminProblemCard = ({ problem, index, onToggle, onDelete, navigate }) => {
                 >
                     <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>edit</span>Edit
                 </button>
-                <button onClick={() => navigate(`/admin/problems/${problem.id}/testcases`)}
-                    style={{ flex: 1, padding: '9px 12px', border: `1px solid ${C.primary}`, backgroundColor: 'transparent', color: C.primary, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
-                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.primary; e.currentTarget.style.color = C.bg; }}
-                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.primary; }}
-                >
-                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>science</span>Tests
-                </button>
                 <button onClick={onDelete}
                     style={{ padding: '9px 12px', border: `1px solid ${C.border}`, backgroundColor: 'transparent', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = C.error; e.currentTarget.style.color = C.error; }}
