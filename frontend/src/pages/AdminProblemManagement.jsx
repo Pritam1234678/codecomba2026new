@@ -36,8 +36,11 @@ const AdminProblemManagement = () => {
     const [levelFilter, setLevelFilter] = useState('ALL');
     const [deleteModal, setDeleteModal] = useState({ show: false, problemId: null, problemTitle: '' });
     const [toast, setToast] = useState(null);
+    const [page, setPage] = useState(0);
+    const PAGE_SIZE = 9;
 
     useEffect(() => { loadProblems(); }, []);
+    useEffect(() => { setPage(0); }, [search, levelFilter]);
 
     const loadProblems = () => {
         setLoading(true);
@@ -70,20 +73,17 @@ const AdminProblemManagement = () => {
         return matchSearch && matchLevel;
     });
 
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+    const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
     const easyCount = problems.filter(p => p.level === 'EASY').length;
     const mediumCount = problems.filter(p => p.level === 'MEDIUM').length;
     const hardCount = problems.filter(p => p.level === 'HARD').length;
 
     if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', letterSpacing: '0.1em' }}>
-            Loading...
-        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', letterSpacing: '0.1em' }}>Loading...</div>
     );
-
     if (error) return (
-        <div style={{ padding: isMobile ? '24px 16px' : '48px 64px', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.error }}>
-            {error}
-        </div>
+        <div style={{ padding: isMobile ? '24px 16px' : '48px 64px', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.error }}>{error}</div>
     );
 
     return (
@@ -142,67 +142,59 @@ const AdminProblemManagement = () => {
             </motion.div>
 
             {/* ── Filter tabs ── */}
-            <div style={{ display: 'flex', gap: '0', marginBottom: '1rem', border: `1px solid ${C.border}`, width: 'fit-content' }}>
+            <div style={{ display: 'flex', gap: '0', marginBottom: '2rem', border: `1px solid ${C.border}`, width: 'fit-content' }}>
                 {['ALL', 'EASY', 'MEDIUM', 'HARD'].map(f => (
-                    <button
-                        key={f}
-                        onClick={() => setLevelFilter(f)}
-                        style={{
-                            fontFamily: "'JetBrains Mono', monospace",
-                            fontSize: '10px', letterSpacing: '0.12em', padding: '6px 16px',
-                            background: levelFilter === f ? C.secondary : 'transparent',
-                            color: levelFilter === f ? C.bg : C.outline,
-                            border: 'none', cursor: 'pointer',
-                            borderRight: f !== 'HARD' ? `1px solid ${C.border}` : 'none',
-                            transition: 'all 0.2s',
-                        }}
-                    >
-                        {f}
-                    </button>
+                    <button key={f} onClick={() => setLevelFilter(f)}
+                        style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', padding: '8px 20px', background: levelFilter === f ? C.secondary : 'transparent', color: levelFilter === f ? C.bg : C.outline, border: 'none', cursor: 'pointer', borderRight: f !== 'HARD' ? `1px solid ${C.border}` : 'none', textTransform: 'uppercase', transition: 'all 0.2s' }}
+                    >{f}</button>
                 ))}
             </div>
 
-            {/* ── Problem Table ── */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}
-                style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, overflow: 'hidden' }}
-            >
-                {/* Table header */}
-                {!isMobile && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 100px 100px 80px 280px', gap: '16px', padding: '14px 24px', borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceHi }}>
-                        {['ID', 'Title', 'Level', 'Contest', 'Active', 'Actions'].map((h, i) => (
-                            <span key={h} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase', textAlign: i >= 4 ? 'center' : 'left' }}>
-                                {h}
-                            </span>
+            {/* ── Problem Cards Grid ── */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
+                {paginated.length === 0 ? (
+                    <div style={{ border: `1px solid ${C.border}`, padding: '4rem', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.outline }}>
+                        No problems found.
+                    </div>
+                ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                        {paginated.map((problem, i) => (
+                            <AdminProblemCard key={problem.id} problem={problem} index={i}
+                                onToggle={() => handleToggleActive(problem.id)}
+                                onDelete={() => setDeleteModal({ show: true, problemId: problem.id, problemTitle: problem.title })}
+                                navigate={navigate}
+                            />
                         ))}
                     </div>
                 )}
 
-                {filtered.length === 0 ? (
-                    <div style={{ padding: '4rem', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.outline }}>
-                        No problems found.
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2rem', padding: '1rem 0', borderTop: `1px solid ${C.border}` }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, letterSpacing: '0.08em' }}>
+                            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <button disabled={page === 0} onClick={() => setPage(p => p - 1)}
+                                style={{ background: 'none', border: `1px solid ${page === 0 ? C.border : C.outline}`, color: page === 0 ? C.border : C.outline, cursor: page === 0 ? 'not-allowed' : 'pointer', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+                                onMouseEnter={e => { if (page > 0) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = page === 0 ? C.border : C.outline; e.currentTarget.style.color = page === 0 ? C.border : C.outline; }}
+                            ><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_left</span></button>
+                            {Array.from({ length: totalPages }, (_, i) => (
+                                <button key={i} onClick={() => setPage(i)}
+                                    style={{ background: page === i ? C.secondary : 'none', border: `1px solid ${page === i ? C.secondary : C.border}`, color: page === i ? C.bg : C.outline, cursor: 'pointer', width: '36px', height: '36px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', transition: 'all 0.2s' }}
+                                    onMouseEnter={e => { if (page !== i) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                                    onMouseLeave={e => { if (page !== i) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.outline; } }}
+                                >{i + 1}</button>
+                            ))}
+                            <button disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}
+                                style={{ background: 'none', border: `1px solid ${page >= totalPages - 1 ? C.border : C.outline}`, color: page >= totalPages - 1 ? C.border : C.outline, cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+                                onMouseEnter={e => { if (page < totalPages - 1) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = page >= totalPages - 1 ? C.border : C.outline; e.currentTarget.style.color = page >= totalPages - 1 ? C.border : C.outline; }}
+                            ><span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_right</span></button>
+                        </div>
                     </div>
-                ) : (
-                    filtered.map((problem, i) => (
-                        <ProblemRow
-                            key={problem.id}
-                            problem={problem}
-                            index={i}
-                            isLast={i === filtered.length - 1}
-                            isMobile={isMobile}
-                            onToggle={() => handleToggleActive(problem.id)}
-                            onDelete={() => setDeleteModal({ show: true, problemId: problem.id, problemTitle: problem.title })}
-                            navigate={navigate}
-                        />
-                    ))
                 )}
-
-                {/* Footer */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', borderTop: `1px solid ${C.border}`, backgroundColor: C.surfaceLow }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
-                        Showing {filtered.length} of {problems.length} problems
-                    </span>
-                </div>
             </motion.div>
 
             {/* ── Delete Modal ── */}
@@ -269,133 +261,80 @@ const AdminProblemManagement = () => {
     );
 };
 
-/* ── Problem Row ── */
-const ProblemRow = ({ problem, index, isLast, isMobile, onToggle, onDelete, navigate }) => {
+/* ── Admin Problem Card (Practice-style with admin actions) ── */
+const AdminProblemCard = ({ problem, index, onToggle, onDelete, navigate }) => {
     const [hovered, setHovered] = useState(false);
     const lc = levelConfig[problem.level] || levelConfig.MEDIUM;
 
-    if (isMobile) {
-        return (
-            <motion.div
-                initial={{ opacity: 0, x: -8 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.03 }}
-                style={{ padding: '16px 20px', borderBottom: isLast ? 'none' : `1px solid ${C.border}` }}
-            >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: C.onBg }}>{problem.title}</span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', color: lc.color, border: `1px solid ${lc.border}`, backgroundColor: lc.bg, padding: '2px 8px' }}>
-                        {problem.level}
-                    </span>
-                </div>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline }}>ID: {problem.id}</span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline }}>Contest: {problem.contestId || '—'}</span>
-                    <ToggleSwitch active={problem.active} onToggle={onToggle} />
-                </div>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                    <ActionBtn label="Edit" icon="edit" color={C.outline} hoverColor={C.secondary} onClick={() => navigate(`/admin/problems/${problem.id}/edit`)} />
-                    <ActionBtn label="Tests" icon="science" color={C.outline} hoverColor={C.primary} onClick={() => navigate(`/admin/problems/${problem.id}/testcases`)} />
-                    <ActionBtn label="Delete" icon="delete" color={C.outline} hoverColor={C.error} onClick={onDelete} />
-                </div>
-            </motion.div>
-        );
-    }
-
     return (
         <motion.div
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.03 }}
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04, duration: 0.4 }}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
-            style={{
-                display: 'grid', gridTemplateColumns: '60px 1fr 100px 100px 80px 280px',
-                gap: '16px', padding: '16px 24px',
-                borderBottom: isLast ? 'none' : `1px solid ${C.border}`,
-                backgroundColor: hovered ? C.surfaceCon : 'transparent',
-                transition: 'background-color 0.2s',
-                alignItems: 'center',
-            }}
+            style={{ border: `1px solid ${hovered ? lc.color : C.border}`, backgroundColor: hovered ? C.surfaceCon : C.surfaceLow, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '12px', transition: 'all 0.2s', position: 'relative', overflow: 'hidden' }}
         >
-            {/* ID */}
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline }}>
-                {problem.id}
-            </span>
+            {/* Top accent bar */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', backgroundColor: lc.color, opacity: hovered ? 1 : 0.3, transition: 'opacity 0.2s' }} />
+
+            {/* Difficulty + active toggle */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ padding: '3px 10px', border: `1px solid ${lc.color}`, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', color: lc.color, textTransform: 'uppercase' }}>
+                    {problem.level || 'MEDIUM'}
+                </span>
+                <button onClick={e => { e.stopPropagation(); onToggle(); }}
+                    title={problem.active ? 'Active — click to deactivate' : 'Inactive — click to activate'}
+                    style={{ width: '36px', height: '20px', borderRadius: '10px', border: `1px solid ${problem.active ? C.success : C.border}`, backgroundColor: problem.active ? 'rgba(102,187,106,0.2)' : 'rgba(42,42,42,0.5)', cursor: 'pointer', position: 'relative', transition: 'all 0.2s', padding: 0, flexShrink: 0 }}
+                >
+                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: problem.active ? C.success : C.outline, position: 'absolute', top: '2px', left: problem.active ? '18px' : '2px', transition: 'all 0.2s' }} />
+                </button>
+            </div>
 
             {/* Title */}
-            <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: C.onBg, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', fontWeight: 600, color: hovered ? C.primary : C.onBg, margin: 0, lineHeight: 1.3, transition: 'color 0.2s' }}>
                 {problem.title}
-            </span>
+            </h3>
 
-            {/* Level */}
-            <div>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', color: lc.color, border: `1px solid ${lc.border}`, backgroundColor: lc.bg, padding: '3px 10px', textTransform: 'uppercase' }}>
-                    {problem.level}
+            {/* Description preview */}
+            <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: C.outline, margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {problem.description || 'No description available.'}
+            </p>
+
+            {/* Meta */}
+            <div style={{ display: 'flex', gap: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline }}>
+                <span>⏱ {problem.timeLimit}s</span>
+                <span>·</span>
+                <span>💾 {problem.memoryLimit}MB</span>
+                <span style={{ marginLeft: 'auto', color: C.outline }}>
+                    {problem.contestId ? `Contest #${problem.contestId}` : 'Standalone'}
                 </span>
             </div>
 
-            {/* Contest */}
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
-                {problem.contestId || '—'}
-            </span>
-
-            {/* Active Toggle */}
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <ToggleSwitch active={problem.active} onToggle={onToggle} />
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                <ActionBtn label="Edit" icon="edit" color={C.outline} hoverColor={C.secondary} onClick={() => navigate(`/admin/problems/${problem.id}/edit`)} />
-                <span style={{ color: C.border }}>|</span>
-                <ActionBtn label="Tests" icon="science" color={C.outline} hoverColor={C.primary} onClick={() => navigate(`/admin/problems/${problem.id}/testcases`)} />
-                <span style={{ color: C.border }}>|</span>
-                <ActionBtn label="Delete" icon="delete" color={C.outline} hoverColor={C.error} onClick={onDelete} />
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <button onClick={() => navigate(`/admin/problems/${problem.id}/edit`)}
+                    style={{ flex: 1, padding: '9px 12px', border: `1px solid ${C.secondary}`, backgroundColor: 'transparent', color: C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
+                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; }}
+                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.secondary; }}
+                >
+                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>edit</span>Edit
+                </button>
+                <button onClick={() => navigate(`/admin/problems/${problem.id}/testcases`)}
+                    style={{ flex: 1, padding: '9px 12px', border: `1px solid ${C.primary}`, backgroundColor: 'transparent', color: C.primary, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
+                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.primary; e.currentTarget.style.color = C.bg; }}
+                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.primary; }}
+                >
+                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>science</span>Tests
+                </button>
+                <button onClick={onDelete}
+                    style={{ padding: '9px 12px', border: `1px solid ${C.border}`, backgroundColor: 'transparent', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = C.error; e.currentTarget.style.color = C.error; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.outline; }}
+                >
+                    <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>delete</span>
+                </button>
             </div>
         </motion.div>
     );
 };
-
-/* ── Toggle Switch ── */
-const ToggleSwitch = ({ active, onToggle }) => (
-    <button
-        onClick={onToggle}
-        style={{
-            width: '36px', height: '20px',
-            borderRadius: '10px',
-            border: `1px solid ${active ? C.success : C.border}`,
-            backgroundColor: active ? 'rgba(102,187,106,0.2)' : 'rgba(42,42,42,0.5)',
-            cursor: 'pointer',
-            position: 'relative',
-            transition: 'all 0.2s',
-            padding: 0,
-        }}
-        title={active ? 'Active — click to deactivate' : 'Inactive — click to activate'}
-    >
-        <div style={{
-            width: '14px', height: '14px',
-            borderRadius: '50%',
-            backgroundColor: active ? C.success : C.outline,
-            position: 'absolute',
-            top: '2px',
-            left: active ? '18px' : '2px',
-            transition: 'all 0.2s',
-        }} />
-    </button>
-);
-
-/* ── Action Button ── */
-const ActionBtn = ({ label, icon, color, hoverColor, onClick }) => (
-    <button
-        onClick={onClick}
-        style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', transition: 'color 0.2s', padding: '4px 0' }}
-        onMouseEnter={e => e.currentTarget.style.color = hoverColor}
-        onMouseLeave={e => e.currentTarget.style.color = color}
-    >
-        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{icon}</span>
-        {label}
-    </button>
-);
 
 export default AdminProblemManagement;
