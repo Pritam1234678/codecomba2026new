@@ -147,6 +147,10 @@ public class UserController {
         response.put("submissions", recent);
         response.put("totalSubmissions", submissions.size());
 
+        // Include total points for the stat card
+        User userEntity = userRepository.findById(userId).orElse(null);
+        response.put("totalPoints", userEntity != null ? userEntity.getTotalPoints() : 0);
+
         return ResponseEntity.ok(response);
     }
 

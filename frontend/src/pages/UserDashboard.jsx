@@ -52,7 +52,7 @@ export default function UserDashboard() {
     const [user,        setUser]        = useState(null);
     const [submissions, setSubmissions] = useState([]);
     const [contests,    setContests]    = useState([]);
-    const [stats,       setStats]       = useState({ total: 0, accepted: 0, successRate: 0, problemsSolved: 0 });
+    const [stats,       setStats]       = useState({ total: 0, accepted: 0, successRate: 0, problemsSolved: 0, totalPoints: 0 });
     const [loading,     setLoading]     = useState(true);
 
     useEffect(() => {
@@ -61,23 +61,23 @@ export default function UserDashboard() {
             api.get('/user/dashboard'),
             api.get('/contests').catch(() => ({ data: [] })),
         ]).then(([dashRes, contestsRes]) => {
-            const { profile, submissions: subs, totalSubmissions } = dashRes.data;
+            const { profile, submissions: subs, totalSubmissions, totalPoints } = dashRes.data;
             setUser(profile);
             setSubmissions(subs || []);
             setContests(contestsRes.data || []);
-            calcStats(subs || [], totalSubmissions);
+            calcStats(subs || [], totalSubmissions, totalPoints || 0);
         }).catch(() => {
             const u = AuthService.getCurrentUser();
             setUser(u);
         }).finally(() => setLoading(false));
     }, []);
 
-    const calcStats = (subs, totalCount) => {
+    const calcStats = (subs, totalCount, points) => {
         const total    = totalCount !== undefined ? totalCount : subs.length;
         const accepted = subs.filter(s => s.status === 'AC').length;
         const solved   = new Set(subs.filter(s => s.status === 'AC').map(s => s.problemId)).size;
         const rate     = total > 0 ? ((accepted / total) * 100).toFixed(1) : 0;
-        setStats({ total, accepted, successRate: rate, problemsSolved: solved });
+        setStats({ total, accepted, successRate: rate, problemsSolved: solved, totalPoints: points || 0 });
     };
 
     // Upcoming / live contests
@@ -205,6 +205,7 @@ export default function UserDashboard() {
                             { icon: 'check_circle', value: stats.accepted,        label: 'Accepted',       hoverColor: C.success },
                             { icon: 'percent',      value: `${stats.successRate}`, label: 'Success Rate',  hoverColor: C.secondary, highlight: true },
                             { icon: 'extension',    value: stats.problemsSolved,  label: 'Problems Solved',hoverColor: C.primary },
+                            { icon: 'stars',        value: stats.totalPoints,     label: 'Points',         hoverColor: C.secondary },
                         ].map(({ icon, value, label, hoverColor, highlight }) => (
                             <StatCard key={label} icon={icon} value={value} label={label} hoverColor={hoverColor} highlight={highlight} />
                         ))}
