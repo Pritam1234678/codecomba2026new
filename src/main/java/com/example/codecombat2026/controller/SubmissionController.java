@@ -8,7 +8,10 @@ import com.example.codecombat2026.service.RateLimiterService;
 import com.example.codecombat2026.service.SseEmitterRegistry;
 import com.example.codecombat2026.service.SseTicketService;
 import com.example.codecombat2026.service.SubmissionService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -27,6 +31,16 @@ public class SubmissionController {
     @Autowired private SseEmitterRegistry sseRegistry;
     @Autowired private RateLimiterService rateLimiter;
     @Autowired private SseTicketService sseTickets;
+    @Autowired private StringRedisTemplate redis;
+    @Autowired private ObjectMapper objectMapper;
+
+    // Cache keys / TTLs
+    // submissions:user:{userId}          — user's full submission list (30s)
+    // submission:status:{submissionId}   — single submission status (2s, for polling)
+    // submission:user:problem:{userId}:{problemId} — latest per-problem (30s)
+    private static final Duration USER_SUBS_TTL    = Duration.ofSeconds(30);
+    private static final Duration STATUS_TTL       = Duration.ofSeconds(2);
+    private static final Duration PER_PROBLEM_TTL  = Duration.ofSeconds(30);
 
     /**
      * Async submit — returns 202 Accepted immediately (< 10ms).
@@ -116,20 +130,53 @@ public class SubmissionController {
 
     /**
      * Polling fallback — get current status of a specific submission.
-     * Used if SSE connection drops.
+     * Used if SSE connection drops. Cached 2s so rapid polling doesn't hammer DB.
      */
     @GetMapping("/{submissionId}/status")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Submission> getSubmissionStatus(@PathVariable Long submissionId) {
-        return ResponseEntity.ok(submissionService.getSubmissionById(submissionId));
+        String key = "submission:status:" + submissionId;
+        try {
+            String cached = redis.opsForValue().get(key);
+            if (cached != null) {
+                return ResponseEntity.ok(objectMapper.readValue(cached, Submission.class));
+            }
+        } catch (Exception ignored) {}
+
+        Submission sub = submissionService.getSubmissionById(submissionId);
+
+        // Only cache terminal states — PENDING/JUDGING change rapidly, no point caching them.
+        Submission.SubmissionStatus status = sub.getStatus();
+        if (status != null && status != Submission.SubmissionStatus.PENDING
+                && status != Submission.SubmissionStatus.JUDGING) {
+            try {
+                redis.opsForValue().set(key, objectMapper.writeValueAsString(sub), STATUS_TTL);
+            } catch (Exception ignored) {}
+        }
+
+        return ResponseEntity.ok(sub);
     }
 
     @GetMapping("/user/{problemId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Submission> getUserSubmission(@PathVariable Long problemId,
                                                         @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        String key = "submission:user:problem:" + userDetails.getId() + ":" + problemId;
+        try {
+            String cached = redis.opsForValue().get(key);
+            if (cached != null) {
+                Submission sub = objectMapper.readValue(cached, Submission.class);
+                return ResponseEntity.ok(sub);
+            }
+        } catch (Exception ignored) {}
+
         Submission submission = submissionService.getSubmission(userDetails.getId(), problemId);
         if (submission == null) return ResponseEntity.notFound().build();
+
+        try {
+            redis.opsForValue().set(key, objectMapper.writeValueAsString(submission), PER_PROBLEM_TTL);
+        } catch (Exception ignored) {}
+
         return ResponseEntity.ok(submission);
     }
 
@@ -137,6 +184,22 @@ public class SubmissionController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<Submission>> getUserSubmissions(
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        return ResponseEntity.ok(submissionService.getUserSubmissions(userDetails.getId()));
+        String key = "submissions:user:" + userDetails.getId();
+        try {
+            String cached = redis.opsForValue().get(key);
+            if (cached != null) {
+                List<Submission> subs = objectMapper.readValue(cached,
+                    new TypeReference<List<Submission>>() {});
+                return ResponseEntity.ok(subs);
+            }
+        } catch (Exception ignored) {}
+
+        List<Submission> subs = submissionService.getUserSubmissions(userDetails.getId());
+
+        try {
+            redis.opsForValue().set(key, objectMapper.writeValueAsString(subs), USER_SUBS_TTL);
+        } catch (Exception ignored) {}
+
+        return ResponseEntity.ok(subs);
     }
 }

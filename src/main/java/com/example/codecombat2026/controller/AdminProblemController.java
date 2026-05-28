@@ -8,7 +8,9 @@ import com.example.codecombat2026.repository.ProblemRepository;
 import com.example.codecombat2026.service.CacheService;
 import com.example.codecombat2026.service.ContestProblemService;
 import com.example.codecombat2026.service.ProblemService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -24,15 +26,36 @@ public class AdminProblemController {
     @Autowired private ProblemService problemService;   // for cache eviction
     @Autowired private CacheService cacheService;       // for snippet cache eviction
     @Autowired private ContestProblemService contestProblemService; // dual-write to junction
+    @Autowired private StringRedisTemplate redis;
+    @Autowired private ObjectMapper objectMapper;
 
     @GetMapping
     public List<Problem> getAllProblems() {
-        return problemRepository.findAll();
+        // Reuse the same problems:all cache that ProblemService maintains.
+        // TTL 60s — same as ProblemService.getAllProblems().
+        String key = "problems:all";
+        try {
+            String cached = redis.opsForValue().get(key);
+            if (cached != null) {
+                return objectMapper.readValue(cached,
+                    new com.fasterxml.jackson.core.type.TypeReference<List<Problem>>() {});
+            }
+        } catch (Exception ignored) {}
+
+        List<Problem> problems = problemRepository.findAll();
+
+        try {
+            redis.opsForValue().set(key, objectMapper.writeValueAsString(problems),
+                java.time.Duration.ofSeconds(60));
+        } catch (Exception ignored) {}
+
+        return problems;
     }
 
     @GetMapping("/contest/{contestId}")
     public List<Problem> getProblemsByContest(@PathVariable Long contestId) {
-        return problemRepository.findByContestId(contestId);
+        // Delegate through ProblemService so the problems:contest:{id} cache is used.
+        return problemService.getProblemsByContestId(contestId);
     }
 
     /**

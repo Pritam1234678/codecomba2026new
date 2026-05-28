@@ -365,6 +365,8 @@ public class SubmissionWorkerPool {
             // 3a. Invalidate user submissions cache so dashboard shows fresh data
             try {
                 redis.delete("submissions:user:" + job.getUserId());
+                redis.delete("submission:status:" + submissionId);
+                redis.delete("submission:user:problem:" + job.getUserId() + ":" + job.getProblemId());
             } catch (Exception ignored) {}
 
             // 4a. Invalidate solved cache for practice mode on AC

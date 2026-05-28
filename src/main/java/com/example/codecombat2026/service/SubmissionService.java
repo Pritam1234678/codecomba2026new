@@ -88,6 +88,12 @@ public class SubmissionService {
 
         submission = submissionRepository.save(submission);
 
+        // Evict user submission caches so the dashboard reflects the new PENDING row.
+        try {
+            redis.delete("submissions:user:" + userId);
+            redis.delete("submission:user:problem:" + userId + ":" + problemId);
+        } catch (Exception ignored) {}
+
         // Push job to Valkey queue — worker picks it up asynchronously
         Long contestId = problem.getContest() != null ? problem.getContest().getId() : null;
         SubmissionJob job = new SubmissionJob(
