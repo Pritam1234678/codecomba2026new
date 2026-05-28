@@ -29,6 +29,10 @@ export default function ManageContestProblems() {
     const [available, setAvailable] = useState([]);
     const [browseLoading, setBrowseLoading] = useState(false);
     const [selectedIds, setSelectedIds] = useState(new Set());
+    const [browsePage, setBrowsePage] = useState(0);
+    const [browseTotalPages, setBrowseTotalPages] = useState(0);
+    const [browseTotalElements, setBrowseTotalElements] = useState(0);
+    const PAGE_SIZE = 10;
 
     useEffect(() => { load(); }, [id]);
 
@@ -42,18 +46,34 @@ export default function ManageContestProblems() {
                     params: {
                         search: browseSearch || undefined,
                         level: browseLevel === 'ALL' ? undefined : browseLevel,
+                        page: browsePage,
+                        size: PAGE_SIZE,
                     },
                 });
-                setAvailable(res.data || []);
+                // Handle both paginated response {content, totalElements, totalPages}
+                // and legacy flat array response
+                if (res.data && res.data.content !== undefined) {
+                    setAvailable(res.data.content || []);
+                    setBrowseTotalPages(res.data.totalPages || 0);
+                    setBrowseTotalElements(res.data.totalElements || 0);
+                } else {
+                    // Fallback: flat array
+                    const arr = Array.isArray(res.data) ? res.data : [];
+                    setAvailable(arr);
+                    setBrowseTotalPages(1);
+                    setBrowseTotalElements(arr.length);
+                }
             } catch (err) {
                 console.error('Browse load error:', err);
                 setAvailable([]);
+                setBrowseTotalPages(0);
+                setBrowseTotalElements(0);
             } finally {
                 setBrowseLoading(false);
             }
         }, 300);
         return () => clearTimeout(handle);
-    }, [browseModalOpen, browseSearch, browseLevel, id]);
+    }, [browseModalOpen, browseSearch, browseLevel, browsePage, id]);
 
     const closeBrowseModal = () => {
         setBrowseModalOpen(false);
@@ -61,6 +81,9 @@ export default function ManageContestProblems() {
         setBrowseLevel('ALL');
         setAvailable([]);
         setSelectedIds(new Set());
+        setBrowsePage(0);
+        setBrowseTotalPages(0);
+        setBrowseTotalElements(0);
     };
 
     const toggleSelected = (pid) => {
@@ -297,7 +320,7 @@ export default function ManageContestProblems() {
                                 <input
                                     type="text"
                                     value={browseSearch}
-                                    onChange={e => setBrowseSearch(e.target.value)}
+                                    onChange={e => { setBrowseSearch(e.target.value); setBrowsePage(0); }}
                                     placeholder="Search problems..."
                                     style={{ width:'100%', backgroundColor: C.surfaceMin, border:`1px solid ${C.border}`, color: C.onBg, padding:'10px 14px', fontFamily:"'JetBrains Mono', monospace", fontSize:'12px', letterSpacing:'0.05em', outline:'none' }}
                                 />
@@ -309,7 +332,7 @@ export default function ManageContestProblems() {
                                         const activeBorder = cfg ? cfg.border : C.secondary;
                                         const activeBg = cfg ? cfg.bg : 'rgba(233,193,118,0.12)';
                                         return (
-                                            <button key={lvl} onClick={() => setBrowseLevel(lvl)}
+                                            <button key={lvl} onClick={() => { setBrowseLevel(lvl); setBrowsePage(0); }}
                                                 style={{
                                                     fontFamily:"'JetBrains Mono', monospace",
                                                     fontSize:'10px',
@@ -378,10 +401,41 @@ export default function ManageContestProblems() {
                             </div>
 
                             {/* Footer */}
-                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'1.25rem 2rem', borderTop:`1px solid ${C.border}`, backgroundColor: C.surfaceLow }}>
-                                <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', color: C.outline, letterSpacing:'0.1em', textTransform:'uppercase' }}>
-                                    {selectedIds.size} selected
-                                </span>
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'1rem 2rem', borderTop:`1px solid ${C.border}`, backgroundColor: C.surfaceLow, flexWrap:'wrap', gap:'8px' }}>
+                                {/* Left: selected count + pagination */}
+                                <div style={{ display:'flex', alignItems:'center', gap:'16px' }}>
+                                    <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', color: C.outline, letterSpacing:'0.1em', textTransform:'uppercase' }}>
+                                        {selectedIds.size} selected
+                                    </span>
+                                    {browseTotalPages > 1 && (
+                                        <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                                            <button
+                                                disabled={browsePage === 0}
+                                                onClick={() => setBrowsePage(p => Math.max(0, p - 1))}
+                                                style={{ background:'none', border:`1px solid ${browsePage === 0 ? C.border : C.outline}`, color: browsePage === 0 ? C.border : C.outline, cursor: browsePage === 0 ? 'not-allowed' : 'pointer', width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.2s' }}
+                                                onMouseEnter={e => { if (browsePage > 0) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                                                onMouseLeave={e => { e.currentTarget.style.borderColor = browsePage === 0 ? C.border : C.outline; e.currentTarget.style.color = browsePage === 0 ? C.border : C.outline; }}
+                                            >
+                                                <span className="material-symbols-outlined" style={{ fontSize:'14px' }}>chevron_left</span>
+                                            </button>
+                                            <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'10px', color: C.outline, letterSpacing:'0.08em' }}>
+                                                {browsePage + 1} / {browseTotalPages}
+                                            </span>
+                                            <button
+                                                disabled={browsePage >= browseTotalPages - 1}
+                                                onClick={() => setBrowsePage(p => Math.min(browseTotalPages - 1, p + 1))}
+                                                style={{ background:'none', border:`1px solid ${browsePage >= browseTotalPages - 1 ? C.border : C.outline}`, color: browsePage >= browseTotalPages - 1 ? C.border : C.outline, cursor: browsePage >= browseTotalPages - 1 ? 'not-allowed' : 'pointer', width:'28px', height:'28px', display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.2s' }}
+                                                onMouseEnter={e => { if (browsePage < browseTotalPages - 1) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                                                onMouseLeave={e => { e.currentTarget.style.borderColor = browsePage >= browseTotalPages - 1 ? C.border : C.outline; e.currentTarget.style.color = browsePage >= browseTotalPages - 1 ? C.border : C.outline; }}
+                                            >
+                                                <span className="material-symbols-outlined" style={{ fontSize:'14px' }}>chevron_right</span>
+                                            </button>
+                                            <span style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'10px', color: C.border, letterSpacing:'0.05em' }}>
+                                                {browseTotalElements} total
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
                                 <div style={{ display:'flex', gap:'12px' }}>
                                     <button onClick={closeBrowseModal}
                                         style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:'11px', letterSpacing:'0.1em', textTransform:'uppercase', color: C.outline, background:'none', border:'none', cursor:'pointer', padding:'10px 20px', transition:'color 0.2s' }}

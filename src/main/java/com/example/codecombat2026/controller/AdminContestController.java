@@ -147,13 +147,27 @@ public class AdminContestController {
         return ResponseEntity.noContent().build();
     }
 
-    /** Pool of problems NOT in this contest, optionally filtered. */
+    /** Pool of problems NOT in this contest, optionally filtered, with pagination. */
     @GetMapping("/{contestId}/available-problems")
-    public List<Problem> getAvailableProblems(
+    public Map<String, Object> getAvailableProblems(
             @PathVariable Long contestId,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String level) {
-        return contestProblemService.findAvailable(contestId, search, level);
+            @RequestParam(required = false) String level,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        List<Problem> all = contestProblemService.findAvailable(contestId, search, level);
+        int total = all.size();
+        int fromIdx = Math.min(page * size, total);
+        int toIdx   = Math.min(fromIdx + size, total);
+        List<Problem> pageContent = all.subList(fromIdx, toIdx);
+
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("content", pageContent);
+        response.put("totalElements", total);
+        response.put("totalPages", (int) Math.ceil((double) total / size));
+        response.put("page", page);
+        response.put("size", size);
+        return response;
     }
 
     public void evictAdminContestsCache() {
