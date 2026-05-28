@@ -243,7 +243,7 @@ export default function UserDashboard() {
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', whiteSpace: 'nowrap' }}>
                                     <thead>
                                         <tr style={{ backgroundColor: C.surfaceLow, borderBottom: `1px solid ${C.border}` }}>
-                                            {['Problem', 'Language', 'Result', 'Score', 'Time'].map(h => (
+                                            {['Problem', 'Language', 'Result', 'Test Cases', 'Time'].map(h => (
                                                 <th key={h} style={{ padding: '14px 24px', textAlign: 'left', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase', fontWeight: 500 }}>
                                                     {h}
                                                 </th>
@@ -351,46 +351,6 @@ export default function UserDashboard() {
                     )}
                 </motion.section>
 
-                {/* ── Activity Feed ── */}
-                <motion.section
-                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}
-                >
-                    <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 600, color: C.onBg, marginBottom: '1.5rem' }}>
-                        Recent Activity
-                    </h3>
-                    <div style={{ borderLeft: `1px solid ${C.border}`, marginLeft: '16px', paddingLeft: '32px', display: 'flex', flexDirection: 'column', gap: '2rem', paddingTop: '8px', paddingBottom: '8px' }}>
-                        {submissions.slice(0, 5).map((sub, i) => {
-                            const sc = getStatus(sub.status);
-                            return (
-                                <div key={sub.id || i} style={{ position: 'relative' }}>
-                                    {/* Diamond bullet */}
-                                    <div style={{ position: 'absolute', left: '-41px', top: '4px', width: '10px', height: '10px', backgroundColor: C.bg, border: `1px solid ${sub.status === 'AC' ? C.secondary : C.border}`, transform: 'rotate(45deg)' }} />
-                                    <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', color: C.outline, marginBottom: '4px', textTransform: 'uppercase' }}>
-                                        {timeAgo(sub.submittedAt)}
-                                    </p>
-                                    <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '15px', color: C.onBg, lineHeight: 1.5 }}>
-                                        Submitted{' '}
-                                        <Link to={`/problems/${sub.problemId}`} style={{ color: C.primary, textDecoration: 'none' }}>
-                                            {sub.problemName || `Problem #${sub.problemId}`}
-                                        </Link>
-                                        {' — '}
-                                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: sc.color }}>
-                                            {sc.label}
-                                        </span>
-                                        {sub.score != null && (
-                                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline }}> ({sub.score}/100)</span>
-                                        )}
-                                    </p>
-                                </div>
-                            );
-                        })}
-                        {submissions.length === 0 && (
-                            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.outline }}>
-                                No activity yet. <Link to="/contests" style={{ color: C.primary, textDecoration: 'underline' }}>Start competing →</Link>
-                            </p>
-                        )}
-                    </div>
-                </motion.section>
             </div>
 
             <style>{`.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; }`}</style>
@@ -460,7 +420,7 @@ function SubRow({ sub, sc }) {
             <td style={{ padding: '14px 24px', color: C.outline }}>{sub.language || '—'}</td>
             <td style={{ padding: '14px 24px', color: sc.color }}>{sc.label}</td>
             <td style={{ padding: '14px 24px', color: C.muted }}>
-                {sub.score != null ? `${sub.score}/100` : '—'}
+                {sub.testCasesPassed != null && sub.totalTestCases != null ? `${sub.testCasesPassed}/${sub.totalTestCases}` : '—'}
             </td>
             <td style={{ padding: '14px 24px', color: C.outline, textAlign: 'right' }}>
                 {timeAgo(sub.submittedAt)}
