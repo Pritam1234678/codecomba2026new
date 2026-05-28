@@ -176,8 +176,7 @@ export default function UserDashboard() {
                             {[
                                 { label: 'Username',    value: user?.username    || '—' },
                                 { label: 'Email',       value: user?.email       || '—', mono: true },
-                                { label: 'Roll Number', value: user?.rollNumber  || '—', mono: true },
-                                { label: 'Branch',      value: user?.branch      || '—' },
+                              
                             ].map(({ label, value, mono }) => (
                                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid rgba(80,69,59,0.3)`, paddingBottom: '10px' }}>
                                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', color: C.outline, textTransform: 'uppercase' }}>{label}</span>
