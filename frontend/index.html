@@ -5,15 +5,14 @@
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CodeCoder</title>
-    <!-- Preconnect to API + fonts in parallel — saves 1 RTT on first call -->
+    <!-- Preconnect to API — saves 1 RTT on first call -->
     <link rel="preconnect" href="https://api.codecoder.in" crossorigin />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://challenges.cloudflare.com" />
 
-    <!-- Fonts — display=swap = non-blocking; trimmed weight ranges to cut size ~40% -->
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400&family=Geist:wght@400;500&display=swap" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@24,300,0..1&display=swap" rel="stylesheet" />
+    <!-- Self-hosted fonts (no Google Fonts round-trip). Preload Geist (primary UI font)
+         for instant first paint; the rest stream in via the stylesheet below. -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/geist-latin.woff2" crossorigin />
+    <link rel="stylesheet" href="/fonts/fonts.css" />
 
     <!-- Preload hero image — instant first paint above the fold -->
     <link rel="preload" as="image" href="/bg-hero-new.webp" fetchpriority="high" />
