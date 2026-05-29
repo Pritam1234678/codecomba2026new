@@ -6,14 +6,15 @@ import AppSidebar from './components/AppSidebar';
 import AdminRoute from './components/AdminRoute';
 import UserRoute from './components/UserRoute';
 import GuestRoute from './components/GuestRoute';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
 import api from './services/api';
 import AuthService from './services/auth.service';
 
 // ── Lazy-loaded routes (code-split per page) ─────────────────────────────────
-// Public auth flow pages — split out
+// Even Home/Login/Register are split out — keeps the App shell tiny so the
+// initial bundle is just routing + auth wrappers + sidebar.
+const Home           = lazy(() => import('./pages/Home'));
+const Login          = lazy(() => import('./pages/Login'));
+const Register       = lazy(() => import('./pages/Register'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword  = lazy(() => import('./pages/ResetPassword'));
 const ForgotUsername = lazy(() => import('./pages/ForgotUsername'));
@@ -45,7 +46,6 @@ const EditProblem          = lazy(() => import('./pages/EditProblem'));
 const AddProblem           = lazy(() => import('./pages/AddProblem'));
 const ManageTestCases      = lazy(() => import('./pages/ManageTestCases'));
 
-// Already lazy
 const NotFound  = lazy(() => import('./pages/NotFound'));
 const Duel      = lazy(() => import('./pages/Duel'));
 const DuelArena = lazy(() => import('./pages/DuelArena'));
@@ -96,9 +96,9 @@ function App() {
   const routes = (
     <Routes>
       {/* Public */}
-      <Route path="/" element={<Home />} />
-      <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
-      <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
+      <Route path="/" element={lazyWrap(<Home />)} />
+      <Route path="/login" element={lazyWrap(<GuestRoute><Login /></GuestRoute>)} />
+      <Route path="/register" element={lazyWrap(<GuestRoute><Register /></GuestRoute>)} />
       <Route path="/forgot-password" element={lazyWrap(<ForgotPassword />)} />
       <Route path="/reset-password" element={lazyWrap(<ResetPassword />)} />
       <Route path="/forgot-username" element={lazyWrap(<ForgotUsername />)} />

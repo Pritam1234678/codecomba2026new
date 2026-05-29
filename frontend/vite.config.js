@@ -34,24 +34,20 @@ export default defineConfig({
     }
   },
   build: {
-    // Split vendor chunks so browsers can cache them independently
+    target: 'es2020',
+    minify: 'esbuild',
+    cssMinify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
-          // React core — changes rarely, long-lived cache
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          // Animation libs — large but stable
-          'vendor-motion': ['framer-motion', 'gsap'],
-          // 3D libs — only used on 404 page, lazy-loaded
-          'vendor-three': ['three', '@react-three/fiber', '@react-three/drei'],
-          // Monaco editor — very large, separate chunk
+          'vendor-react':  ['react', 'react-dom', 'react-router-dom'],
+          'vendor-motion': ['framer-motion'],
           'vendor-monaco': ['@monaco-editor/react'],
-          // Axios + utilities
-          'vendor-utils': ['axios', 'clsx', 'tailwind-merge'],
+          'vendor-xterm':  ['@xterm/xterm', '@xterm/addon-fit'],
+          'vendor-utils':  ['axios', 'clsx', 'tailwind-merge'],
         }
       }
     },
-    // Raise warning threshold — we know about the chunks
     chunkSizeWarningLimit: 600,
   }
 })

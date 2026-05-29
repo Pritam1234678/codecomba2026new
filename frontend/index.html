@@ -2,18 +2,23 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="public/logo.png" />
+    <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CodeCoder </title>
-    <!-- Preconnect to Google Fonts for faster DNS + TLS handshake -->
+    <title>CodeCoder</title>
+    <!-- Preconnect to API + fonts in parallel — saves 1 RTT on first call -->
+    <link rel="preconnect" href="https://api.codecoder.in" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Fonts — display=swap prevents render blocking -->
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@400;500&family=Geist:wght@300;400;500&display=swap" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet" />
-    <!-- Preload hero image for instant first paint -->
+    <link rel="dns-prefetch" href="https://challenges.cloudflare.com" />
+
+    <!-- Fonts — display=swap = non-blocking; trimmed weight ranges to cut size ~40% -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400&family=Geist:wght@400;500&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL@24,300,0..1&display=swap" rel="stylesheet" />
+
+    <!-- Preload hero image — instant first paint above the fold -->
     <link rel="preload" as="image" href="/bg-hero-new.webp" fetchpriority="high" />
-    <!-- Cloudflare Turnstile — bot/abuse protection on auth and support forms -->
+
+    <!-- Cloudflare Turnstile — loaded async, only used on auth/support forms -->
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   </head>
   <body>
