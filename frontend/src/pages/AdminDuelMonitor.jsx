@@ -3,47 +3,305 @@ import api from '../services/api';
 
 const C = {
     bg: '#0e0e0e',
-    surface: '#1c1b1b',
-    surfaceHi: '#2a2a2a',
-    border: '#50453b',
+    surface: '#161514',
+    surfaceHi: '#1f1e1d',
+    surfaceHover: '#252320',
+    border: '#2e2b28',
+    borderHi: '#50453b',
     primary: '#f1bc8b',
     secondary: '#e9c176',
-    muted: '#d4c4b7',
-    outline: '#9d8e83',
+    muted: '#9d8e83',
+    outline: '#6b5f57',
     onBg: '#e5e2e1',
     success: '#4ade80',
-    error: '#ffb4ab',
+    error: '#f87171',
     warning: '#fbbf24',
+    info: '#60a5fa',
 };
 
-const DIFFICULTY_COLORS = {
-    EASY: '#4ade80',
-    MEDIUM: '#fbbf24',
-    HARD: '#f87171',
+const DIFF = {
+    EASY:   { color: '#4ade80', bg: 'rgba(74,222,128,0.08)'  },
+    MEDIUM: { color: '#fbbf24', bg: 'rgba(251,191,36,0.08)'  },
+    HARD:   { color: '#f87171', bg: 'rgba(248,113,113,0.08)' },
 };
 
-const PAGE_SIZE = 10;
+const OUTCOME = {
+    USER_A_WIN: { label: 'A Wins',    color: '#4ade80', bg: 'rgba(74,222,128,0.1)'   },
+    USER_B_WIN: { label: 'B Wins',    color: '#60a5fa', bg: 'rgba(96,165,250,0.1)'   },
+    DRAW:       { label: 'Draw',      color: '#fbbf24', bg: 'rgba(251,191,36,0.1)'   },
+    ABANDONED:  { label: 'Abandoned', color: '#6b5f57', bg: 'rgba(107,95,87,0.15)'   },
+};
 
+const PAGE_SIZE = 8;
+
+/* ── tiny helpers ── */
+const DiffBadge = ({ diff }) => {
+    const d = DIFF[diff] || { color: C.muted, bg: 'rgba(157,142,131,0.1)' };
+    return (
+        <span style={{
+            padding: '2px 9px', fontSize: '10px', fontWeight: 700,
+            letterSpacing: '0.12em', textTransform: 'uppercase',
+            color: d.color, background: d.bg,
+            border: `1px solid ${d.color}30`,
+            fontFamily: "'JetBrains Mono', monospace",
+        }}>{diff || '—'}</span>
+    );
+};
+
+const OutcomePill = ({ outcome }) => {
+    const o = OUTCOME[outcome] || { label: outcome || 'FINISHED', color: C.success, bg: 'rgba(74,222,128,0.1)' };
+    return (
+        <span style={{
+            padding: '3px 11px', fontSize: '10px', fontWeight: 700,
+            letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: o.color, background: o.bg,
+            border: `1px solid ${o.color}40`,
+            fontFamily: "'JetBrains Mono', monospace",
+        }}>{o.label}</span>
+    );
+};
+
+const Avatar = ({ name, size = 36, winner }) => {
+    const initials = (name || '?').slice(0, 2).toUpperCase();
+    const hue = [...(name || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+    return (
+        <div style={{
+            width: size, height: size, borderRadius: '50%',
+            background: `hsl(${hue},35%,22%)`,
+            border: `2px solid ${winner ? C.success : `hsl(${hue},30%,35%)`}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: size * 0.36, fontWeight: 700, color: `hsl(${hue},60%,75%)`,
+            flexShrink: 0, boxShadow: winner ? `0 0 10px ${C.success}40` : 'none',
+            fontFamily: "'JetBrains Mono', monospace",
+        }}>{initials}</div>
+    );
+};
+
+/* ── Match History Card ── */
+const HistoryCard = ({ match }) => {
+    const aWon = match.outcome === 'USER_A_WIN';
+    const bWon = match.outcome === 'USER_B_WIN';
+    const isDraw = match.outcome === 'DRAW';
+    const isAbandoned = match.outcome === 'ABANDONED';
+
+    const accentColor = isAbandoned ? C.outline : isDraw ? C.warning : aWon ? C.success : C.info;
+
+    const formatDate = (d) => d ? new Date(d).toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+    }) : '—';
+
+    return (
+        <div className="duel-card" style={{
+            background: C.surface,
+            border: `1px solid ${C.border}`,
+            borderTop: `2px solid ${accentColor}`,
+            padding: '0',
+            overflow: 'hidden',
+            transition: 'border-color 0.2s, background 0.2s',
+        }}>
+            {/* top bar */}
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 16px',
+                borderBottom: `1px solid ${C.border}`,
+                background: C.surfaceHi,
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '14px', color: C.muted }}>swords</span>
+                    <span style={{ fontSize: '11px', color: C.muted, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.08em' }}>
+                        {formatDate(match.startedAt)}
+                    </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <DiffBadge diff={match.difficulty} />
+                    <OutcomePill outcome={match.outcome} />
+                </div>
+            </div>
+
+            {/* battle row */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 56px 1fr',
+                alignItems: 'center',
+                padding: '16px 20px',
+                gap: '8px',
+            }}>
+                {/* Player A */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Avatar name={match.userAUsername} size={40} winner={aWon} />
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {aWon && (
+                                <span className="material-symbols-outlined" style={{
+                                    fontSize: '14px', color: C.success,
+                                    fontVariationSettings: "'FILL' 1",
+                                }}>military_tech</span>
+                            )}
+                            <span style={{
+                                fontSize: '15px', fontWeight: aWon ? 700 : 500,
+                                color: aWon ? C.success : isDraw ? C.warning : isAbandoned ? C.muted : C.onBg,
+                            }}>
+                                {match.userAUsername || `User ${match.userAId}`}
+                            </span>
+                        </div>
+                        <span style={{ fontSize: '11px', color: C.outline, fontFamily: "'JetBrains Mono', monospace" }}>
+                            Player A
+                        </span>
+                    </div>
+                </div>
+
+                {/* VS center */}
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                        width: '40px', height: '40px', margin: '0 auto',
+                        border: `1px solid ${C.borderHi}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: C.surfaceHi,
+                        transform: 'rotate(45deg)',
+                    }}>
+                        <span style={{
+                            transform: 'rotate(-45deg)',
+                            fontSize: '10px', fontWeight: 800,
+                            color: C.outline, letterSpacing: '0.05em',
+                            fontFamily: "'JetBrains Mono', monospace",
+                        }}>VS</span>
+                    </div>
+                </div>
+
+                {/* Player B */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-end', flexDirection: 'row-reverse' }}>
+                    <Avatar name={match.userBUsername} size={40} winner={bWon} />
+                    <div style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
+                            <span style={{
+                                fontSize: '15px', fontWeight: bWon ? 700 : 500,
+                                color: bWon ? C.info : isDraw ? C.warning : isAbandoned ? C.muted : C.onBg,
+                            }}>
+                                {match.userBUsername || `User ${match.userBId}`}
+                            </span>
+                            {bWon && (
+                                <span className="material-symbols-outlined" style={{
+                                    fontSize: '14px', color: C.info,
+                                    fontVariationSettings: "'FILL' 1",
+                                }}>military_tech</span>
+                            )}
+                        </div>
+                        <span style={{ fontSize: '11px', color: C.outline, fontFamily: "'JetBrains Mono', monospace" }}>
+                            Player B
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/* ── Live Match Card ── */
+const LiveCard = ({ match, onCancel }) => {
+    const formatTime = (s) => {
+        if (!s || s < 0) return '0:00';
+        return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+    };
+    const urgent = match.remainingSeconds < 300;
+
+    return (
+        <div style={{
+            background: C.surface,
+            border: `1px solid ${C.success}40`,
+            borderTop: `2px solid ${C.success}`,
+            overflow: 'hidden',
+        }}>
+            {/* top bar */}
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 16px', background: `${C.success}08`,
+                borderBottom: `1px solid ${C.success}20`,
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: C.success, display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                    <span style={{ fontSize: '11px', color: C.success, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                        Live
+                    </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <DiffBadge diff={match.difficulty} />
+                    <button onClick={() => onCancel(match.matchId)} style={{
+                        padding: '3px 10px', background: 'transparent',
+                        border: `1px solid ${C.error}60`, color: C.error,
+                        cursor: 'pointer', fontSize: '10px',
+                        letterSpacing: '0.1em', textTransform: 'uppercase',
+                        fontFamily: "'JetBrains Mono', monospace",
+                    }}>Cancel</button>
+                </div>
+            </div>
+
+            {/* battle row */}
+            <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 80px 1fr',
+                alignItems: 'center', padding: '16px 20px', gap: '8px',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <Avatar name={match.userAUsername} size={40} />
+                    <div>
+                        <div style={{ fontSize: '15px', fontWeight: 600, color: C.primary }}>
+                            {match.userAUsername || `User ${match.userAId}`}
+                        </div>
+                        <span style={{ fontSize: '11px', color: C.outline, fontFamily: "'JetBrains Mono', monospace" }}>
+                            {match.runsUsed ?? 0}/5 runs
+                        </span>
+                    </div>
+                </div>
+
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{
+                        fontSize: '22px', fontWeight: 700,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        color: urgent ? C.error : C.onBg,
+                        animation: urgent ? 'blink 1s infinite' : 'none',
+                    }}>
+                        {formatTime(match.remainingSeconds)}
+                    </div>
+                    <div style={{ fontSize: '9px', color: C.outline, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '2px' }}>
+                        remaining
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-end', flexDirection: 'row-reverse' }}>
+                    <Avatar name={match.userBUsername} size={40} />
+                    <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '15px', fontWeight: 600, color: C.primary }}>
+                            {match.userBUsername || `User ${match.userBId}`}
+                        </div>
+                        <span style={{ fontSize: '11px', color: C.outline, fontFamily: "'JetBrains Mono', monospace" }}>
+                            {match.runsUsed ?? 0}/5 runs
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+/* ── Main Page ── */
 const AdminDuelMonitor = () => {
-    const [liveMatches, setLiveMatches] = useState([]);
+    const [liveMatches, setLiveMatches]     = useState([]);
     const [historyMatches, setHistoryMatches] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [historyTotal, setHistoryTotal] = useState(0);
-    const [page, setPage] = useState(0);
+    const [loading, setLoading]             = useState(true);
+    const [error, setError]                 = useState(null);
+    const [historyTotal, setHistoryTotal]   = useState(0);
+    const [page, setPage]                   = useState(0);
 
     const fetchMatches = useCallback(async () => {
         try {
-            const [liveRes, historyRes] = await Promise.all([
+            const [liveRes, histRes] = await Promise.all([
                 api.get('/admin/duels', { params: { status: 'IN_PROGRESS', limit: 100, offset: 0 } }),
                 api.get('/admin/duels', { params: { status: 'FINISHED', limit: PAGE_SIZE, offset: page * PAGE_SIZE } }),
             ]);
             setLiveMatches(liveRes.data.content || []);
-            setHistoryMatches(historyRes.data.content || []);
-            setHistoryTotal(historyRes.data.totalElements || 0);
+            setHistoryMatches(histRes.data.content || []);
+            setHistoryTotal(histRes.data.totalElements || 0);
             setError(null);
         } catch (err) {
-            console.error('Failed to fetch duel matches:', err);
             setError('Failed to load matches. You may not have admin access.');
         } finally {
             setLoading(false);
@@ -52,8 +310,8 @@ const AdminDuelMonitor = () => {
 
     useEffect(() => {
         fetchMatches();
-        const interval = setInterval(fetchMatches, 5000);
-        return () => clearInterval(interval);
+        const iv = setInterval(fetchMatches, 5000);
+        return () => clearInterval(iv);
     }, [fetchMatches]);
 
     const cancelMatch = async (matchId) => {
@@ -62,56 +320,17 @@ const AdminDuelMonitor = () => {
             await api.post(`/admin/duels/${matchId}/cancel`);
             fetchMatches();
         } catch (err) {
-            alert('Failed to cancel match: ' + (err.response?.data?.message || err.message));
+            alert('Failed to cancel: ' + (err.response?.data?.message || err.message));
         }
     };
 
-    const formatTime = (seconds) => {
-        if (!seconds || seconds < 0) return '0:00';
-        const m = Math.floor(seconds / 60);
-        const s = seconds % 60;
-        return `${m}:${s.toString().padStart(2, '0')}`;
-    };
-
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '-';
-        return new Date(dateStr).toLocaleString('en-IN', {
-            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-        });
-    };
-
     const totalPages = Math.ceil(historyTotal / PAGE_SIZE);
-
-    const OutcomeBadge = ({ outcome }) => {
-        const cfg = outcome === 'DRAW'
-            ? { bg: C.warning + '22', color: C.warning, label: 'DRAW' }
-            : outcome === 'ABANDONED'
-            ? { bg: C.outline + '22', color: C.outline, label: 'ABANDONED' }
-            : { bg: C.success + '22', color: C.success, label: outcome || 'FINISHED' };
-        return (
-            <span style={{
-                padding: '3px 10px', borderRadius: '4px', fontSize: '10px',
-                letterSpacing: '0.1em', textTransform: 'uppercase',
-                backgroundColor: cfg.bg, color: cfg.color, fontWeight: 600,
-            }}>{cfg.label}</span>
-        );
-    };
-
-    const DiffBadge = ({ diff }) => (
-        <span style={{
-            padding: '3px 10px', borderRadius: '4px', fontSize: '10px',
-            letterSpacing: '0.1em', textTransform: 'uppercase',
-            backgroundColor: (DIFFICULTY_COLORS[diff] || C.outline) + '22',
-            color: DIFFICULTY_COLORS[diff] || C.outline, fontWeight: 600,
-        }}>{diff || '—'}</span>
-    );
 
     if (loading) return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', color: C.muted }}>
             Loading duel monitor...
         </div>
     );
-
     if (error) return (
         <div style={{ padding: '2rem', color: C.error }}>
             <h2>Access Error</h2><p>{error}</p>
@@ -119,177 +338,113 @@ const AdminDuelMonitor = () => {
     );
 
     return (
-        <div style={{ padding: '1.5rem', color: C.onBg, maxWidth: '1100px' }}>
-            {/* Header */}
-            <div style={{ marginBottom: '2rem' }}>
-                <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', color: C.primary, marginBottom: '0.5rem' }}>
-                    Duel Monitor
-                </h1>
-                <p style={{ color: C.muted, fontSize: '14px' }}>Live matches refresh every 5 seconds</p>
+        <div style={{ padding: '1.5rem 2rem', color: C.onBg, maxWidth: '900px' }}>
+
+            {/* ── Header ── */}
+            <div style={{ marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '28px', color: C.secondary, fontVariationSettings: "'FILL' 1" }}>swords</span>
+                    <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '30px', color: C.primary, margin: 0 }}>
+                        Duel Monitor
+                    </h1>
+                </div>
+                <p style={{ color: C.muted, fontSize: '13px', marginLeft: '40px' }}>
+                    Live matches auto-refresh every 5 seconds
+                </p>
             </div>
 
             {/* ── Live Matches ── */}
             <section style={{ marginBottom: '3rem' }}>
-                <h2 style={{ fontSize: '16px', color: C.secondary, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '18px', color: C.success }}>circle</span>
-                    Live Matches ({liveMatches.length})
-                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: C.success, display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                    <h2 style={{ margin: 0, fontSize: '13px', color: C.success, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                        Live Matches
+                    </h2>
+                    <span style={{
+                        padding: '1px 8px', fontSize: '11px', fontWeight: 700,
+                        background: `${C.success}15`, color: C.success,
+                        border: `1px solid ${C.success}30`,
+                        fontFamily: "'JetBrains Mono', monospace",
+                    }}>{liveMatches.length}</span>
+                </div>
 
                 {liveMatches.length === 0 ? (
-                    <div style={{ padding: '2rem', backgroundColor: C.surface, border: `1px solid ${C.border}`, textAlign: 'center', color: C.muted }}>
+                    <div style={{
+                        padding: '2.5rem', background: C.surface,
+                        border: `1px dashed ${C.border}`,
+                        textAlign: 'center', color: C.outline,
+                        fontSize: '14px',
+                    }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '32px', display: 'block', marginBottom: '8px', color: C.border }}>sports_kabaddi</span>
                         No matches in progress right now
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gap: '12px' }}>
-                        {liveMatches.map((match) => (
-                            <div key={match.matchId} style={{
-                                backgroundColor: C.surface, border: `1px solid ${C.border}`,
-                                padding: '1rem 1.25rem',
-                                display: 'grid', gridTemplateColumns: '1fr auto 1fr auto',
-                                alignItems: 'center', gap: '1rem',
-                            }}>
-                                <div>
-                                    <span style={{ color: C.primary, fontWeight: 600 }}>{match.userAUsername || `User ${match.userAId}`}</span>
-                                    <span style={{ color: C.muted, marginLeft: '8px', fontSize: '12px' }}>{match.runsUsed ?? 0}/5 runs</span>
-                                </div>
-                                <div style={{ textAlign: 'center', minWidth: '100px' }}>
-                                    <div style={{ fontSize: '12px', color: C.muted, marginBottom: '2px' }}>VS</div>
-                                    <div style={{ fontSize: '20px', fontFamily: "'JetBrains Mono', monospace", color: match.remainingSeconds < 300 ? C.error : C.onBg }}>
-                                        {formatTime(match.remainingSeconds)}
-                                    </div>
-                                    <div style={{ marginTop: '4px' }}><DiffBadge diff={match.difficulty} /></div>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <span style={{ color: C.primary, fontWeight: 600 }}>{match.userBUsername || `User ${match.userBId}`}</span>
-                                    <span style={{ color: C.muted, marginLeft: '8px', fontSize: '12px' }}>{match.runsUsed ?? 0}/5 runs</span>
-                                </div>
-                                <button onClick={() => cancelMatch(match.matchId)} style={{
-                                    padding: '6px 12px', backgroundColor: 'transparent',
-                                    border: `1px solid ${C.error}`, color: C.error,
-                                    cursor: 'pointer', fontSize: '11px',
-                                    textTransform: 'uppercase', letterSpacing: '0.08em',
-                                }}>Cancel</button>
-                            </div>
-                        ))}
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                        {liveMatches.map(m => <LiveCard key={m.matchId} match={m} onCancel={cancelMatch} />)}
                     </div>
                 )}
             </section>
 
             {/* ── Match History ── */}
             <section>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-                    <h2 style={{ fontSize: '16px', color: C.secondary, letterSpacing: '0.05em', textTransform: 'uppercase', margin: 0 }}>
-                        Match History
-                    </h2>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px', color: C.muted }}>history</span>
+                        <h2 style={{ margin: 0, fontSize: '13px', color: C.muted, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                            Match History
+                        </h2>
+                    </div>
                     {historyTotal > 0 && (
                         <span style={{ fontSize: '12px', color: C.outline, fontFamily: "'JetBrains Mono', monospace" }}>
-                            {historyTotal} total
+                            {historyTotal} matches · page {page + 1}/{totalPages}
                         </span>
                     )}
                 </div>
 
                 {historyMatches.length === 0 ? (
-                    <div style={{ padding: '2rem', backgroundColor: C.surface, border: `1px solid ${C.border}`, textAlign: 'center', color: C.muted }}>
+                    <div style={{ padding: '2.5rem', background: C.surface, border: `1px dashed ${C.border}`, textAlign: 'center', color: C.outline, fontSize: '14px' }}>
                         No completed matches yet
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gap: '10px' }}>
-                        {historyMatches.map((match) => {
-                            const aWon = match.winnerUserId === match.userAId;
-                            const bWon = match.winnerUserId === match.userBId;
-                            const isDraw = match.outcome === 'DRAW';
-                            const isAbandoned = match.outcome === 'ABANDONED';
-
-                            return (
-                                <div key={match.matchId} style={{
-                                    backgroundColor: C.surface,
-                                    border: `1px solid ${C.border}`,
-                                    borderLeft: `3px solid ${
-                                        isAbandoned ? C.outline :
-                                        isDraw ? C.warning :
-                                        C.success
-                                    }`,
-                                    padding: '14px 18px',
-                                    display: 'grid',
-                                    gridTemplateColumns: '1fr 60px 1fr auto',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                    transition: 'background 0.15s',
-                                }}>
-                                    {/* Player A */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            {aWon && <span className="material-symbols-outlined" style={{ fontSize: '14px', color: C.success, fontVariationSettings: "'FILL' 1" }}>military_tech</span>}
-                                            <span style={{
-                                                fontWeight: aWon ? 700 : 400,
-                                                color: aWon ? C.success : C.onBg,
-                                                fontSize: '14px',
-                                            }}>{match.userAUsername || `User ${match.userAId}`}</span>
-                                        </div>
-                                        <span style={{ fontSize: '11px', color: C.outline, fontFamily: "'JetBrains Mono', monospace" }}>Player A</span>
-                                    </div>
-
-                                    {/* Center: VS + diff */}
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: '11px', color: C.outline, letterSpacing: '0.1em', marginBottom: '4px' }}>VS</div>
-                                        <DiffBadge diff={match.difficulty} />
-                                    </div>
-
-                                    {/* Player B */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <span style={{
-                                                fontWeight: bWon ? 700 : 400,
-                                                color: bWon ? C.success : C.onBg,
-                                                fontSize: '14px',
-                                            }}>{match.userBUsername || `User ${match.userBId}`}</span>
-                                            {bWon && <span className="material-symbols-outlined" style={{ fontSize: '14px', color: C.success, fontVariationSettings: "'FILL' 1" }}>military_tech</span>}
-                                        </div>
-                                        <span style={{ fontSize: '11px', color: C.outline, fontFamily: "'JetBrains Mono', monospace" }}>Player B</span>
-                                    </div>
-
-                                    {/* Right: outcome + date */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', minWidth: '110px' }}>
-                                        <OutcomeBadge outcome={match.outcome} />
-                                        <span style={{ fontSize: '11px', color: C.outline, fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>
-                                            {formatDate(match.startedAt)}
-                                        </span>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                    <div style={{ display: 'grid', gap: '8px' }}>
+                        {historyMatches.map(m => <HistoryCard key={m.matchId} match={m} />)}
                     </div>
                 )}
 
-                {/* Pagination */}
+                {/* ── Pagination ── */}
                 {totalPages > 1 && (
-                    <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                         <button
                             onClick={() => setPage(p => Math.max(0, p - 1))}
                             disabled={page === 0}
                             style={{
-                                padding: '6px 12px', backgroundColor: 'transparent',
-                                border: `1px solid ${page === 0 ? C.border : C.outline}`,
-                                color: page === 0 ? C.border : C.outline,
-                                cursor: page === 0 ? 'not-allowed' : 'pointer', fontSize: '13px',
+                                width: '34px', height: '34px', background: 'transparent',
+                                border: `1px solid ${page === 0 ? C.border : C.borderHi}`,
+                                color: page === 0 ? C.border : C.muted,
+                                cursor: page === 0 ? 'not-allowed' : 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}
                         >
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px', verticalAlign: 'middle' }}>chevron_left</span>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_left</span>
                         </button>
 
                         {Array.from({ length: totalPages }, (_, i) => {
-                            const show = i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 1;
-                            const showDots = !show && (i === 1 || i === totalPages - 2);
-                            if (showDots) return <span key={i} style={{ color: C.outline, padding: '0 2px' }}>…</span>;
-                            if (!show) return null;
+                            const near = Math.abs(i - page) <= 1;
+                            const edge = i === 0 || i === totalPages - 1;
+                            if (!near && !edge) {
+                                if (i === 1 || i === totalPages - 2) return <span key={i} style={{ color: C.outline, fontSize: '13px', padding: '0 2px' }}>…</span>;
+                                return null;
+                            }
+                            const active = i === page;
                             return (
                                 <button key={i} onClick={() => setPage(i)} style={{
                                     width: '34px', height: '34px',
-                                    backgroundColor: i === page ? C.secondary + '22' : 'transparent',
-                                    border: `1px solid ${i === page ? C.secondary : C.border}`,
-                                    color: i === page ? C.secondary : C.outline,
-                                    cursor: 'pointer', fontSize: '13px',
+                                    background: active ? `${C.secondary}18` : 'transparent',
+                                    border: `1px solid ${active ? C.secondary : C.border}`,
+                                    color: active ? C.secondary : C.muted,
+                                    cursor: 'pointer', fontSize: '12px',
                                     fontFamily: "'JetBrains Mono', monospace",
+                                    fontWeight: active ? 700 : 400,
                                 }}>{i + 1}</button>
                             );
                         })}
@@ -298,13 +453,14 @@ const AdminDuelMonitor = () => {
                             onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                             disabled={page >= totalPages - 1}
                             style={{
-                                padding: '6px 12px', backgroundColor: 'transparent',
-                                border: `1px solid ${page >= totalPages - 1 ? C.border : C.outline}`,
-                                color: page >= totalPages - 1 ? C.border : C.outline,
-                                cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', fontSize: '13px',
+                                width: '34px', height: '34px', background: 'transparent',
+                                border: `1px solid ${page >= totalPages - 1 ? C.border : C.borderHi}`,
+                                color: page >= totalPages - 1 ? C.border : C.muted,
+                                cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}
                         >
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px', verticalAlign: 'middle' }}>chevron_right</span>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_right</span>
                         </button>
                     </div>
                 )}
@@ -312,6 +468,9 @@ const AdminDuelMonitor = () => {
 
             <style>{`
                 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; }
+                @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+                @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:0.3} }
+                .duel-card:hover { background: ${C.surfaceHover} !important; border-color: ${C.borderHi} !important; }
             `}</style>
         </div>
     );
