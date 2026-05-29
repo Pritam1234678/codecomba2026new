@@ -1,295 +1,270 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 
+// ── Same theme tokens as Practice.jsx ─────────────────────────────────────────
 const C = {
-    bg: '#0e0e0e',
-    surface: '#161514',
-    surfaceHi: '#1f1e1d',
-    surfaceHover: '#252320',
-    border: '#2e2b28',
-    borderHi: '#50453b',
-    primary: '#f1bc8b',
-    secondary: '#e9c176',
-    muted: '#9d8e83',
-    outline: '#6b5f57',
-    onBg: '#e5e2e1',
-    success: '#4ade80',
-    error: '#f87171',
-    warning: '#fbbf24',
-    info: '#60a5fa',
+    bg:         '#131313',
+    surfaceCon: '#201f1f',
+    surfaceLow: '#1c1b1b',
+    surfaceHi:  '#2a2a2a',
+    border:     '#50453b',
+    primary:    '#f1bc8b',
+    secondary:  '#e9c176',
+    muted:      '#d4c4b7',
+    outline:    '#9d8e83',
+    onBg:       '#e5e2e1',
+    error:      '#ffb4ab',
+    success:    '#4ade80',
 };
 
-const DIFF = {
-    EASY:   { color: '#4ade80', bg: 'rgba(74,222,128,0.08)'  },
-    MEDIUM: { color: '#fbbf24', bg: 'rgba(251,191,36,0.08)'  },
-    HARD:   { color: '#f87171', bg: 'rgba(248,113,113,0.08)' },
+const DIFF_CFG = {
+    EASY:   { color: C.success,   label: 'Easy'   },
+    MEDIUM: { color: C.secondary, label: 'Medium' },
+    HARD:   { color: C.error,     label: 'Hard'   },
 };
 
-const OUTCOME = {
-    USER_A_WIN: { label: 'A Wins',    color: '#4ade80', bg: 'rgba(74,222,128,0.1)'   },
-    USER_B_WIN: { label: 'B Wins',    color: '#60a5fa', bg: 'rgba(96,165,250,0.1)'   },
-    DRAW:       { label: 'Draw',      color: '#fbbf24', bg: 'rgba(251,191,36,0.1)'   },
-    ABANDONED:  { label: 'Abandoned', color: '#6b5f57', bg: 'rgba(107,95,87,0.15)'   },
+// outcome → use only the existing palette, no new neon colors
+const OUTCOME_CFG = {
+    USER_A_WIN: { color: C.primary,   label: 'A Wins'    },
+    USER_B_WIN: { color: C.muted,     label: 'B Wins'    },
+    DRAW:       { color: C.secondary, label: 'Draw'      },
+    ABANDONED:  { color: C.outline,   label: 'Abandoned' },
 };
 
 const PAGE_SIZE = 8;
 
-/* ── tiny helpers ── */
+const formatDate = (d) => d
+    ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : '—';
+
+// ── Diff badge — identical style to Practice.jsx ──────────────────────────────
 const DiffBadge = ({ diff }) => {
-    const d = DIFF[diff] || { color: C.muted, bg: 'rgba(157,142,131,0.1)' };
+    const cfg = DIFF_CFG[diff] || { color: C.outline, label: diff || '—' };
     return (
         <span style={{
-            padding: '2px 9px', fontSize: '10px', fontWeight: 700,
-            letterSpacing: '0.12em', textTransform: 'uppercase',
-            color: d.color, background: d.bg,
-            border: `1px solid ${d.color}30`,
+            padding: '3px 10px',
+            border: `1px solid ${cfg.color}`,
             fontFamily: "'JetBrains Mono', monospace",
-        }}>{diff || '—'}</span>
+            fontSize: '10px', letterSpacing: '0.12em',
+            color: cfg.color, textTransform: 'uppercase',
+        }}>{cfg.label}</span>
     );
 };
 
-const OutcomePill = ({ outcome }) => {
-    const o = OUTCOME[outcome] || { label: outcome || 'FINISHED', color: C.success, bg: 'rgba(74,222,128,0.1)' };
+// ── Outcome badge ─────────────────────────────────────────────────────────────
+const OutcomeBadge = ({ outcome }) => {
+    const cfg = OUTCOME_CFG[outcome] || { color: C.outline, label: outcome || 'Finished' };
     return (
         <span style={{
-            padding: '3px 11px', fontSize: '10px', fontWeight: 700,
-            letterSpacing: '0.1em', textTransform: 'uppercase',
-            color: o.color, background: o.bg,
-            border: `1px solid ${o.color}40`,
+            padding: '3px 10px',
+            border: `1px solid ${cfg.color}40`,
             fontFamily: "'JetBrains Mono', monospace",
-        }}>{o.label}</span>
+            fontSize: '10px', letterSpacing: '0.12em',
+            color: cfg.color, textTransform: 'uppercase',
+        }}>{cfg.label}</span>
     );
 };
 
-const Avatar = ({ name, size = 36, winner }) => {
-    const initials = (name || '?').slice(0, 2).toUpperCase();
-    const hue = [...(name || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
-    return (
-        <div style={{
-            width: size, height: size, borderRadius: '50%',
-            background: `hsl(${hue},35%,22%)`,
-            border: `2px solid ${winner ? C.success : `hsl(${hue},30%,35%)`}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: size * 0.36, fontWeight: 700, color: `hsl(${hue},60%,75%)`,
-            flexShrink: 0, boxShadow: winner ? `0 0 10px ${C.success}40` : 'none',
-            fontFamily: "'JetBrains Mono', monospace",
-        }}>{initials}</div>
-    );
-};
-
-/* ── Match History Card ── */
+// ── History Match Card — same card anatomy as ProblemCard in Practice.jsx ─────
 const HistoryCard = ({ match }) => {
+    const [hovered, setHovered] = useState(false);
     const aWon = match.outcome === 'USER_A_WIN';
     const bWon = match.outcome === 'USER_B_WIN';
-    const isDraw = match.outcome === 'DRAW';
-    const isAbandoned = match.outcome === 'ABANDONED';
-
-    const accentColor = isAbandoned ? C.outline : isDraw ? C.warning : aWon ? C.success : C.info;
-
-    const formatDate = (d) => d ? new Date(d).toLocaleString('en-IN', {
-        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
-    }) : '—';
+    const diff = DIFF_CFG[match.difficulty] || { color: C.outline };
 
     return (
-        <div className="duel-card" style={{
-            background: C.surface,
-            border: `1px solid ${C.border}`,
-            borderTop: `2px solid ${accentColor}`,
-            padding: '0',
-            overflow: 'hidden',
-            transition: 'border-color 0.2s, background 0.2s',
-        }}>
-            {/* top bar */}
+        <div
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                border: `1px solid ${hovered ? diff.color : C.border}`,
+                backgroundColor: hovered ? C.surfaceCon : C.surfaceLow,
+                padding: '1.25rem 1.5rem',
+                display: 'flex', flexDirection: 'column', gap: '10px',
+                transition: 'all 0.2s',
+                position: 'relative', overflow: 'hidden',
+            }}
+        >
+            {/* Top accent bar — same as ProblemCard */}
             <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 16px',
-                borderBottom: `1px solid ${C.border}`,
-                background: C.surfaceHi,
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '14px', color: C.muted }}>swords</span>
-                    <span style={{ fontSize: '11px', color: C.muted, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.08em' }}>
-                        {formatDate(match.startedAt)}
-                    </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
+                backgroundColor: diff.color,
+                opacity: hovered ? 1 : 0.3, transition: 'opacity 0.2s',
+            }} />
+
+            {/* Row 1: date + badges */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
+                    letterSpacing: '0.08em', color: C.outline,
+                }}>{formatDate(match.startedAt)}</span>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <DiffBadge diff={match.difficulty} />
-                    <OutcomePill outcome={match.outcome} />
+                    <OutcomeBadge outcome={match.outcome} />
                 </div>
             </div>
 
-            {/* battle row */}
+            {/* Row 2: players */}
             <div style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 56px 1fr',
-                alignItems: 'center',
-                padding: '16px 20px',
-                gap: '8px',
+                display: 'grid', gridTemplateColumns: '1fr auto 1fr',
+                alignItems: 'center', gap: '12px',
             }}>
                 {/* Player A */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Avatar name={match.userAUsername} size={40} winner={aWon} />
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {aWon && (
-                                <span className="material-symbols-outlined" style={{
-                                    fontSize: '14px', color: C.success,
-                                    fontVariationSettings: "'FILL' 1",
-                                }}>military_tech</span>
-                            )}
-                            <span style={{
-                                fontSize: '15px', fontWeight: aWon ? 700 : 500,
-                                color: aWon ? C.success : isDraw ? C.warning : isAbandoned ? C.muted : C.onBg,
-                            }}>
-                                {match.userAUsername || `User ${match.userAId}`}
-                            </span>
-                        </div>
-                        <span style={{ fontSize: '11px', color: C.outline, fontFamily: "'JetBrains Mono', monospace" }}>
-                            Player A
-                        </span>
-                    </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{
+                        fontFamily: "'Playfair Display', serif",
+                        fontSize: '17px', fontWeight: 600,
+                        color: aWon ? C.primary : hovered ? C.muted : C.onBg,
+                        transition: 'color 0.2s',
+                    }}>
+                        {aWon && (
+                            <span className="material-symbols-outlined" style={{
+                                fontSize: '14px', marginRight: '5px',
+                                color: C.secondary, fontVariationSettings: "'FILL' 1",
+                                verticalAlign: 'middle',
+                            }}>military_tech</span>
+                        )}
+                        {match.userAUsername || `User ${match.userAId}`}
+                    </span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase' }}>
+                        Player A
+                    </span>
                 </div>
 
-                {/* VS center */}
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{
-                        width: '40px', height: '40px', margin: '0 auto',
-                        border: `1px solid ${C.borderHi}`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: C.surfaceHi,
-                        transform: 'rotate(45deg)',
-                    }}>
-                        <span style={{
-                            transform: 'rotate(-45deg)',
-                            fontSize: '10px', fontWeight: 800,
-                            color: C.outline, letterSpacing: '0.05em',
-                            fontFamily: "'JetBrains Mono', monospace",
-                        }}>VS</span>
-                    </div>
-                </div>
+                {/* VS divider */}
+                <span style={{
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
+                    letterSpacing: '0.15em', color: C.outline,
+                    padding: '0 4px', textTransform: 'uppercase',
+                }}>vs</span>
 
                 {/* Player B */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-end', flexDirection: 'row-reverse' }}>
-                    <Avatar name={match.userBUsername} size={40} winner={bWon} />
-                    <div style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                            <span style={{
-                                fontSize: '15px', fontWeight: bWon ? 700 : 500,
-                                color: bWon ? C.info : isDraw ? C.warning : isAbandoned ? C.muted : C.onBg,
-                            }}>
-                                {match.userBUsername || `User ${match.userBId}`}
-                            </span>
-                            {bWon && (
-                                <span className="material-symbols-outlined" style={{
-                                    fontSize: '14px', color: C.info,
-                                    fontVariationSettings: "'FILL' 1",
-                                }}>military_tech</span>
-                            )}
-                        </div>
-                        <span style={{ fontSize: '11px', color: C.outline, fontFamily: "'JetBrains Mono', monospace" }}>
-                            Player B
-                        </span>
-                    </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-end' }}>
+                    <span style={{
+                        fontFamily: "'Playfair Display', serif",
+                        fontSize: '17px', fontWeight: 600,
+                        color: bWon ? C.primary : hovered ? C.muted : C.onBg,
+                        transition: 'color 0.2s',
+                    }}>
+                        {match.userBUsername || `User ${match.userBId}`}
+                        {bWon && (
+                            <span className="material-symbols-outlined" style={{
+                                fontSize: '14px', marginLeft: '5px',
+                                color: C.secondary, fontVariationSettings: "'FILL' 1",
+                                verticalAlign: 'middle',
+                            }}>military_tech</span>
+                        )}
+                    </span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase' }}>
+                        Player B
+                    </span>
                 </div>
             </div>
         </div>
     );
 };
 
-/* ── Live Match Card ── */
+// ── Live Match Card ───────────────────────────────────────────────────────────
 const LiveCard = ({ match, onCancel }) => {
+    const [hovered, setHovered] = useState(false);
+    const urgent = match.remainingSeconds < 300;
+    const diff = DIFF_CFG[match.difficulty] || { color: C.outline };
+
     const formatTime = (s) => {
         if (!s || s < 0) return '0:00';
         return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
     };
-    const urgent = match.remainingSeconds < 300;
 
     return (
-        <div style={{
-            background: C.surface,
-            border: `1px solid ${C.success}40`,
-            borderTop: `2px solid ${C.success}`,
-            overflow: 'hidden',
-        }}>
-            {/* top bar */}
+        <div
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                border: `1px solid ${hovered ? diff.color : C.border}`,
+                backgroundColor: hovered ? C.surfaceCon : C.surfaceLow,
+                padding: '1.25rem 1.5rem',
+                display: 'flex', flexDirection: 'column', gap: '10px',
+                transition: 'all 0.2s',
+                position: 'relative', overflow: 'hidden',
+            }}
+        >
+            {/* Top accent bar */}
             <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '8px 16px', background: `${C.success}08`,
-                borderBottom: `1px solid ${C.success}20`,
-            }}>
+                position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
+                backgroundColor: diff.color, opacity: hovered ? 1 : 0.3, transition: 'opacity 0.2s',
+            }} />
+
+            {/* Row 1: live indicator + diff + cancel */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: C.success, display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
-                    <span style={{ fontSize: '11px', color: C.success, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                        Live
-                    </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{
+                        width: '6px', height: '6px', borderRadius: '50%',
+                        backgroundColor: C.success, display: 'inline-block',
+                        animation: 'dmPulse 1.5s infinite',
+                    }} />
+                    <span style={{
+                        fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
+                        letterSpacing: '0.15em', color: C.success, textTransform: 'uppercase',
+                    }}>Live</span>
                     <DiffBadge diff={match.difficulty} />
-                    <button onClick={() => onCancel(match.matchId)} style={{
-                        padding: '3px 10px', background: 'transparent',
-                        border: `1px solid ${C.error}60`, color: C.error,
-                        cursor: 'pointer', fontSize: '10px',
-                        letterSpacing: '0.1em', textTransform: 'uppercase',
-                        fontFamily: "'JetBrains Mono', monospace",
-                    }}>Cancel</button>
                 </div>
+                <button onClick={() => onCancel(match.matchId)} style={{
+                    padding: '3px 12px',
+                    border: `1px solid ${C.border}`,
+                    backgroundColor: 'transparent',
+                    color: C.outline,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase',
+                    cursor: 'pointer', transition: 'all 0.2s',
+                }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = C.error; e.currentTarget.style.color = C.error; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.outline; }}
+                >Cancel</button>
             </div>
 
-            {/* battle row */}
-            <div style={{
-                display: 'grid', gridTemplateColumns: '1fr 80px 1fr',
-                alignItems: 'center', padding: '16px 20px', gap: '8px',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Avatar name={match.userAUsername} size={40} />
-                    <div>
-                        <div style={{ fontSize: '15px', fontWeight: 600, color: C.primary }}>
-                            {match.userAUsername || `User ${match.userAId}`}
-                        </div>
-                        <span style={{ fontSize: '11px', color: C.outline, fontFamily: "'JetBrains Mono', monospace" }}>
-                            {match.runsUsed ?? 0}/5 runs
-                        </span>
-                    </div>
+            {/* Row 2: players + timer */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '17px', fontWeight: 600, color: C.primary }}>
+                        {match.userAUsername || `User ${match.userAId}`}
+                    </span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                        {match.runsUsed ?? 0}/5 runs
+                    </span>
                 </div>
 
-                <div style={{ textAlign: 'center' }}>
+                <div style={{ textAlign: 'center', padding: '0 8px' }}>
                     <div style={{
-                        fontSize: '22px', fontWeight: 700,
-                        fontFamily: "'JetBrains Mono', monospace",
+                        fontFamily: "'JetBrains Mono', monospace", fontSize: '20px', fontWeight: 700,
                         color: urgent ? C.error : C.onBg,
-                        animation: urgent ? 'blink 1s infinite' : 'none',
-                    }}>
-                        {formatTime(match.remainingSeconds)}
-                    </div>
-                    <div style={{ fontSize: '9px', color: C.outline, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '2px' }}>
-                        remaining
+                        animation: urgent ? 'dmBlink 1s infinite' : 'none',
+                    }}>{formatTime(match.remainingSeconds)}</div>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: C.outline, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                        left
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-end', flexDirection: 'row-reverse' }}>
-                    <Avatar name={match.userBUsername} size={40} />
-                    <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '15px', fontWeight: 600, color: C.primary }}>
-                            {match.userBUsername || `User ${match.userBId}`}
-                        </div>
-                        <span style={{ fontSize: '11px', color: C.outline, fontFamily: "'JetBrains Mono', monospace" }}>
-                            {match.runsUsed ?? 0}/5 runs
-                        </span>
-                    </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-end' }}>
+                    <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '17px', fontWeight: 600, color: C.primary }}>
+                        {match.userBUsername || `User ${match.userBId}`}
+                    </span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                        {match.runsUsed ?? 0}/5 runs
+                    </span>
                 </div>
             </div>
         </div>
     );
 };
 
-/* ── Main Page ── */
+// ── Main Page ─────────────────────────────────────────────────────────────────
 const AdminDuelMonitor = () => {
-    const [liveMatches, setLiveMatches]     = useState([]);
+    const [liveMatches, setLiveMatches]       = useState([]);
     const [historyMatches, setHistoryMatches] = useState([]);
-    const [loading, setLoading]             = useState(true);
-    const [error, setError]                 = useState(null);
-    const [historyTotal, setHistoryTotal]   = useState(0);
-    const [page, setPage]                   = useState(0);
+    const [loading, setLoading]               = useState(true);
+    const [error, setError]                   = useState(null);
+    const [historyTotal, setHistoryTotal]     = useState(0);
+    const [page, setPage]                     = useState(0);
 
     const fetchMatches = useCallback(async () => {
         try {
@@ -301,7 +276,7 @@ const AdminDuelMonitor = () => {
             setHistoryMatches(histRes.data.content || []);
             setHistoryTotal(histRes.data.totalElements || 0);
             setError(null);
-        } catch (err) {
+        } catch {
             setError('Failed to load matches. You may not have admin access.');
         } finally {
             setLoading(false);
@@ -327,59 +302,50 @@ const AdminDuelMonitor = () => {
     const totalPages = Math.ceil(historyTotal / PAGE_SIZE);
 
     if (loading) return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', color: C.muted }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
             Loading duel monitor...
         </div>
     );
     if (error) return (
-        <div style={{ padding: '2rem', color: C.error }}>
-            <h2>Access Error</h2><p>{error}</p>
+        <div style={{ padding: '2rem', color: C.error, fontFamily: "'JetBrains Mono', monospace" }}>
+            <p>{error}</p>
         </div>
     );
 
     return (
-        <div style={{ padding: '1.5rem 2rem', color: C.onBg, maxWidth: '900px' }}>
+        <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", minHeight: '100vh', padding: '48px 64px' }}>
 
-            {/* ── Header ── */}
-            <div style={{ marginBottom: '2.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '28px', color: C.secondary, fontVariationSettings: "'FILL' 1" }}>swords</span>
-                    <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '30px', color: C.primary, margin: 0 }}>
-                        Duel Monitor
-                    </h1>
-                </div>
-                <p style={{ color: C.muted, fontSize: '13px', marginLeft: '40px' }}>
+            {/* ── Header — same style as Practice hero ── */}
+            <section style={{ marginBottom: '3rem', borderBottom: `1px solid ${C.border}`, paddingBottom: '2rem' }}>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.2em', color: C.secondary, textTransform: 'uppercase' }}>
+                    Admin Panel
+                </span>
+                <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 700, lineHeight: 1.1, color: C.primary, margin: '0.5rem 0 0.75rem' }}>
+                    Duel Monitor
+                </h1>
+                <p style={{ fontSize: '14px', color: C.muted, margin: 0 }}>
                     Live matches auto-refresh every 5 seconds
                 </p>
-            </div>
+            </section>
 
             {/* ── Live Matches ── */}
             <section style={{ marginBottom: '3rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: C.success, display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
-                    <h2 style={{ margin: 0, fontSize: '13px', color: C.success, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.25rem' }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: C.success, display: 'inline-block', animation: 'dmPulse 1.5s infinite' }} />
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>
                         Live Matches
-                    </h2>
-                    <span style={{
-                        padding: '1px 8px', fontSize: '11px', fontWeight: 700,
-                        background: `${C.success}15`, color: C.success,
-                        border: `1px solid ${C.success}30`,
-                        fontFamily: "'JetBrains Mono', monospace",
-                    }}>{liveMatches.length}</span>
+                    </span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
+                        ({liveMatches.length})
+                    </span>
                 </div>
 
                 {liveMatches.length === 0 ? (
-                    <div style={{
-                        padding: '2.5rem', background: C.surface,
-                        border: `1px dashed ${C.border}`,
-                        textAlign: 'center', color: C.outline,
-                        fontSize: '14px',
-                    }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '32px', display: 'block', marginBottom: '8px', color: C.border }}>sports_kabaddi</span>
+                    <div style={{ border: `1px solid ${C.border}`, padding: '3rem', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline, letterSpacing: '0.08em' }}>
                         No matches in progress right now
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '16px' }}>
                         {liveMatches.map(m => <LiveCard key={m.matchId} match={m} onCancel={cancelMatch} />)}
                     </div>
                 )}
@@ -387,65 +353,68 @@ const AdminDuelMonitor = () => {
 
             {/* ── Match History ── */}
             <section>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '16px', color: C.muted }}>history</span>
-                        <h2 style={{ margin: 0, fontSize: '13px', color: C.muted, fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                            Match History
-                        </h2>
-                    </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>
+                        Match History
+                    </span>
                     {historyTotal > 0 && (
-                        <span style={{ fontSize: '12px', color: C.outline, fontFamily: "'JetBrains Mono', monospace" }}>
-                            {historyTotal} matches · page {page + 1}/{totalPages}
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
+                            {historyTotal} total · page {page + 1}/{totalPages}
                         </span>
                     )}
                 </div>
 
                 {historyMatches.length === 0 ? (
-                    <div style={{ padding: '2.5rem', background: C.surface, border: `1px dashed ${C.border}`, textAlign: 'center', color: C.outline, fontSize: '14px' }}>
+                    <div style={{ border: `1px solid ${C.border}`, padding: '3rem', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline, letterSpacing: '0.08em' }}>
                         No completed matches yet
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gap: '8px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '16px' }}>
                         {historyMatches.map(m => <HistoryCard key={m.matchId} match={m} />)}
                     </div>
                 )}
 
-                {/* ── Pagination ── */}
+                {/* ── Pagination — same style as AdminProblemManagement ── */}
                 {totalPages > 1 && (
-                    <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                    <div style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                         <button
                             onClick={() => setPage(p => Math.max(0, p - 1))}
                             disabled={page === 0}
                             style={{
-                                width: '34px', height: '34px', background: 'transparent',
-                                border: `1px solid ${page === 0 ? C.border : C.borderHi}`,
-                                color: page === 0 ? C.border : C.muted,
+                                padding: '6px 10px', backgroundColor: 'transparent',
+                                border: `1px solid ${page === 0 ? C.border : C.outline}`,
+                                color: page === 0 ? C.border : C.outline,
                                 cursor: page === 0 ? 'not-allowed' : 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}
+                            onMouseEnter={e => { if (page > 0) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = page === 0 ? C.border : C.outline; e.currentTarget.style.color = page === 0 ? C.border : C.outline; }}
                         >
-                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_left</span>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px', display: 'block' }}>chevron_left</span>
                         </button>
 
                         {Array.from({ length: totalPages }, (_, i) => {
                             const near = Math.abs(i - page) <= 1;
                             const edge = i === 0 || i === totalPages - 1;
                             if (!near && !edge) {
-                                if (i === 1 || i === totalPages - 2) return <span key={i} style={{ color: C.outline, fontSize: '13px', padding: '0 2px' }}>…</span>;
+                                if (i === 1 || i === totalPages - 2) return <span key={i} style={{ color: C.outline, fontSize: '12px', padding: '0 2px', fontFamily: "'JetBrains Mono', monospace" }}>…</span>;
                                 return null;
                             }
                             const active = i === page;
                             return (
-                                <button key={i} onClick={() => setPage(i)} style={{
-                                    width: '34px', height: '34px',
-                                    background: active ? `${C.secondary}18` : 'transparent',
-                                    border: `1px solid ${active ? C.secondary : C.border}`,
-                                    color: active ? C.secondary : C.muted,
-                                    cursor: 'pointer', fontSize: '12px',
-                                    fontFamily: "'JetBrains Mono', monospace",
-                                    fontWeight: active ? 700 : 400,
-                                }}>{i + 1}</button>
+                                <button key={i} onClick={() => setPage(i)}
+                                    style={{
+                                        width: '34px', height: '34px',
+                                        backgroundColor: active ? C.secondary : 'transparent',
+                                        border: `1px solid ${active ? C.secondary : C.border}`,
+                                        color: active ? C.bg : C.outline,
+                                        cursor: 'pointer',
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                        fontSize: '12px', fontWeight: active ? 700 : 400,
+                                        transition: 'all 0.15s',
+                                    }}
+                                    onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                                    onMouseLeave={e => { if (!active) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.outline; } }}
+                                >{i + 1}</button>
                             );
                         })}
 
@@ -453,14 +422,15 @@ const AdminDuelMonitor = () => {
                             onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                             disabled={page >= totalPages - 1}
                             style={{
-                                width: '34px', height: '34px', background: 'transparent',
-                                border: `1px solid ${page >= totalPages - 1 ? C.border : C.borderHi}`,
-                                color: page >= totalPages - 1 ? C.border : C.muted,
+                                padding: '6px 10px', backgroundColor: 'transparent',
+                                border: `1px solid ${page >= totalPages - 1 ? C.border : C.outline}`,
+                                color: page >= totalPages - 1 ? C.border : C.outline,
                                 cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}
+                            onMouseEnter={e => { if (page < totalPages - 1) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = page >= totalPages - 1 ? C.border : C.outline; e.currentTarget.style.color = page >= totalPages - 1 ? C.border : C.outline; }}
                         >
-                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>chevron_right</span>
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px', display: 'block' }}>chevron_right</span>
                         </button>
                     </div>
                 )}
@@ -468,9 +438,11 @@ const AdminDuelMonitor = () => {
 
             <style>{`
                 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; }
-                @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
-                @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:0.3} }
-                .duel-card:hover { background: ${C.surfaceHover} !important; border-color: ${C.borderHi} !important; }
+                @keyframes dmPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+                @keyframes dmBlink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+                @media (max-width: 768px) {
+                    div[style*="padding: '48px 64px'"] { padding: 24px 16px !important; }
+                }
             `}</style>
         </div>
     );
