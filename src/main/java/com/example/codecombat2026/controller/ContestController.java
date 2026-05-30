@@ -2,12 +2,16 @@ package com.example.codecombat2026.controller;
 
 import com.example.codecombat2026.dto.ProblemDTO;
 import com.example.codecombat2026.entity.Contest;
+import com.example.codecombat2026.entity.ContestRegistration;
 import com.example.codecombat2026.entity.Problem;
+import com.example.codecombat2026.security.services.UserDetailsImpl;
+import com.example.codecombat2026.service.ContestRegistrationService;
 import com.example.codecombat2026.service.ContestService;
 import com.example.codecombat2026.service.ProblemService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -24,6 +28,9 @@ public class ContestController {
 
     @Autowired
     private ProblemService problemService;
+
+    @Autowired
+    private ContestRegistrationService registrationService;
 
     @GetMapping
     public ResponseEntity<List<Contest>> getAllContests() {
@@ -48,8 +55,11 @@ public class ContestController {
      */
     @GetMapping("/{id}/detail")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Map<String, Object>> getContestDetail(@PathVariable Long id) {
-        // Fetch both in parallel — each hits Valkey cache independently
+    public ResponseEntity<Map<String, Object>> getContestDetail(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+
+        // Fetch contest + problems in parallel — each hits Valkey cache independently
         CompletableFuture<Contest> contestFuture = CompletableFuture.supplyAsync(
                 () -> contestService.getContestById(id));
         CompletableFuture<List<Problem>> problemsFuture = CompletableFuture.supplyAsync(
@@ -59,7 +69,7 @@ public class ContestController {
         List<Problem> problems = problemsFuture.join();
 
         List<ProblemDTO> problemDTOs = problems.stream()
-                .filter(p -> Boolean.TRUE.equals(p.getActive())) // hide disabled problems from users
+                .filter(p -> Boolean.TRUE.equals(p.getActive()))
                 .map(p -> new ProblemDTO(
                         p.getId(), p.getTitle(), p.getDescription(),
                         p.getInputFormat(), p.getOutputFormat(), p.getConstraints(),
@@ -68,10 +78,48 @@ public class ContestController {
                         p.getExample3(), p.getImages()))
                 .collect(Collectors.toList());
 
+        boolean registered = registrationService.isRegistered(id, userDetails.getId());
+        long registrationCount = registrationService.countRegistrations(id);
+
         Map<String, Object> response = new HashMap<>();
         response.put("contest", contest);
         response.put("problems", problemDTOs);
+        response.put("registered", registered);
+        response.put("registrationCount", registrationCount);
 
+        return ResponseEntity.ok(response);
+    }
+
+    /** Register the current user for a contest. Idempotent. */
+    @PostMapping("/{id}/register")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> registerForContest(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+
+        ContestRegistration reg = registrationService.register(id, userDetails.getId());
+        long count = registrationService.countRegistrations(id);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("registered", true);
+        response.put("registrationCount", count);
+        response.put("registeredAt", reg.getRegisteredAt());
+        return ResponseEntity.ok(response);
+    }
+
+    /** Check registration status for the current user. */
+    @GetMapping("/{id}/registration-status")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> registrationStatus(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+
+        boolean registered = registrationService.isRegistered(id, userDetails.getId());
+        long count = registrationService.countRegistrations(id);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("registered", registered);
+        response.put("registrationCount", count);
         return ResponseEntity.ok(response);
     }
 
