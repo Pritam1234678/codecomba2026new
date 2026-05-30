@@ -3,14 +3,18 @@ package com.example.codecombat2026.controller;
 import com.example.codecombat2026.entity.Submission;
 import com.example.codecombat2026.entity.User;
 import com.example.codecombat2026.entity.UserPhoto;
+import com.example.codecombat2026.repository.ContestRegistrationRepository;
 import com.example.codecombat2026.repository.SubmissionRepository;
-import com.example.codecombat2026.repository.UserRepository;
 import com.example.codecombat2026.repository.UserPhotoRepository;
+import com.example.codecombat2026.repository.UserRepository;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/user")
@@ -36,6 +41,7 @@ public class UserController {
     @Autowired private UserRepository userRepository;
     @Autowired private UserPhotoRepository userPhotoRepository;
     @Autowired private SubmissionRepository submissionRepository;
+    @Autowired private ContestRegistrationRepository contestRegistrationRepository;
     @Autowired private StringRedisTemplate redis;
     @Autowired private ObjectMapper objectMapper;
 
@@ -241,6 +247,90 @@ public class UserController {
         } catch (IOException e) {
             return ResponseEntity.internalServerError().body("Failed to upload photo: " + e.getMessage());
         }
+    }
+
+    // ─── GET /api/user/search?q=...&page=0&size=10 ───────────────────────────
+    @GetMapping("/search")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> searchUsers(
+            @RequestParam(defaultValue = "") String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        size = Math.min(size, 20); // cap at 20
+        Page<User> result = userRepository.searchNonAdminUsers(
+                q.trim(), PageRequest.of(page, size));
+
+        List<Map<String, Object>> users = result.getContent().stream().map(u -> {
+            String photoUrl = resolvePhotoUrl(userPhotoRepository.findByUserId(u.getId())
+                    .map(UserPhoto::getPhotoUrl).orElse(null));
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", u.getId());
+            m.put("username", u.getUsername());
+            m.put("fullName", u.getFullName());
+            m.put("totalPoints", u.getTotalPoints());
+            m.put("photoUrl", photoUrl);
+            return m;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", users);
+        response.put("totalElements", result.getTotalElements());
+        response.put("totalPages", result.getTotalPages());
+        response.put("page", page);
+        response.put("size", size);
+        return ResponseEntity.ok(response);
+    }
+
+    // ─── GET /api/user/profile/{username} — public profile ───────────────────
+    @GetMapping("/profile/{username}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getPublicProfile(@PathVariable String username) {
+        User user = userRepository.findByUsername(username).orElse(null);
+        if (user == null || !user.getEnabled()) {
+            return ResponseEntity.notFound().build();
+        }
+        // Block admin profiles from being viewed
+        boolean isAdmin = user.getRoles().stream()
+                .anyMatch(r -> r.getName().name().equals("ROLE_ADMIN"));
+        if (isAdmin) {
+            return ResponseEntity.notFound().build();
+        }
+
+        String photoUrl = resolvePhotoUrl(userPhotoRepository.findByUserId(user.getId())
+                .map(UserPhoto::getPhotoUrl).orElse(null));
+
+        // Stats — all computed in parallel
+        CompletableFuture<List<Submission>> subsFuture = CompletableFuture.supplyAsync(
+                () -> submissionRepository.findByUser_Id(user.getId()));
+        CompletableFuture<Long> contestRegFuture = CompletableFuture.supplyAsync(
+                () -> contestRegistrationRepository.countByUserId(user.getId()));
+        CompletableFuture<Long> duelWinsFuture = CompletableFuture.supplyAsync(
+                () -> 0L); // placeholder — extend when duel repo exposes countWinsByUserId
+
+        List<Submission> subs = subsFuture.join();
+        long contestsJoined = contestRegFuture.join();
+
+        long totalSubmissions = subs.size();
+        long acceptedSubmissions = subs.stream().filter(s -> "AC".equals(s.getStatus() != null ? s.getStatus().name() : "")).count();
+        long problemsSolved = subs.stream().filter(s -> "AC".equals(s.getStatus() != null ? s.getStatus().name() : ""))
+                .map(s -> s.getProblem() != null ? s.getProblem().getId() : null)
+                .filter(id -> id != null)
+                .distinct().count();
+        double successRate = totalSubmissions > 0 ? (acceptedSubmissions * 100.0 / totalSubmissions) : 0;
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", user.getId());
+        response.put("username", user.getUsername());
+        response.put("fullName", user.getFullName());
+        response.put("photoUrl", photoUrl);
+        response.put("totalPoints", user.getTotalPoints());
+        response.put("totalSubmissions", totalSubmissions);
+        response.put("acceptedSubmissions", acceptedSubmissions);
+        response.put("problemsSolved", problemsSolved);
+        response.put("successRate", Math.round(successRate * 10.0) / 10.0);
+        response.put("contestsJoined", contestsJoined);
+        return ResponseEntity.ok(response);
     }
 
     // ─── Inner DTOs ───────────────────────────────────────────────────────────

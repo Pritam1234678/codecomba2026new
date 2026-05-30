@@ -32,6 +32,8 @@ const PracticeSolve  = lazy(() => import('./pages/PracticeSolve'));
 const PlatformDetails = lazy(() => import('./pages/PlatformDetails'));
 const Leaderboard    = lazy(() => import('./pages/Leaderboard'));
 const ContestLeaderboard = lazy(() => import('./pages/ContestLeaderboard'));
+const UserSearch     = lazy(() => import('./pages/UserSearch'));
+const PlayerProfile  = lazy(() => import('./pages/PlayerProfile'));
 
 // Admin pages — heaviest, load only when admin navigates there
 const AdminDashboard       = lazy(() => import('./pages/AdminDashboard'));
@@ -134,6 +136,8 @@ function App() {
       <Route path="/duel/:matchId" element={lazyWrap(<UserRoute><DuelArena /></UserRoute>)} />
       <Route path="/platform-details" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><PlatformDetails /></UserRoute>)}</div>} />
       <Route path="/support" element={<div className="flex-1">{lazyWrap(<Support />)}</div>} />
+      <Route path="/players" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><UserSearch /></UserRoute>)}</div>} />
+      <Route path="/players/:username" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><PlayerProfile /></UserRoute>)}</div>} />
 
       {/* 404 */}
       <Route path="*" element={lazyWrap(<NotFound />)} />

@@ -35,6 +35,7 @@ const USER_NAV = [
     { label: 'Contests',         icon: 'emoji_events',    to: '/contests' },
     { label: 'Practice',         icon: 'fitness_center',  to: '/practice' },
     { label: 'Duel',             icon: 'swords',          to: '/duel' },
+    { label: 'Players',          icon: 'group',           to: '/players' },
     { label: 'Compiler',         icon: 'terminal',        to: '/compiler' },
     { label: 'Platform Details', icon: 'settings',        to: '/platform-details' },
     { label: 'Support',          icon: 'help_outline',    to: '/support' },
