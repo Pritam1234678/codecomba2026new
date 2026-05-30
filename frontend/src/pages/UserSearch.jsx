@@ -120,8 +120,15 @@ export default function UserSearch() {
         }
     }, []);
 
-    // Debounced search on query change
+    // Debounced search — only fires when user actually types something
     useEffect(() => {
+        if (!query.trim()) {
+            setResults([]);
+            setSearched(false);
+            setTotal(0);
+            setTotalPages(0);
+            return;
+        }
         clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
             doSearch(query, 0);
@@ -129,11 +136,10 @@ export default function UserSearch() {
         return () => clearTimeout(debounceRef.current);
     }, [query, doSearch]);
 
-    // Initial load — show all users
+    // Focus input on mount — no auto-load
     useEffect(() => {
-        doSearch('', 0);
         inputRef.current?.focus();
-    }, [doSearch]);
+    }, []);
 
     const handlePageChange = (p) => doSearch(query, p);
 
@@ -187,20 +193,44 @@ export default function UserSearch() {
                 </div>
                 {searched && (
                     <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, marginTop: '8px', letterSpacing: '0.08em' }}>
-                        {loading ? 'Searching...' : `${total} player${total !== 1 ? 's' : ''} found`}
+                        {loading ? 'Searching...' : `${results.length} result${results.length !== 1 ? 's' : ''}`}
                         {totalPages > 1 && !loading && ` · page ${page + 1}/${totalPages}`}
                     </p>
                 )}
             </motion.div>
 
-            {/* Results */}
-            {loading && results.length === 0 ? (
+            {/* Results / idle state */}
+            {!query.trim() ? (
+                /* Idle — not searched yet */
+                <div style={{ marginTop: '1rem' }}>
+                    <div style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceLow, padding: '3rem 2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', opacity: 0.5 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '28px', color: C.secondary }}>search</span>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.12em', color: C.outline, textTransform: 'uppercase' }}>
+                                Start typing to find players
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {[
+                                { icon: 'person',        text: 'Search by username or full name' },
+                                { icon: 'bar_chart',     text: 'View their problems solved, contest history, and score' },
+                                { icon: 'emoji_events',  text: 'Discover top performers on the platform' },
+                            ].map(({ icon, text }) => (
+                                <div key={icon} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '16px', color: C.outline }}>{icon}</span>
+                                    <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: C.outline, lineHeight: 1.5 }}>{text}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            ) : loading && results.length === 0 ? (
                 <div style={{ padding: '4rem', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline }}>
                     Searching...
                 </div>
             ) : results.length === 0 && searched ? (
                 <div style={{ border: `1px solid ${C.border}`, padding: '4rem', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline, letterSpacing: '0.08em' }}>
-                    No players found{query ? ` for "${query}"` : ''}
+                    No players found for "{query}"
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
