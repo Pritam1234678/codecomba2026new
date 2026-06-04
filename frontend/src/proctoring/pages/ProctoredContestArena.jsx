@@ -884,44 +884,48 @@ export default function ProctoredContestArena() {
   });
 
   // ── Fullscreen exit handler (wired to FullscreenGuard) ──────────
-  // In fullscreen, Alt+Tab exits fullscreen — browser never fires
-  // visibilitychange. We fire TAB_SWITCH to capture the screen and
-  // SKIP a separate FULLSCREEN_EXIT because the exit is a side-effect
-  // of the tab switch, not a standalone violation (fixes Bug 2).
+  // When the user Alt+Tabs out of fullscreen, the browser may or may
+  // not fire visibilitychange — but the fullscreen exit itself IS the
+  // reliable signal. We send TAB_SWITCH IMMEDIATELY (sync, before any
+  // async canvas ops) so the event always reaches the server even if
+  // the tab goes into the background and throttles JS execution.
+  // Screenshot capture follows as a fire-and-forget best-effort path.
   const handleFullscreenExit = useCallback(() => {
-    const sourceEl = screenVideoRef.current;
-    if (!sourceEl || !sourceEl.videoWidth) {
-      sendEvent('TAB_SWITCH', {}).catch(swallowSendError);
-      return;
-    }
+    // Fire TAB_SWITCH synchronously — must happen BEFORE any async
+    // canvas operations. In a background tab, canvas.toBlob callbacks
+    // are throttled or never fire, so the event would be lost if we
+    // put sendEvent inside the callback.
+    sendEvent('TAB_SWITCH', {}).catch(swallowSendError);
 
-    let canvas = screenshotCanvasRef.current;
-    if (!canvas) {
-      canvas = document.createElement('canvas');
-      screenshotCanvasRef.current = canvas;
-    }
-    canvas.width = sourceEl.videoWidth;
-    canvas.height = sourceEl.videoHeight;
-    const ctx = canvas.getContext('2d');
-    try { ctx.drawImage(sourceEl, 0, 0, canvas.width, canvas.height); } catch { return; }
+    // Best-effort screenshot: capture what's on screen before the tab
+    // fully loses focus. This is fire-and-forget — if the tab is
+    // already backgrounded, canvas ops may silently fail; that's
+    // acceptable because the event already reached the server above.
+    requestAnimationFrame(() => {
+      const sourceEl = screenVideoRef.current;
+      if (!sourceEl || !sourceEl.videoWidth) return;
 
-    // Fire ONLY TAB_SWITCH. The browser exited fullscreen because the
-    // user switched away — that is one event, not two.
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      sendEvent('TAB_SWITCH', {})
-        .then(() => {
-          // Upload immediately — blank event_id means file-only save.
-          const file = new File([blob], 'ts-' + Date.now() + '.jpg', { type: 'image/jpeg' });
-          const fd = new FormData();
-          fd.append('session_id', String(sessionId));
-          fd.append('event_id', '');
-          fd.append('captured_at', new Date().toISOString().replace('Z', ''));
-          fd.append('file', file, 'tab-switch.jpg');
-          return proctoringApi.uploadScreenshot(fd).catch(() => {});
-        })
-        .catch(swallowSendError);
-    }, 'image/jpeg', SCREENSHOT_JPEG_QUALITY);
+      let canvas = screenshotCanvasRef.current;
+      if (!canvas) {
+        canvas = document.createElement('canvas');
+        screenshotCanvasRef.current = canvas;
+      }
+      canvas.width = sourceEl.videoWidth;
+      canvas.height = sourceEl.videoHeight;
+      const ctx = canvas.getContext('2d');
+      try { ctx.drawImage(sourceEl, 0, 0, canvas.width, canvas.height); } catch { return; }
+
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const file = new File([blob], 'ts-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+        const fd = new FormData();
+        fd.append('session_id', String(sessionId));
+        fd.append('event_id', '');
+        fd.append('captured_at', new Date().toISOString().replace('Z', ''));
+        fd.append('file', file, 'tab-switch.jpg');
+        proctoringApi.uploadScreenshot(fd).catch(() => {});
+      }, 'image/jpeg', SCREENSHOT_JPEG_QUALITY);
+    });
   }, [sendEvent, swallowSendError, sessionId]);
 
   // ── Camera lifecycle ────────────────────────────────────────────
