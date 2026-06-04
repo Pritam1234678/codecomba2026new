@@ -131,18 +131,23 @@ const runAiModelReachable = async () => {
 };
 
 const runNetworkReachability = async () => {
-  // The real proctoring WebSocket handler is registered in task 4.x.
-  // For this shell we probe the API origin via a lightweight HEAD —
-  // any 2xx/3xx/4xx response (i.e. anything but a network failure)
-  // counts as reachable. 401/403 are still "reachable" for our
-  // purposes since the JWT-protected endpoints are not the test
-  // surface here.
+  // Probe the health endpoint with a lightweight GET.
+  // When VITE_API_URL is an absolute cross-origin URL (production on
+  // Vercel), the browser sends a CORS preflight (OPTIONS) first —
+  // GET is in the backend's allowed-methods set, so the preflight
+  // passes and the health check succeeds.
+  //
+  // When VITE_API_URL is a relative path like /api (local dev),
+  // Vite proxies the request to the backend directly — no CORS
+  // involved, the same health endpoint returns 200.
+  //
+  // Any 2xx response counts as reachable. 401/403 are also
+  // "reachable" — the server is up, just auth-required. Only network
+  // failures (fetch throws) count as a failure.
   try {
     const apiUrl = import.meta.env.VITE_API_URL ?? '/api';
     const probeUrl = apiUrl.endsWith('/') ? `${apiUrl}health` : `${apiUrl}/health`;
-    const res = await fetch(probeUrl, { method: 'HEAD' });
-    // status 0 only happens on opaque/CORS failure, treat anything
-    // that returned a status as reachable.
+    const res = await fetch(probeUrl, { method: 'GET' });
     if (res && typeof res.status === 'number' && res.status > 0) {
       return { ok: true };
     }
