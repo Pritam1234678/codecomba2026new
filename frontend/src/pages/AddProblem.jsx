@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Editor from '@monaco-editor/react';
@@ -28,11 +28,9 @@ const emptySnippets = () =>
     Object.fromEntries(LANGS.map(l => [l, { solutionTemplate: '' }]));
 
 export default function AddProblem() {
-    const { contestId } = useParams();   // /admin/contests/:contestId/problems/add OR /admin/problems/new
+    const { contestId } = useParams();
     const navigate      = useNavigate();
 
-    // Standalone mode: route is /admin/problems/new (no :contestId param).
-    // Contest-bound mode: route includes :contestId.
     const isStandalone = !contestId;
     const backTarget   = isStandalone ? '/admin/problems' : `/admin/contests/${contestId}/problems`;
 
@@ -50,6 +48,14 @@ export default function AddProblem() {
 
     const [snippets, setSnippets] = useState(emptySnippets());
 
+    // ── AI panel state ────────────────────────────────────────────────────────
+    const [aiOpen,    setAiOpen]    = useState(false);
+    const [aiQuery,   setAiQuery]   = useState('');
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiError,   setAiError]   = useState('');
+    const [aiStatus,  setAiStatus]  = useState('');
+    const aiInputRef = useRef(null);
+
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(p => ({
@@ -62,9 +68,72 @@ export default function AddProblem() {
 
     const showToast = (msg, type = 'success') => {
         setToast({ msg, type });
-        setTimeout(() => setToast(null), 3000);
+        setTimeout(() => setToast(null), 3500);
     };
 
+    // ── AI generation ─────────────────────────────────────────────────────────
+    const handleAiGenerate = async () => {
+        const q = aiQuery.trim();
+        if (!q) { setAiError('Enter a LeetCode problem name or number.'); return; }
+        setAiError('');
+        setAiLoading(true);
+        setAiStatus('Sending request to AI...');
+        try {
+            setAiStatus('Generating problem statement...');
+            const res = await api.post('/admin/problems/ai-generate', { query: q });
+            const { problem: p, snippets: s } = res.data;
+
+            if (!p || !s) {
+                setAiError(res.data.warning || res.data.error || 'AI returned unexpected response.');
+                return;
+            }
+
+            setAiStatus('Filling form fields...');
+            setFormData({
+                title:        p.title        || '',
+                description:  p.description  || '',
+                inputFormat:  p.inputFormat  || '',
+                outputFormat: p.outputFormat || '',
+                constraints:  p.constraints  || '',
+                // AI returns seconds (5.0); form stores ms
+                timeLimit:    p.timeLimit    ? Math.round(p.timeLimit * 1000) : 5000,
+                memoryLimit:  p.memoryLimit  || 256,
+                level:        p.level        || 'MEDIUM',
+                example1:     p.example1     || '',
+                example2:     p.example2     || '',
+                example3:     p.example3     || '',
+                images:       '',
+                active:       true,
+            });
+
+            setAiStatus('Loading code harnesses...');
+            setSnippets(
+                Object.fromEntries(
+                    LANGS.map(l => [l, { solutionTemplate: s[l] || '' }])
+                )
+            );
+
+            setAiOpen(false);
+            setAiQuery('');
+            setAiStatus('');
+            showToast(`AI generated "${p.title}" — review and save.`);
+        } catch (err) {
+            const msg = err.response?.data?.error || err.response?.data?.message || err.message || 'AI generation failed.';
+            setAiError(msg);
+        } finally {
+            setAiLoading(false);
+            if (!aiError) setAiStatus('');
+        }
+    };
+
+    const openAiPanel = () => {
+        setAiOpen(true);
+        setAiError('');
+        setAiStatus('');
+        setTimeout(() => aiInputRef.current?.focus(), 80);
+    };
+
+    // ── Form submit ───────────────────────────────────────────────────────────
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSaving(true);
@@ -78,13 +147,11 @@ export default function AddProblem() {
                 images:   formData.images?.trim()   || null,
             };
 
-            // Create problem — standalone or under a contest
             const pRes = isStandalone
                 ? await api.post('/admin/problems', data)
                 : await api.post(`/admin/problems/contest/${contestId}`, data);
             const newProblemId = pRes.data.id;
 
-            // Save all snippets (bulk)
             await ProblemService.saveAllSnippets(
                 newProblemId,
                 LANGS.map(l => ({ language: l, solutionTemplate: snippets[l].solutionTemplate }))
@@ -101,6 +168,8 @@ export default function AddProblem() {
             setSaving(false);
         }
     };
+
+    const hasAiContent = formData.title !== '';
 
     return (
         <div style={{
@@ -159,14 +228,50 @@ export default function AddProblem() {
                             fontFamily: "'Playfair Display', serif",
                             fontSize: '20px', fontWeight: 600,
                             color: C.onBg,
+                            display: 'flex', alignItems: 'center', gap: '10px',
                         }}>
                             {formData.title || 'New Problem'}
+                            {hasAiContent && (
+                                <span style={{
+                                    fontFamily: "'JetBrains Mono', monospace",
+                                    fontSize: '9px', letterSpacing: '0.15em',
+                                    color: C.secondary, border: `1px solid ${C.secondary}`,
+                                    padding: '2px 8px', textTransform: 'uppercase',
+                                    backgroundColor: 'rgba(233,193,118,0.1)',
+                                }}>
+                                    AI Generated
+                                </span>
+                            )}
                         </h1>
                     </div>
                 </div>
 
                 {/* Right */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    {/* AI Generate button */}
+                    <button
+                        type="button"
+                        onClick={openAiPanel}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase',
+                            border: `1px solid ${C.secondary}`,
+                            color: C.secondary,
+                            background: 'rgba(233,193,118,0.06)',
+                            padding: '10px 18px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; }}
+                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(233,193,118,0.06)'; e.currentTarget.style.color = C.secondary; }}
+                    >
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>auto_awesome</span>
+                        AI Generate
+                    </button>
+
+                    <div style={{ width: '1px', height: '32px', backgroundColor: C.border }} />
+
                     <button
                         onClick={() => navigate(backTarget)}
                         style={{
@@ -390,12 +495,14 @@ export default function AddProblem() {
                             padding: '10px 16px',
                             fontFamily: "'JetBrains Mono', monospace",
                             fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase',
-                            color: C.outline,
+                            color: hasAiContent ? C.secondary : C.outline,
                             borderLeft: `1px solid ${C.border}`,
                             display: 'flex', alignItems: 'center', gap: '6px',
                         }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>add_circle</span>
-                            New Problem
+                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                                {hasAiContent ? 'auto_awesome' : 'add_circle'}
+                            </span>
+                            {hasAiContent ? 'AI Filled' : 'New Problem'}
                         </div>
                     </div>
 
@@ -471,6 +578,221 @@ export default function AddProblem() {
                 </section>
             </main>
 
+            {/* ── AI Generate Modal ── */}
+            <AnimatePresence>
+                {aiOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        style={{
+                            position: 'fixed', inset: 0, zIndex: 80,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            backgroundColor: 'rgba(0,0,0,0.75)',
+                            backdropFilter: 'blur(8px)',
+                            padding: '24px',
+                        }}
+                        onClick={e => { if (e.target === e.currentTarget && !aiLoading) { setAiOpen(false); setAiError(''); } }}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, y: 16 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.95, y: 16 }}
+                            style={{
+                                backgroundColor: C.surfaceCon,
+                                border: `1px solid ${C.border}`,
+                                maxWidth: '560px',
+                                width: '100%',
+                                position: 'relative',
+                                overflow: 'hidden',
+                            }}
+                        >
+                            {/* Top amber accent */}
+                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '2px', backgroundColor: C.secondary }} />
+
+                            {/* Header */}
+                            <div style={{ padding: '2rem 2rem 1.5rem', borderBottom: `1px solid ${C.border}` }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <span className="material-symbols-outlined" style={{ fontSize: '22px', color: C.secondary }}>auto_awesome</span>
+                                        <div>
+                                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.secondary, textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
+                                                Kimi K2.6 · NVIDIA NIM
+                                            </span>
+                                            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', fontWeight: 600, color: C.onBg, margin: 0 }}>
+                                                AI Problem Generator
+                                            </h2>
+                                        </div>
+                                    </div>
+                                    {!aiLoading && (
+                                        <button
+                                            onClick={() => { setAiOpen(false); setAiError(''); }}
+                                            style={{ background: 'none', border: `1px solid ${C.border}`, color: C.outline, cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+                                            onMouseEnter={e => { e.currentTarget.style.borderColor = C.error; e.currentTarget.style.color = C.error; }}
+                                            onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.outline; }}
+                                        >
+                                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>close</span>
+                                        </button>
+                                    )}
+                                </div>
+                                <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: C.muted, marginTop: '12px', marginBottom: 0, lineHeight: 1.5 }}>
+                                    Enter a LeetCode problem name or number. The AI will generate the full problem statement and all 5 language harnesses with test cases.
+                                </p>
+                            </div>
+
+                            {/* Body */}
+                            <div style={{ padding: '1.5rem 2rem' }}>
+                                {/* Input */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '1.25rem' }}>
+                                    <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase' }}>
+                                        Problem Name or Number
+                                    </label>
+                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                        <span style={{ position: 'absolute', left: 0, color: C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '14px', opacity: 0.6 }}>
+                                            &gt;
+                                        </span>
+                                        <input
+                                            ref={aiInputRef}
+                                            type="text"
+                                            value={aiQuery}
+                                            onChange={e => setAiQuery(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter' && !aiLoading) handleAiGenerate(); }}
+                                            disabled={aiLoading}
+                                            placeholder="e.g. Two Sum   or   #42   or   Trapping Rain Water"
+                                            style={{
+                                                width: '100%', backgroundColor: 'transparent',
+                                                border: 'none', borderBottom: `1px solid ${C.border}`,
+                                                color: C.onBg, fontFamily: "'JetBrains Mono', monospace",
+                                                fontSize: '14px', padding: '8px 0 8px 22px',
+                                                outline: 'none', transition: 'border-color 0.2s',
+                                                boxSizing: 'border-box',
+                                                opacity: aiLoading ? 0.5 : 1,
+                                            }}
+                                            onFocus={e => e.target.style.borderBottomColor = C.secondary}
+                                            onBlur={e => e.target.style.borderBottomColor = C.border}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                                        {['Two Sum', 'Binary Search', 'Merge Intervals', '#42'].map(ex => (
+                                            <button
+                                                key={ex}
+                                                type="button"
+                                                disabled={aiLoading}
+                                                onClick={() => setAiQuery(ex)}
+                                                style={{
+                                                    fontFamily: "'JetBrains Mono', monospace",
+                                                    fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase',
+                                                    border: `1px solid ${C.border}`, color: C.outline,
+                                                    backgroundColor: 'transparent', padding: '4px 10px',
+                                                    cursor: aiLoading ? 'not-allowed' : 'pointer',
+                                                    transition: 'all 0.15s',
+                                                }}
+                                                onMouseEnter={e => { if (!aiLoading) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                                                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.outline; }}
+                                            >
+                                                {ex}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Loading state */}
+                                {aiLoading && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 4 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: '12px',
+                                            padding: '12px 16px',
+                                            border: `1px solid ${C.border}`,
+                                            backgroundColor: 'rgba(233,193,118,0.05)',
+                                            marginBottom: '1.25rem',
+                                        }}
+                                    >
+                                        <span style={{ animation: 'spin 1s linear infinite', display: 'inline-block', fontSize: '16px', color: C.secondary }}>⟳</span>
+                                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.secondary, letterSpacing: '0.08em' }}>
+                                            {aiStatus || 'Processing...'}
+                                        </span>
+                                    </motion.div>
+                                )}
+
+                                {/* Error state */}
+                                {aiError && !aiLoading && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -4 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        style={{
+                                            padding: '10px 14px',
+                                            border: `1px solid ${C.error}`,
+                                            borderLeft: `3px solid ${C.error}`,
+                                            backgroundColor: 'rgba(255,180,171,0.06)',
+                                            marginBottom: '1.25rem',
+                                            fontFamily: "'JetBrains Mono', monospace",
+                                            fontSize: '12px', color: C.error,
+                                        }}
+                                    >
+                                        {aiError}
+                                    </motion.div>
+                                )}
+
+                                {/* Info note */}
+                                {!aiLoading && !aiError && (
+                                    <div style={{ display: 'flex', gap: '10px', marginBottom: '1.25rem' }}>
+                                        {[
+                                            { icon: 'description', text: 'Full problem statement + I/O format' },
+                                            { icon: 'code',        text: '5 language harnesses with 10 test cases each' },
+                                        ].map(({ icon, text }) => (
+                                            <div key={icon} style={{ flex: 1, display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px 12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceLow }}>
+                                                <span className="material-symbols-outlined" style={{ fontSize: '14px', color: C.secondary, flexShrink: 0, marginTop: '1px' }}>{icon}</span>
+                                                <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '12px', color: C.outline, lineHeight: 1.4 }}>{text}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '16px', padding: '1rem 2rem 1.5rem', borderTop: `1px solid ${C.border}` }}>
+                                <button
+                                    type="button"
+                                    disabled={aiLoading}
+                                    onClick={() => { setAiOpen(false); setAiError(''); setAiQuery(''); }}
+                                    style={{
+                                        fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase',
+                                        color: C.outline, background: 'none', border: 'none', cursor: aiLoading ? 'not-allowed' : 'pointer', padding: '10px 20px', transition: 'color 0.2s', opacity: aiLoading ? 0.4 : 1,
+                                    }}
+                                    onMouseEnter={e => { if (!aiLoading) e.currentTarget.style.color = C.onBg; }}
+                                    onMouseLeave={e => { e.currentTarget.style.color = C.outline; }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={aiLoading || !aiQuery.trim()}
+                                    onClick={handleAiGenerate}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '8px',
+                                        fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase',
+                                        border: `1px solid ${C.secondary}`,
+                                        color: (aiLoading || !aiQuery.trim()) ? C.outline : C.secondary,
+                                        backgroundColor: 'transparent',
+                                        padding: '10px 28px',
+                                        cursor: (aiLoading || !aiQuery.trim()) ? 'not-allowed' : 'pointer',
+                                        opacity: (aiLoading || !aiQuery.trim()) ? 0.5 : 1,
+                                        transition: 'all 0.2s',
+                                    }}
+                                    onMouseEnter={e => { if (!aiLoading && aiQuery.trim()) { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; } }}
+                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = (aiLoading || !aiQuery.trim()) ? C.outline : C.secondary; }}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>auto_awesome</span>
+                                    {aiLoading ? 'Generating...' : 'Generate'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* ── Toast ── */}
             <AnimatePresence>
                 {toast && (
@@ -478,14 +800,17 @@ export default function AddProblem() {
                         initial={{ opacity: 0, x: 40 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 40 }}
-                        style={{ position: 'fixed', bottom: '2rem', right: '2rem', backgroundColor: C.surfaceLow, borderLeft: `2px solid ${toast.type === 'success' ? C.secondary : C.error}`, padding: '1rem 1.5rem', zIndex: 100, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: toast.type === 'success' ? C.secondary : C.error, letterSpacing: '0.05em' }}
+                        style={{ position: 'fixed', bottom: '2rem', right: '2rem', backgroundColor: C.surfaceLow, borderLeft: `2px solid ${toast.type === 'success' ? C.secondary : C.error}`, padding: '1rem 1.5rem', zIndex: 100, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: toast.type === 'success' ? C.secondary : C.error, letterSpacing: '0.05em', maxWidth: '420px' }}
                     >
                         {toast.msg}
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            <style>{`.material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; }`}</style>
+            <style>{`
+                .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            `}</style>
         </div>
     );
 }
@@ -515,3 +840,4 @@ const UField = ({ label, name, type, value, onChange, placeholder, required, cod
         </div>
     );
 };
+
