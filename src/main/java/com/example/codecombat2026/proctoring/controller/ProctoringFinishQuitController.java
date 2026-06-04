@@ -6,6 +6,7 @@ import com.example.codecombat2026.proctoring.exception.ProctoringNotFoundExcepti
 import com.example.codecombat2026.proctoring.exception.ProctoringStateConflictException;
 import com.example.codecombat2026.proctoring.repository.ProctoringSessionRepository;
 import com.example.codecombat2026.proctoring.service.ProctoringSessionService;
+import com.example.codecombat2026.proctoring.ws.ProctoringSessionRegistry;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -64,11 +65,14 @@ public class ProctoringFinishQuitController {
 
     private final ProctoringSessionService sessionService;
     private final ProctoringSessionRepository sessionRepo;
+    private final ProctoringSessionRegistry registry;
 
     public ProctoringFinishQuitController(ProctoringSessionService sessionService,
-                                          ProctoringSessionRepository sessionRepo) {
+                                          ProctoringSessionRepository sessionRepo,
+                                          ProctoringSessionRegistry registry) {
         this.sessionService = sessionService;
         this.sessionRepo = sessionRepo;
+        this.registry = registry;
     }
 
     /** Wire shape for a successful close — used by both endpoints. */
@@ -93,11 +97,12 @@ public class ProctoringFinishQuitController {
                     "ALREADY_ENDED", "Session has already ended");
         }
 
-        // TODO(task 4.3): inject ProctoringSessionRegistry and call
-        // registry.terminate(...) here so any still-connected WebSocket
-        // for this session is sent SESSION_TERMINATED and closed cleanly.
-        // The durable close above already wins the race, so the WS will
-        // observe the session as ended on its next event regardless.
+        // Push SESSION_TERMINATED and close the WS if one is still connected.
+        // The durable close above already won the race; a concurrent WS FINISH
+        // frame will observe `closed == false` but is harmless. Close code 1000
+        // matches the WS-path dispatchFinish behaviour so the frontend treats
+        // it as a clean normal close and does not attempt to reconnect.
+        registry.terminate(id, "completed", EndReason.SELF_FINISHED, 1000);
 
         return ResponseEntity.ok(loadEndedView(id));
     }
@@ -123,9 +128,7 @@ public class ProctoringFinishQuitController {
                     "ALREADY_ENDED", "Session has already ended");
         }
 
-        // TODO(task 4.3): inject ProctoringSessionRegistry and call
-        // registry.terminate(...) here so any still-connected WebSocket
-        // for this session is sent SESSION_TERMINATED and closed cleanly.
+        registry.terminate(id, "quit", EndReason.SELF_QUIT, 1000);
 
         return ResponseEntity.ok(loadEndedView(id));
     }

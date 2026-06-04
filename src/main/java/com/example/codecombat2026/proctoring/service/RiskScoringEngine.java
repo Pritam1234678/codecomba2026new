@@ -321,7 +321,10 @@ public class RiskScoringEngine {
         }
         int oldScore = (s.getRiskScore() == null) ? 0 : s.getRiskScore();
         RiskBand oldBand = (s.getRiskBand() == null) ? RiskBand.LOW : s.getRiskBand();
-        int newScore = oldScore + delta;
+        long raw = (long) oldScore + delta;
+        int newScore = (raw > Integer.MAX_VALUE) ? Integer.MAX_VALUE
+                     : (raw < 0)                ? 0
+                     : (int) raw;
         RiskBand newBand = bandFor(newScore);
         sessionRepo.updateScoreBandAndFlag(sessionId, newScore, newBand, newBand == RiskBand.HIGH);
         return new RiskUpdate(newScore, oldBand, newBand, newBand != oldBand);

@@ -55,19 +55,40 @@ const STEP_DEFS = [
 
 // ── Step runners ──────────────────────────────────────────────────────────────
 
+const CAMERA_PERMISSION_TIMEOUT_MS = 30_000;
+
 const runWebcamPermission = async (mediaStreamRef) => {
   if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
     return { ok: false, message: 'Your browser does not support camera access.' };
   }
+  // Stop any previously acquired stream before re-requesting so the camera
+  // light turns off between retry attempts and we don't hold two streams.
+  const prev = mediaStreamRef.current;
+  if (prev) {
+    try { prev.getTracks().forEach((t) => t.stop()); } catch { /* ignored */ }
+    mediaStreamRef.current = null;
+  }
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(Object.assign(new Error('Timeout'), { name: 'TimeoutError' })),
+      CAMERA_PERMISSION_TIMEOUT_MS,
+    );
+  });
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 320, height: 240 },
-      audio: false,
-    });
+    const stream = await Promise.race([
+      navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 }, audio: false }),
+      timeoutPromise,
+    ]);
+    clearTimeout(timeoutId);
     mediaStreamRef.current = stream;
     return { ok: true };
   } catch (err) {
+    clearTimeout(timeoutId);
     const name = err?.name || '';
+    if (name === 'TimeoutError') {
+      return { ok: false, message: 'Camera permission timed out. Allow access in the browser prompt and retry.' };
+    }
     if (name === 'NotAllowedError' || name === 'SecurityError') {
       return {
         ok: false,
@@ -429,6 +450,9 @@ export default function PreflightCheck({ onComplete, onCancel }) {
   const allPassed = steps.every((s) => s.status === 'passed');
 
   const handleRetry = (idx) => {
+    // Stop the camera stream before retrying the permission step so the
+    // old stream is released and the browser re-prompts cleanly.
+    if (idx === 0) stopStream();
     setSteps((prev) =>
       prev.map((s, i) =>
         i === idx ? { ...s, status: 'pending', error: null } : s
@@ -439,9 +463,11 @@ export default function PreflightCheck({ onComplete, onCancel }) {
 
   const handleContinue = () => {
     if (!allPassed) return;
-    // Stream is handed off to the arena's face detector. We deliberately
-    // do NOT stop it here — `useFaceDetector` will reuse `getUserMedia`
-    // with the same constraints in task 8.x.
+    // Stop the preflight stream before passing control to the parent.
+    // The Arena mounts its own getUserMedia call — keeping this stream
+    // active would orphan it (camera light stays on) and on some browsers
+    // block the Arena's acquisition with NotReadableError.
+    stopStream();
     if (typeof onComplete === 'function') onComplete(true);
   };
 

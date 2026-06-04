@@ -172,14 +172,15 @@ public class ProctoringSessionRegistry {
         if (ws == null) {
             return;
         }
-        // Atomically remove-and-close: unregister() removes from the map,
-        // then we close the WS we just removed. If a reconnect handshake
-        // registered a new WS between our get() and unregister(), the new
-        // WS stays in the map and our close targets the stale one.
-        WebSocketSession stale = sessions.remove(sessionId);
-        if (stale == null) {
-            return; // already unregistered by another path
+        // CAS remove: only remove (and close) the exact WebSocketSession we
+        // observed. If a reconnect has already replaced `ws` with a new session
+        // between get() and remove(k,v), the remove returns false and we leave
+        // the fresh connection untouched. This eliminates the get-then-remove
+        // race that would otherwise close a legitimate new connection.
+        if (!sessions.remove(sessionId, ws)) {
+            return; // another thread already replaced or removed this binding
         }
+        WebSocketSession stale = ws;
 
         // Use a LinkedHashMap so the JSON key order matches the documented
         // shape — easier for log scanning and frontend snapshots.
