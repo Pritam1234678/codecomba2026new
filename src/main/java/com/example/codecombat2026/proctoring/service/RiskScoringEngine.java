@@ -237,7 +237,10 @@ public class RiskScoringEngine {
             sum += weightFor(e.getEventType());
         }
         RiskBand newBand = bandFor(sum);
-        sessionRepo.updateScoreBandAndFlag(sessionId, sum, newBand, newBand == RiskBand.HIGH);
+        int updated = sessionRepo.updateScoreBandAndFlag(sessionId, sum, newBand, newBand == RiskBand.HIGH);
+        if (updated == 0) {
+            log.warn("Proctoring rescore: session {} not found or already ended — no rows updated.", sessionId);
+        }
 
         String scoreKey = SCORE_KEY_PREFIX + sessionId + SCORE_KEY_SUFFIX;
         String bandKey = SCORE_KEY_PREFIX + sessionId + BAND_KEY_SUFFIX;

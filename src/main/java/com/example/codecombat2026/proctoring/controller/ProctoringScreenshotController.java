@@ -124,7 +124,7 @@ public class ProctoringScreenshotController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> upload(
             @RequestParam("session_id") Long sessionId,
-            @RequestParam("event_id") Long eventId,
+            @RequestParam(value = "event_id", required = false) String eventIdRaw,
             @RequestParam("captured_at") String capturedAtIso,
             @RequestPart("file") MultipartFile file,
             @AuthenticationPrincipal UserDetailsImpl userDetails
@@ -134,11 +134,15 @@ public class ProctoringScreenshotController {
         String mimeType = file.getContentType();
         byte[] bytes = file.getBytes();
 
-        // Per-user screenshot rate limit (Req 17.4, 17.5). Keyed on
-        // the authenticated user_id (not session_id from the request)
-        // so a forged sessionId cannot consume someone else's rate limit
-        // bucket (fixes Bug 13). The ownership check inside upload()
-        // is the definitive gate on which sessions this user can write.
+        // Parse event_id — may be a numeric server-assigned id or an
+        // opaque correlation-id string from the browser. Accept both;
+        // the service handles null (no event FK, file-only save).
+        Long eventId = null;
+        if (eventIdRaw != null && !eventIdRaw.isBlank()) {
+            try { eventId = Long.parseLong(eventIdRaw.trim()); }
+            catch (NumberFormatException ignored) { /* correlation-id, not numeric */ }
+        }
+
         if (!rateLimiter.allowScreenshotUpload(sessionId)) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .header("Retry-After", "60")
@@ -148,9 +152,6 @@ public class ProctoringScreenshotController {
                             "message", "screenshot upload rate limit exceeded"));
         }
 
-        // All payload validation, including magic-byte sniff, lives in
-        // the service. Typed exceptions there carry the right HttpStatus
-        // for the global handler — let them propagate.
         Long screenshotId = screenshotService.upload(
                 sessionId,
                 eventId,
@@ -162,7 +163,7 @@ public class ProctoringScreenshotController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(Map.of(
-                        "screenshotId", screenshotId,
+                        "screenshotId", screenshotId != null ? screenshotId : 0,
                         "byteSize", bytes.length
                 ));
     }

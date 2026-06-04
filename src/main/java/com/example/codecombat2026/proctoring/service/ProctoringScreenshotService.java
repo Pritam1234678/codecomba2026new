@@ -181,25 +181,25 @@ public class ProctoringScreenshotService {
         }
 
         // 6. Event FK validity — event must exist and belong to this session.
-        ProctoringEvent event = eventRepo.findById(eventId)
-                .filter(e -> Objects.equals(e.getSessionId(), sessionId))
-                .orElseThrow(() -> new ProctoringValidationException(
-                        "INVALID_EVENT",
-                        HttpStatus.BAD_REQUEST,
-                        "event does not belong to session"));
+        //    When eventId is null (correlation-id from browser, no DB row yet),
+        //    skip this check and persist file-only (no DB row).
+        ProctoringEvent event = null;
+        if (eventId != null) {
+            event = eventRepo.findById(eventId)
+                    .filter(e -> Objects.equals(e.getSessionId(), sessionId))
+                    .orElseThrow(() -> new ProctoringValidationException(
+                            "INVALID_EVENT",
+                            HttpStatus.BAD_REQUEST,
+                            "event does not belong to session"));
+        }
 
-        // 7. Rate limit was already enforced at the controller boundary
-        //    — gating it there avoids double-INCR on the Valkey counter
-        //    on the happy path while still surfacing the correct 429
-        //    response shape with `Retry-After: 60` for the candidate
-        //    browser. Internal callers that bypass the controller MUST
-        //    gate via ProctoringRateLimiter#allowScreenshotUpload
-        //    themselves before invoking this method.
+        // 7. Rate limit was already enforced at the controller boundary.
 
-        // 8. Disk write. Path is built only from validated Long values:
+        // 8. Disk write. Path is built only from validated values:
         //    no user-controlled string segments are interpolated, so
         //    traversal is unreachable.
-        Path path = Paths.get(STORAGE_ROOT, String.valueOf(sessionId), eventId + ".jpg");
+        String fileId = eventId != null ? String.valueOf(eventId) : "sc-" + System.currentTimeMillis();
+        Path path = Paths.get(STORAGE_ROOT, String.valueOf(sessionId), fileId + ".jpg");
         try {
             Path parent = path.getParent();
             if (parent != null) {
@@ -210,29 +210,33 @@ public class ProctoringScreenshotService {
                     StandardOpenOption.WRITE,
                     StandardOpenOption.TRUNCATE_EXISTING);
             log.info("Proctoring screenshot saved: session={} event={} size={} bytes path={}",
-                    sessionId, event.getId(), bytes.length, path.toAbsolutePath());
+                    sessionId, eventId != null ? eventId : "NONE", bytes.length, path.toAbsolutePath());
         } catch (IOException ex) {
             log.error("Failed to write proctoring screenshot for session {} event {}: {}",
-                    sessionId, event.getId(), ex.getMessage());
+                    sessionId, eventId, ex.getMessage());
             throw new ProctoringValidationException(
                     "WRITE_FAILED",
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "screenshot write failed");
         }
 
-        // 9. INSERT row. storage_ref uses forward slashes regardless of
-        //    OS so admin reads are portable across dev (any OS) and prod
-        //    (Linux). Path.toString() is intentionally avoided here.
-        String storageRef = STORAGE_ROOT + "/" + sessionId + "/" + eventId + ".jpg";
-        ProctoringScreenshot row = new ProctoringScreenshot(
-                null,
-                sessionId,
-                event.getId(),
-                capturedAt,
-                mimeType,
-                bytes.length,
-                storageRef);
-        return shotRepo.save(row).getId();
+        // 9. INSERT row — only when we have a real event FK. For null eventId
+        //    (correlation-id from browser), the file is on disk and can be
+        //    reviewed manually; no DB row is created.
+        if (event != null) {
+            String storageRef = STORAGE_ROOT + "/" + sessionId + "/" + eventId + ".jpg";
+            ProctoringScreenshot row = new ProctoringScreenshot(
+                    null,
+                    sessionId,
+                    event.getId(),
+                    capturedAt,
+                    mimeType,
+                    bytes.length,
+                    storageRef);
+            return shotRepo.save(row).getId();
+        }
+
+        return null;
     }
 
     /**

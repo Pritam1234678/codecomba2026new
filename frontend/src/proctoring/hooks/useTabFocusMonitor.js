@@ -56,21 +56,14 @@ export function useTabFocusMonitor({ onEvent, onHiddenChange, enabled = true } =
       return undefined;
     }
 
-    // Wall-clock millis at which the window most recently went "away"
-    // (hidden, or blurred while visible). `null` means the candidate is
-    // present.
+    // Focus-aware blur tracking: blur events are ONLY emitted after the
+    // window has first received focus. This prevents phantom WINDOW_BLUR
+    // during initial mount / fullscreen entry / screen share popup where
+    // the browser fires blur as a normal part of the rendering lifecycle.
+    // Once focus is established and lost, subsequent blurs are real.
+    let hasFocused = false;
     let awaySince = null;
     let lastHidden = document.hidden;
-
-    // Grace window after mount (ms). The browser fires `blur` during
-    // fullscreen entry (focus moves from window to fullscreen element)
-    // and the Entry → Arena navigation can trigger spurious blur/focus
-    // pairs. Suppressing blur events for the first 3 s after mount
-    // prevents a phantom WINDOW_BLUR on contest start.
-    const GRACE_MS = 3000;
-    const mountAt = Date.now();
-    let graceActive = true;
-    const graceTimer = setTimeout(() => { graceActive = false; }, GRACE_MS);
 
     const emitEvent = (type, payload) => {
       const cb = onEventRef.current;
@@ -134,15 +127,8 @@ export function useTabFocusMonitor({ onEvent, onHiddenChange, enabled = true } =
     };
 
     const onBlur = () => {
-      // Grace period: suppress blur during initial fullscreen entry
-      // and Entry → Arena navigation, where the browser fires blur/focus
-      // as part of the normal rendering lifecycle.
-      if (graceActive) return;
-
-      // Req 5.3: emit `WINDOW_BLUR` only while the document is still
-      // visible. On a real tab switch the browser often fires `blur`
-      // immediately followed by `visibilitychange→hidden`; the hidden
-      // transition owns that case via `TAB_SWITCH`.
+      if (!hasFocused) return;
+      // Req 5.3: emit WINDOW_BLUR only while the document is still visible.
       if (!document.hidden) {
         markAway();
         emitEvent('WINDOW_BLUR');
@@ -150,6 +136,7 @@ export function useTabFocusMonitor({ onEvent, onHiddenChange, enabled = true } =
     };
 
     const onFocus = () => {
+      hasFocused = true;
       tryRestore();
     };
 
@@ -158,7 +145,6 @@ export function useTabFocusMonitor({ onEvent, onHiddenChange, enabled = true } =
     window.addEventListener('focus', onFocus);
 
     return () => {
-      clearTimeout(graceTimer);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('blur', onBlur);
       window.removeEventListener('focus', onFocus);

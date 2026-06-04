@@ -884,29 +884,14 @@ export default function ProctoredContestArena() {
   });
 
   // ── Fullscreen exit handler (wired to FullscreenGuard) ──────────
-  // In fullscreen, Alt+Tab exits fullscreen but NEVER triggers
-  // visibilitychange. The browser may also throttle/close the WS.
-  // Strategy: capture screen frame IMMEDIATELY (before any WS send),
-  // store the blob, then send both events. When EVENT_ACK comes back
-  // via the WS message handler, we upload the held blob with the
-  // real server-assigned event_id.
-  const pendingScreenShotsRef = useRef(new Map()); // cid → blob
-
-  // Listen for EVENT_ACK frames to attach held screen blobs.
-  // The WS hook fires onRiskUpdate etc. but EVENT_ACK is handled
-  // internally. We intercept via a polling approach: every 500ms,
-  // check if any pending blobs have matching entries in the event log.
-  // Simpler: just upload immediately with a timestamp-based key,
-  // and the backend accepts it because the event row may already
-  // exist by the time the upload arrives due to async ordering.
-
+  // In fullscreen, Alt+Tab exits fullscreen — browser never fires
+  // visibilitychange. We fire TAB_SWITCH to capture the screen and
+  // SKIP a separate FULLSCREEN_EXIT because the exit is a side-effect
+  // of the tab switch, not a standalone violation (fixes Bug 2).
   const handleFullscreenExit = useCallback(() => {
-    // 1. Capture screen frame immediately (before WS could close)
     const sourceEl = screenVideoRef.current;
     if (!sourceEl || !sourceEl.videoWidth) {
-      // No screen stream — just fire events without screenshot.
       sendEvent('TAB_SWITCH', {}).catch(swallowSendError);
-      sendEvent(EVENT_TYPES.FULLSCREEN_EXIT, {}).catch(swallowSendError);
       return;
     }
 
@@ -920,62 +905,24 @@ export default function ProctoredContestArena() {
     const ctx = canvas.getContext('2d');
     try { ctx.drawImage(sourceEl, 0, 0, canvas.width, canvas.height); } catch { return; }
 
-    // 2. Encode to JPEG and hold the blob
+    // Fire ONLY TAB_SWITCH. The browser exited fullscreen because the
+    // user switched away — that is one event, not two.
     canvas.toBlob((blob) => {
       if (!blob) return;
-      const cid = 'fs-screen-' + Date.now();
-      pendingScreenShotsRef.current.set(cid, blob);
-
-      // 3. Send TAB_SWITCH with the correlation-id in payload
-      //    When EVENT_ACK resolves, upload the held blob.
-      sendEvent('TAB_SWITCH', { screen_cid: cid })
-        .then((eventId) => {
-          // If we got a real event_id (WS was open), upload immediately
-          if (typeof eventId === 'number') {
-            const held = pendingScreenShotsRef.current.get(cid);
-            if (held) {
-              pendingScreenShotsRef.current.delete(cid);
-              return uploadBlobAsScreenshot(eventId, held);
-            }
-          } else {
-            // eventId is string correlation-id → offline buffer.
-            // The screenshot is still held — try uploading it anyway.
-            // The backend event may exist if this is a replayed frame.
-            setTimeout(() => {
-              const held2 = pendingScreenShotsRef.current.get(cid);
-              if (held2) {
-                pendingScreenShotsRef.current.delete(cid);
-                // Upload without a real event_id — backend will reject
-                // but the best-effort capture happened. The admin can
-                // still see it as a session screenshot.
-                uploadBlobAsScreenshot(null, held2);
-              }
-            }, 3000);
-          }
+      sendEvent('TAB_SWITCH', {})
+        .then(() => {
+          // Upload immediately — blank event_id means file-only save.
+          const file = new File([blob], 'ts-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+          const fd = new FormData();
+          fd.append('session_id', String(sessionId));
+          fd.append('event_id', '');
+          fd.append('captured_at', new Date().toISOString().replace('Z', ''));
+          fd.append('file', file, 'tab-switch.jpg');
+          return proctoringApi.uploadScreenshot(fd).catch(() => {});
         })
         .catch(swallowSendError);
-
-      // 4. Also fire FULLSCREEN_EXIT (no screenshot — already above)
-      sendEvent(EVENT_TYPES.FULLSCREEN_EXIT, {}).catch(swallowSendError);
     }, 'image/jpeg', SCREENSHOT_JPEG_QUALITY);
   }, [sendEvent, swallowSendError, sessionId]);
-
-  // Upload helper — used by both immediate and deferred paths.
-  const uploadBlobAsScreenshot = useCallback(async (eventId, blob) => {
-    const fid = eventId != null ? String(eventId) : 'screen-' + Date.now();
-    const file = new File([blob], fid + '.jpg', { type: 'image/jpeg' });
-    const fd = new FormData();
-    fd.append('session_id', String(sessionId));
-    fd.append('event_id', fid);
-    fd.append('captured_at', new Date().toISOString().replace('Z', ''));
-    fd.append('file', file, fid + '.jpg');
-    try {
-      await proctoringApi.uploadScreenshot(fd);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('proctoring screen screenshot upload failed', err);
-    }
-  }, [sessionId]);
 
   // ── Camera lifecycle ────────────────────────────────────────────
   // Acquire a 320×240 video-only MediaStream on mount and bind it to

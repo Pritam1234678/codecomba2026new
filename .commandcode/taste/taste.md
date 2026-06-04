@@ -5,6 +5,9 @@
 # communication
 - Respond in Hinglish (Hindi + English mix) — match the user's communication style. Confidence: 0.75
 
+# architecture
+- Frontend is deployed on Vercel — do NOT build, modify, or deploy frontend to the VM; only backend runs on the Oracle VM. Confidence: 0.75
+
 # workflow
 - Prefer thorough, exhaustive full-stack analysis over quick responses — analyze both frontend and backend together. Confidence: 0.70
 - Verify before destructive DB operations — ask for explicit confirmation and do NOT proceed without it. Deleting the user entity itself is a separate action from cleaning related data. Confidence: 0.90
