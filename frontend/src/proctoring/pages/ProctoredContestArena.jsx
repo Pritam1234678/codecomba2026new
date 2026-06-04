@@ -1043,6 +1043,8 @@ export default function ProctoredContestArena() {
   useEffect(() => {
     if (!session) return undefined;
     let cancelled = false;
+    let acquiredScreenStream = null;
+    let endedHandlers = [];
 
     // Small delay so the Entry page has time to set the stream.
     const timer = setTimeout(() => {
@@ -1050,6 +1052,7 @@ export default function ProctoredContestArena() {
       const stream = window.__proctoringScreenStream;
       if (!stream) return;
       window.__proctoringScreenStream = null;
+      acquiredScreenStream = stream;
 
       const svEl = screenVideoRef.current;
       if (svEl) {
@@ -1057,22 +1060,36 @@ export default function ProctoredContestArena() {
         svEl.play().catch(() => { /* autoplay */ });
       }
 
-      stream.getTracks().forEach((track) => {
-        track.addEventListener('ended', () => {
+      endedHandlers = stream.getTracks().map((track) => {
+        const handler = () => {
           if (screenVideoRef.current) {
             screenVideoRef.current.srcObject = null;
           }
-        });
+        };
+        track.addEventListener('ended', handler);
+        return { track, handler };
       });
     }, 500);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      endedHandlers.forEach(({ track, handler }) => {
+        try { track.removeEventListener('ended', handler); } catch { /* ignored */ }
+      });
+      endedHandlers = [];
       const svEl = screenVideoRef.current;
       if (svEl) {
         try { svEl.pause(); } catch { /* */ }
         svEl.srcObject = null;
+      }
+      // Stop the screen capture tracks so the OS-level recording indicator
+      // (the red dot / "sharing" bar) disappears when the arena unmounts.
+      if (acquiredScreenStream) {
+        acquiredScreenStream.getTracks().forEach((t) => {
+          try { t.stop(); } catch { /* ignored */ }
+        });
+        acquiredScreenStream = null;
       }
     };
   }, [session]);
