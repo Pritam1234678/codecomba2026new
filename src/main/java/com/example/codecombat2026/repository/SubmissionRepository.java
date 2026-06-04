@@ -31,6 +31,35 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     List<Submission> findByProblem_Id(Long problemId);
 
     /**
+     * Submissions made by a user against a contest within a closed time
+     * window — drives the proctoring admin drill-down's "submissions
+     * during this session" panel (Req 19.4). Bounds are inclusive on both
+     * ends; callers pass the session's {@code started_at} as
+     * {@code start} and either the session's {@code ended_at} or
+     * {@code NOW()} (for active sessions) as {@code end}.
+     *
+     * <p>Resolved Q4: we deliberately do not add a
+     * {@code proctoring_session_id} column to {@code submissions} —
+     * the unique-per-{@code (contest_id, user_id)} constraint on
+     * {@code proctoring_sessions} makes this window-correlated lookup
+     * unambiguous, so the join can stay logical without bloating the
+     * already-hot {@code submissions} table.
+     *
+     * <p>Results are ordered ascending by {@code submittedAt} so the
+     * admin timeline reads top-to-bottom in chronological order.
+     */
+    @Query("SELECT s FROM Submission s " +
+           "WHERE s.user.id = :userId " +
+           "AND s.contest.id = :contestId " +
+           "AND s.submittedAt BETWEEN :start AND :end " +
+           "ORDER BY s.submittedAt ASC")
+    List<Submission> findByUser_IdAndContest_IdAndSubmittedAtBetween(
+            @Param("userId") Long userId,
+            @Param("contestId") Long contestId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
+
+    /**
      * Returns the most recent non-test submission for a user+problem.
      * Uses ORDER BY submittedAt DESC + LIMIT 1 to avoid NonUniqueResultException
      * when multiple test-run submissions exist for the same user+problem.

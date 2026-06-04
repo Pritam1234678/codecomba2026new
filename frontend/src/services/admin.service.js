@@ -50,6 +50,18 @@ const deleteContest = (id) => {
   return api.delete(`/admin/contests/${id}`);
 };
 
+// ── Proctored toggle ─────────────────────────────────────────────────────────
+// Mirrors ProctoredContestController (Req 15, 20). Enabling creates a row in
+// `proctored_contests` with the default consent_version=1; disabling deletes
+// the row, which makes the contest non-proctored on the next eligibility read.
+const enableProctored = (id, consentVersion = 1) => {
+  return api.post(`/admin/proctoring/contests/${id}`, { consentVersion });
+};
+
+const disableProctored = (id) => {
+  return api.delete(`/admin/proctoring/contests/${id}`);
+};
+
 // Problem Management
 const createProblem = (contestId, problemData) => {
   return api.post(`/admin/problems/contest/${contestId}`, problemData);
@@ -76,6 +88,8 @@ const AdminService = {
   activateContest,
   deactivateContest,
   deleteContest,
+  enableProctored,
+  disableProctored,
   createProblem,
   updateProblem,
   deleteProblem

@@ -4,6 +4,7 @@ import com.example.codecombat2026.dto.MessageResponse;
 import com.example.codecombat2026.entity.Contest;
 import com.example.codecombat2026.entity.ContestProblem;
 import com.example.codecombat2026.entity.Problem;
+import com.example.codecombat2026.proctoring.repository.ProctoredContestRepository;
 import com.example.codecombat2026.repository.ContestRepository;
 import com.example.codecombat2026.service.ContestProblemService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -15,9 +16,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/admin/contests")
@@ -31,24 +35,43 @@ public class AdminContestController {
     @Autowired private AdminDashboardController adminDashboardController;
     @Autowired private com.example.codecombat2026.service.ContestService contestService;
     @Autowired private ContestProblemService contestProblemService;
+    @Autowired private ProctoredContestRepository proctoredContestRepository;
     @Autowired private StringRedisTemplate redis;
     @Autowired private ObjectMapper objectMapper;
 
     @GetMapping
-    public List<Contest> getAllContests() {
+    public List<Map<String, Object>> getAllContests() {
+        // Cache contains the bare list of Contest entities for 60s; the
+        // proctored flag is an O(1) Set lookup we always resolve fresh
+        // so admin's "Toggle Proctored" reflects the change without a
+        // cache flush.
+        List<Contest> contests = null;
         try {
             String cached = redis.opsForValue().get(ADMIN_CONTESTS_KEY);
             if (cached != null) {
-                return objectMapper.readValue(cached, new TypeReference<List<Contest>>() {});
+                contests = objectMapper.readValue(cached, new TypeReference<List<Contest>>() {});
             }
         } catch (Exception ignored) {}
 
-        List<Contest> contests = contestRepository.findAll();
-        try {
-            redis.opsForValue().set(ADMIN_CONTESTS_KEY,
-                objectMapper.writeValueAsString(contests), ADMIN_CONTESTS_TTL);
-        } catch (Exception ignored) {}
-        return contests;
+        if (contests == null) {
+            contests = contestRepository.findAll();
+            try {
+                redis.opsForValue().set(ADMIN_CONTESTS_KEY,
+                    objectMapper.writeValueAsString(contests), ADMIN_CONTESTS_TTL);
+            } catch (Exception ignored) {}
+        }
+
+        // Resolve the proctored-id set once per call (Req 1.6, 1.7).
+        Set<Long> proctoredIds = new HashSet<>(proctoredContestRepository.findAllContestIds());
+
+        List<Map<String, Object>> response = new ArrayList<>(contests.size());
+        for (Contest c : contests) {
+            Map<String, Object> m = objectMapper.convertValue(
+                    c, new TypeReference<Map<String, Object>>() {});
+            m.put("proctored", proctoredIds.contains(c.getId()));
+            response.add(m);
+        }
+        return response;
     }
 
     @GetMapping("/stats")

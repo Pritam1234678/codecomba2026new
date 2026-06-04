@@ -31,4 +31,11 @@ public class SubmissionJob {
      * already on submission:queue at deploy time deserialize cleanly.
      */
     private UUID duelId;
+    /**
+     * Proctoring session id when this job was produced from inside an
+     * active proctoring session (Req 19.2). Null for practice, duel,
+     * and non-proctored contest submissions. Defaults to null so jobs
+     * already on submission:queue at deploy time deserialize cleanly.
+     */
+    private Long proctoringSessionId;
 }

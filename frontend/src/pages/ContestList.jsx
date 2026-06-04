@@ -222,13 +222,18 @@ const ContestRow = ({ contest, status, isLive, isEnded, index }) => {
         >
             {/* Contest info */}
             <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
                     <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 600, color: '#e5e2e1' }}>
                         {contest.name}
                     </h3>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', color: sc.color, border: `1px solid ${sc.border}`, backgroundColor: sc.bg, padding: '2px 8px', textTransform: 'uppercase' }}>
                         {status}
                     </span>
+                    {contest.proctored === true && (
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', color: C.secondary, border: `1px solid ${C.secondary}`, padding: '2px 8px', textTransform: 'uppercase' }}>
+                            Proctored
+                        </span>
+                    )}
                 </div>
                 <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: '#9d8e83', lineHeight: 1.5, marginBottom: '8px' }}>
                     {contest.description || 'No description provided.'}

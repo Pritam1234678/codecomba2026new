@@ -21,6 +21,7 @@ const ADMIN_NAV = [
     { label: 'Contests',   icon: 'military_tech',        to: '/admin/contests' },
     { label: 'Problems',   icon: 'code',                 to: '/admin/problems' },
     { label: 'Duel',       icon: 'swords',               to: '/admin/duels' },
+    { label: 'Proctoring', icon: 'shield',               to: '/admin/proctoring' },
     { label: 'Users',      icon: 'group',                to: '/admin/users' },
     { label: 'Rankings',   icon: 'leaderboard',          to: '/admin/leaderboard' },
     { label: 'Compiler',   icon: 'terminal',             to: '/compiler' },

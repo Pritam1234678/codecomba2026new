@@ -117,7 +117,22 @@ public class SecurityConfig {
                         .requestMatchers("/", "/api", "/api/health", "/api/auth/**", "/api/test/**", "/api/support/**", "/api/queue-status")
                         .permitAll()
                         .requestMatchers("/api/compiler/**").permitAll()
-                        .requestMatchers("/uploads/**").permitAll()
+                        // Proctoring candidate WebSocket: handshake auth uses a
+                        // single-use Valkey-bound ticket consumed atomically by
+                        // ProctoringHandshakeInterceptor — the JWT bearer header
+                        // is NOT carried on the upgrade request because browsers
+                        // cannot attach Authorization headers to WebSocket
+                        // upgrades. Same rationale as /api/compiler/**.
+                        .requestMatchers("/api/proctoring/ws").permitAll()
+                        // Static upload exposure is whitelisted per-prefix, not as a
+                        // blanket "/uploads/**". The denyAll for "/uploads/proctoring/**"
+                        // ensures that even if a future WebConfig change accidentally
+                        // mapped a broader resource handler, proctoring screenshots
+                        // would still be unreachable via the static route — they MUST
+                        // only be served through the admin-authenticated controller
+                        // (Req 14.3, 15.4, 16.1). Order matters: deny first.
+                        .requestMatchers("/uploads/proctoring/**").denyAll()
+                        .requestMatchers("/uploads/profile-photos/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/contests").permitAll()
                         // SSE stream: permit at filter level, auth handled by @PreAuthorize + JWT filter
                         // Without this, Spring Security re-checks on async dispatch and fails (no JWT on async thread)
@@ -125,6 +140,15 @@ public class SecurityConfig {
                         // Duel SSE stream: same pattern as /api/submissions/stream — auth is handled
                         // by a single-use SSE ticket (SseTicketService) consumed by the controller.
                         .requestMatchers("/api/duels/*/stream").permitAll()
+                        // Proctoring admin SSE stream: same single-use ticket pattern as
+                        // /api/duels/*/stream. Filter-level permitAll is required because
+                        // @PreAuthorize does not survive Spring's async dispatch on
+                        // SseEmitter return-value handling. The ticket consume in
+                        // ProctoringAdminStreamController is the actual auth gate; the
+                        // ticket-mint endpoint (POST .../stream/ticket) remains JWT- +
+                        // ROLE_ADMIN-gated, so a stream can only be opened by an admin who
+                        // first authenticated to mint the ticket.
+                        .requestMatchers("/api/admin/proctoring/contests/*/stream").permitAll()
                         // Admin duel routes: explicit role gate placed BEFORE the broader /api/admin/**
                         // matcher so reordering can't accidentally widen access.
                         .requestMatchers("/api/admin/duels/**").hasRole("ADMIN")

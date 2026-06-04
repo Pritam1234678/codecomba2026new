@@ -90,6 +90,56 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.CONFLICT);
     }
 
+    @ExceptionHandler(com.example.codecombat2026.proctoring.exception.ProctoringNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleProctoringNotFound(
+            com.example.codecombat2026.proctoring.exception.ProctoringNotFoundException ex) {
+        log.debug("Proctoring resource not found: {}", ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", "NOT_FOUND");
+        body.put("message", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(com.example.codecombat2026.proctoring.exception.ProctoringForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleProctoringForbidden(
+            com.example.codecombat2026.proctoring.exception.ProctoringForbiddenException ex) {
+        log.debug("Proctoring forbidden {}: {}", ex.getCode(), ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", ex.getCode());
+        body.put("message", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(com.example.codecombat2026.proctoring.exception.ProctoringValidationException.class)
+    public ResponseEntity<Map<String, Object>> handleProctoringValidation(
+            com.example.codecombat2026.proctoring.exception.ProctoringValidationException ex) {
+        log.debug("Proctoring validation error {}: {}", ex.getCode(), ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", ex.getCode());
+        body.put("message", ex.getMessage());
+        return new ResponseEntity<>(body, ex.getHttpStatus());
+    }
+
+    @ExceptionHandler(com.example.codecombat2026.proctoring.exception.ProctoringStateConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleProctoringStateConflict(
+            com.example.codecombat2026.proctoring.exception.ProctoringStateConflictException ex) {
+        log.debug("Proctoring state conflict {}: {}", ex.getCode(), ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", ex.getCode());
+        body.put("message", ex.getMessage());
+        Object payload = ex.getPayload();
+        if (payload instanceof Map<?, ?> payloadMap) {
+            for (Map.Entry<?, ?> entry : payloadMap.entrySet()) {
+                if (entry.getKey() != null) {
+                    body.put(entry.getKey().toString(), entry.getValue());
+                }
+            }
+        } else if (payload != null) {
+            body.put("details", payload);
+        }
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<MessageResponse> handleGlobalException(Exception ex, HttpServletRequest request) {
         // Let Spring's own ResponseStatusException flow through unchanged so

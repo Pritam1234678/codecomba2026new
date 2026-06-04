@@ -5,6 +5,10 @@ import com.example.codecombat2026.entity.Problem;
 import com.example.codecombat2026.entity.Submission;
 import com.example.codecombat2026.entity.User;
 import com.example.codecombat2026.exception.ResourceNotFoundException;
+import com.example.codecombat2026.proctoring.entity.ProctoringSession;
+import com.example.codecombat2026.proctoring.exception.ProctoringForbiddenException;
+import com.example.codecombat2026.proctoring.repository.ProctoringSessionRepository;
+import com.example.codecombat2026.proctoring.service.ProctoringSessionService;
 import com.example.codecombat2026.repository.ProblemRepository;
 import com.example.codecombat2026.repository.SubmissionRepository;
 import com.example.codecombat2026.repository.UserRepository;
@@ -30,6 +34,8 @@ public class SubmissionService {
     @Autowired private StringRedisTemplate redis;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private RateLimiterService rateLimiter;
+    @Autowired private ProctoringSessionService proctoringSessionService;
+    @Autowired private ProctoringSessionRepository proctoringSessionRepository;
 
     /**
      * Async submit — saves PENDING to MySQL, pushes job to Valkey queue,
@@ -96,13 +102,42 @@ public class SubmissionService {
 
         // Push job to Valkey queue — worker picks it up asynchronously
         Long contestId = problem.getContest() != null ? problem.getContest().getId() : null;
+
+        // Req 19.2 / 19.3 — proctoring lockout + session tagging.
+        // Gate 1: Contest time window — once endTime has passed, no
+        // submissions are accepted regardless of proctoring state.
+        // Gate 2: Proctoring terminal-state lockout from a previous
+        // attempt (SELF_QUIT / ADMIN_FORCED / HEARTBEAT_TIMEOUT).
+        // Gate 3: Tag the job with the candidate's currently-active
+        // proctoring session id for verdict-session correlation.
+        Long proctoringSessionId = null;
+        if (contestId != null) {
+            com.example.codecombat2026.entity.Contest contest =
+                problem.getContest() != null ? problem.getContest() : null;
+            if (contest != null
+                    && contest.getEndTime() != null
+                    && contest.getEndTime().isBefore(TimeUtil.now())) {
+                throw new ProctoringForbiddenException(
+                    "CONTEST_ENDED",
+                    "Contest has ended — submissions are no longer accepted");
+            }
+            if (proctoringSessionService.isLocked(contestId, userId)) {
+                throw new ProctoringForbiddenException("LOCKED_OUT");
+            }
+            proctoringSessionId = proctoringSessionRepository
+                .findByContestIdAndUserIdAndEndedAtIsNull(contestId, userId)
+                .map(ProctoringSession::getId)
+                .orElse(null);
+        }
+
         SubmissionJob job = new SubmissionJob(
             submission.getId(), userId, problemId, contestId,
             code, language.name(),
             problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0,
             problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256,
             false,  // isTestRun = false
-            null    // duelId — practice/contest submissions are not duel-tagged
+            null,   // duelId — practice/contest submissions are not duel-tagged
+            proctoringSessionId  // null for non-proctored contests; Req 19.2
         );
 
         try {
@@ -153,7 +188,8 @@ public class SubmissionService {
             problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0,
             problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256,
             true,  // isTestRun = true — no leaderboard update
-            null   // duelId — test runs are not duel-tagged
+            null,  // duelId — test runs are not duel-tagged
+            null   // proctoringSessionId — test runs are not proctoring-tagged
         );
 
         try {

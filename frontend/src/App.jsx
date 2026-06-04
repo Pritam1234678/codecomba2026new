@@ -52,6 +52,19 @@ const NotFound  = lazy(() => import('./pages/NotFound'));
 const Duel      = lazy(() => import('./pages/Duel'));
 const DuelArena = lazy(() => import('./pages/DuelArena'));
 
+// Proctored contest mode — entry shell, arena placeholder, and terminal
+// screen (task 3.4). Real arena, admin dashboard, and session
+// drill-down land in tasks 6, 8, 10, 11. Lazy-loaded so the proctoring
+// bundle (MediaPipe wasm, IndexedDB helpers) is only fetched when a
+// candidate or admin actually navigates into the proctoring surface.
+// Terminator screen is the landing for the WebSocket SESSION_TERMINATED
+// flow (task 12.3) and the LOCKED_OUT (423) redirect.
+const ProctoredContestEntry      = lazy(() => import('./proctoring/pages/ProctoredContestEntry'));
+const ProctoredContestArena      = lazy(() => import('./proctoring/pages/ProctoredContestArena'));
+const ProctoredContestTerminated = lazy(() => import('./proctoring/pages/ProctoredContestTerminated'));
+const AdminProctoringDashboard   = lazy(() => import('./proctoring/pages/AdminProctoringDashboard'));
+const AdminProctoringSession     = lazy(() => import('./proctoring/pages/AdminProctoringSession'));
+
 // Loading fallback shown briefly while a chunk loads
 const PageFallback = () => (
   <div className="flex items-center justify-center min-h-[60vh]" style={{ color: '#9d8e83', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
@@ -120,6 +133,7 @@ function App() {
       <Route path="/admin/problems/:id/edit" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><EditProblem /></AdminRoute>)}</div>} />
       <Route path="/admin/problems/:id/testcases" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><ManageTestCases /></AdminRoute>)}</div>} />
       <Route path="/admin/duels" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><AdminDuelMonitor /></AdminRoute>)}</div>} />
+      <Route path="/admin/proctoring" element={lazyWrap(<AdminRoute><AdminProctoringDashboard /></AdminRoute>)} />
       <Route path="/admin/leaderboard" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><Leaderboard /></AdminRoute>)}</div>} />
       <Route path="/admin/leaderboard/:contestId" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><ContestLeaderboard /></AdminRoute>)}</div>} />
       <Route path="/admin/platform-details" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><PlatformDetails /></AdminRoute>)}</div>} />
@@ -134,10 +148,26 @@ function App() {
       <Route path="/practice/:id" element={lazyWrap(<UserRoute><PracticeSolve /></UserRoute>)} />
       <Route path="/duel" element={lazyWrap(<UserRoute><Duel /></UserRoute>)} />
       <Route path="/duel/:matchId" element={lazyWrap(<UserRoute><DuelArena /></UserRoute>)} />
+
+      {/* Proctored contest routes — task 3.4 entry shell + arena placeholder */}
+      <Route path="/contests/:contestId/proctored/entry" element={lazyWrap(<UserRoute><ProctoredContestEntry /></UserRoute>)} />
+      <Route path="/contests/:contestId/proctored/arena" element={lazyWrap(<UserRoute><ProctoredContestArena /></UserRoute>)} />
       <Route path="/platform-details" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><PlatformDetails /></UserRoute>)}</div>} />
       <Route path="/support" element={<div className="flex-1">{lazyWrap(<Support />)}</div>} />
       <Route path="/players" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><UserSearch /></UserRoute>)}</div>} />
       <Route path="/players/:username" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><PlayerProfile /></UserRoute>)}</div>} />
+
+      {/* Proctored contest — terminal screen (Req 10.4, 13.9, 24.6) */}
+      <Route
+        path="/contests/:contestId/proctored/terminated"
+        element={lazyWrap(<UserRoute><ProctoredContestTerminated /></UserRoute>)}
+      />
+
+      {/* Admin proctoring drill-down (task 10.5, Req 15.3, 15.4, 15.6, 15.7) */}
+      <Route
+        path="/admin/proctoring/sessions/:sessionId"
+        element={lazyWrap(<AdminRoute><AdminProctoringSession /></AdminRoute>)}
+      />
 
       {/* 404 */}
       <Route path="*" element={lazyWrap(<NotFound />)} />

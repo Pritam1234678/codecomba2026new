@@ -809,7 +809,8 @@ public class DuelService {
                 problem.getTimeLimit(),
                 problem.getMemoryLimit(),
                 false,               // testRun
-                matchId
+                matchId,
+                null                 // proctoringSessionId — duels are independent of proctoring (task 11.2)
         );
 
         try {

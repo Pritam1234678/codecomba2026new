@@ -4,10 +4,13 @@ import com.example.codecombat2026.dto.ProblemDTO;
 import com.example.codecombat2026.entity.Contest;
 import com.example.codecombat2026.entity.ContestRegistration;
 import com.example.codecombat2026.entity.Problem;
+import com.example.codecombat2026.proctoring.repository.ProctoredContestRepository;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
 import com.example.codecombat2026.service.ContestRegistrationService;
 import com.example.codecombat2026.service.ContestService;
 import com.example.codecombat2026.service.ProblemService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,8 +18,10 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -32,19 +37,43 @@ public class ContestController {
     @Autowired
     private ContestRegistrationService registrationService;
 
+    @Autowired
+    private ProctoredContestRepository proctoredContestRepo;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @GetMapping
-    public ResponseEntity<List<Contest>> getAllContests() {
+    public ResponseEntity<List<Map<String, Object>>> getAllContests() {
         List<Contest> contests = contestService.getVisibleContests();
+
+        // One batch query for the full proctored-id set, then O(1) membership
+        // check per contest — avoids existsByContestId(N) round-trips (Req 1.6, 1.7).
+        Set<Long> proctoredIds = new HashSet<>(proctoredContestRepo.findAllContestIds());
+
+        List<Map<String, Object>> response = contests.stream()
+                .map(c -> {
+                    Map<String, Object> m = objectMapper.convertValue(
+                            c, new TypeReference<Map<String, Object>>() {});
+                    m.put("proctored", proctoredIds.contains(c.getId()));
+                    return m;
+                })
+                .collect(Collectors.toList());
+
         return ResponseEntity.ok()
                 // Cache in browser for 30s, CDN/proxy for 15s
                 .header("Cache-Control", "public, max-age=30, s-maxage=15")
-                .body(contests);
+                .body(response);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Contest> getContestById(@PathVariable Long id) {
-        return ResponseEntity.ok(contestService.getContestById(id));
+    public ResponseEntity<Map<String, Object>> getContestById(@PathVariable Long id) {
+        Contest contest = contestService.getContestById(id);
+        Map<String, Object> response = objectMapper.convertValue(
+                contest, new TypeReference<Map<String, Object>>() {});
+        response.put("proctored", proctoredContestRepo.existsByContestId(id));
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -86,6 +115,7 @@ public class ContestController {
         response.put("problems", problemDTOs);
         response.put("registered", registered);
         response.put("registrationCount", registrationCount);
+        response.put("proctored", proctoredContestRepo.existsByContestId(id));
 
         return ResponseEntity.ok(response);
     }

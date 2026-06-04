@@ -119,6 +119,7 @@ export default function ContestDetail() {
     const [registered,  setRegistered]  = useState(false);
     const [regCount,    setRegCount]    = useState(0);
     const [registering, setRegistering] = useState(false);
+    const [proctored,   setProctored]   = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -128,6 +129,7 @@ export default function ContestDetail() {
                 setProblems(detailRes.data.problems);
                 setRegistered(detailRes.data.registered ?? false);
                 setRegCount(detailRes.data.registrationCount ?? 0);
+                setProctored(detailRes.data.proctored === true);
                 try {
                     const subsRes = await SubmissionService.getUserSubmissions();
                     const map = {};
@@ -245,6 +247,11 @@ export default function ContestDetail() {
                             <span style={{ padding: '4px 12px', backgroundColor: `${statusColor}15`, border: `1px solid ${statusColor}30`, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: statusColor, textTransform: 'uppercase' }}>
                                 {statusLabel}
                             </span>
+                            {proctored && (
+                                <span style={{ padding: '4px 12px', border: `1px solid ${C.secondary}`, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.secondary, textTransform: 'uppercase' }}>
+                                    Proctored
+                                </span>
+                            )}
                             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', color: C.outline }}>
                                 Duration: {durationStr}
                             </span>
@@ -312,7 +319,7 @@ export default function ContestDetail() {
 
                             {registered && problems.length > 0 && (
                                 <button
-                                    onClick={() => navigate(`/problems/${problems[0].id}`)}
+                                    onClick={() => navigate(proctored ? `/contests/${id}/proctored/entry` : `/problems/${problems[0].id}`)}
                                     style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 32px', border: `1px solid ${C.border}`, color: C.primary, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s' }}
                                     onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; e.currentTarget.style.borderColor = C.secondary; }}
                                     onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.primary; e.currentTarget.style.borderColor = C.border; }}
@@ -400,8 +407,10 @@ export default function ContestDetail() {
                                         index={index}
                                         submission={submissions[problem.id]}
                                         isLast={index === problems.length - 1}
-                                    />
-                                ))
+                                        proctored={proctored}
+                                        contestId={id}
+                                        registered={registered}
+                                    />                                ))
                             )}
                         </div>
                     </motion.div>
@@ -537,11 +546,26 @@ export default function ContestDetail() {
 }
 
 // ── Problem Row ───────────────────────────────────────────────────────────────
-function ProblemRow({ problem, index, submission, isLast }) {
+//
+// In a proctored contest the row links to the proctored entry shell instead
+// of the bare /problems/:id route — that way a registered candidate ALWAYS
+// goes through eligibility → consent → preflight → arena before reaching the
+// editor (Req 2.x, 3.x). The bare route is still navigable directly (an
+// admin clicking through, an unregistered curious user, etc.) but for the
+// proctored happy path the gate is enforced at the link layer.
+function ProblemRow({ problem, index, submission, isLast, proctored, contestId, registered }) {
     const [hovered, setHovered] = useState(false);
     const sc   = submission ? getStatusCfg(submission.status) : null;
     const diff = DIFF_CFG[problem.level] || { color: C.outline, label: problem.level || '—' };
     const letter = String.fromCharCode(65 + index);
+
+    // Proctored mode: route every problem click through the entry gate so the
+    // candidate cannot bypass consent / preflight by deep-linking. Once the
+    // proctored arena gets the real problem-solve UI (follow-up task) the
+    // arena will route to specific problems via state.problemId.
+    const target = proctored && registered
+        ? `/contests/${contestId}/proctored/entry`
+        : `/problems/${problem.id}`;
 
     // Test cases display
     const passed = submission?.testCasesPassed != null ? submission.testCasesPassed : null;
@@ -549,7 +573,7 @@ function ProblemRow({ problem, index, submission, isLast }) {
 
     return (
         <Link
-            to={`/problems/${problem.id}`}
+            to={target}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             style={{

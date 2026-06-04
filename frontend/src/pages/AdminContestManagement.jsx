@@ -69,6 +69,15 @@ const AdminContestManagement = () => {
             .catch(() => showToast('Failed to update contest.', 'error'));
     };
 
+    const handleProctoredToggle = (contestId, isProctored) => {
+        const action = isProctored
+            ? AdminService.disableProctored(contestId)
+            : AdminService.enableProctored(contestId, 1);
+        action
+            .then(() => { loadContests(); showToast(isProctored ? 'Proctored mode disabled.' : 'Proctored mode enabled.'); })
+            .catch((e) => showToast(e?.response?.data?.message || 'Failed to toggle proctored mode.', 'error'));
+    };
+
     const confirmDelete = () => {
         AdminService.deleteContest(deleteModal.contestId)
             .then(() => { loadContests(); showToast('Contest deleted.'); setDeleteModal({ show: false }); })
@@ -190,7 +199,7 @@ const AdminContestManagement = () => {
                 style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, overflow: 'hidden' }}
             >
                 {/* Table header */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px 100px 320px', gap: '16px', padding: '14px 24px', borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceHi }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px 120px 380px', gap: '16px', padding: '14px 24px', borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceHi }}>
                     {['Contest Details', 'Timeline', 'Status', 'Actions'].map((h, i) => (
                         <span key={h} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase', textAlign: i >= 2 ? 'center' : 'left' }}>
                             {h}
@@ -211,6 +220,7 @@ const AdminContestManagement = () => {
                             index={i}
                             isLast={i === filtered.length - 1}
                             onToggle={() => handleToggle(contest.id, contest.active)}
+                            onProctoredToggle={() => handleProctoredToggle(contest.id, contest.proctored)}
                             onDelete={() => setDeleteModal({ show: true, contestId: contest.id, contestName: contest.name })}
                         />
                     ))
@@ -290,7 +300,7 @@ const AdminContestManagement = () => {
 };
 
 /* ── Contest Row ── */
-const ContestRow = ({ contest, index, isLast, onToggle, onDelete }) => {
+const ContestRow = ({ contest, index, isLast, onToggle, onProctoredToggle, onDelete }) => {
     const [hovered, setHovered] = useState(false);
     const status = getStatus(contest);
     const sc     = statusConfig[status];
@@ -312,7 +322,7 @@ const ContestRow = ({ contest, index, isLast, onToggle, onDelete }) => {
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             style={{
-                display: 'grid', gridTemplateColumns: '1fr 220px 100px 320px',
+                display: 'grid', gridTemplateColumns: '1fr 200px 120px 380px',
                 gap: '16px', padding: '20px 24px',
                 borderBottom: isLast ? 'none' : `1px solid ${C.border}`,
                 borderLeft: `2px solid ${accentColor}`,
@@ -326,9 +336,16 @@ const ContestRow = ({ contest, index, isLast, onToggle, onDelete }) => {
                 <h3 style={{ fontFamily: "'Geist', sans-serif", fontSize: '15px', color: C.onBg, marginBottom: '4px', textDecoration: status === 'FINISHED' ? 'line-through' : 'none', textDecorationColor: C.border }}>
                     {contest.name}
                 </h3>
-                <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
-                    ID: CC-{String(contest.id).padStart(4, '0')}
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, margin: 0 }}>
+                        ID: CC-{String(contest.id).padStart(4, '0')}
+                    </p>
+                    {contest.proctored && (
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.12em', color: C.secondary, border: `1px solid ${C.secondary}`, padding: '1px 8px', textTransform: 'uppercase' }}>
+                            Proctored
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* Timeline */}
@@ -379,6 +396,17 @@ const ContestRow = ({ contest, index, isLast, onToggle, onDelete }) => {
                 >
                     <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{contest.active ? 'pause_circle' : 'play_circle'}</span>
                     {contest.active ? 'Deactivate' : 'Activate'}
+                </button>
+                <span style={{ color: C.border }}>|</span>
+                <button
+                    onClick={onProctoredToggle}
+                    title={contest.proctored ? 'Disable proctoring for this contest' : 'Enable proctoring for this contest'}
+                    style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: contest.proctored ? C.secondary : C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', transition: 'color 0.2s', padding: '4px 0' }}
+                    onMouseEnter={e => e.currentTarget.style.color = C.secondary}
+                    onMouseLeave={e => e.currentTarget.style.color = contest.proctored ? C.secondary : C.outline}
+                >
+                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{contest.proctored ? 'shield' : 'shield_lock'}</span>
+                    {contest.proctored ? 'Unproctor' : 'Proctor'}
                 </button>
                 <span style={{ color: C.border }}>|</span>
                 <button
