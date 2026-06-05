@@ -186,13 +186,15 @@ public class AiProblemGeneratorController {
               Java/C++/JS/C: // USER_CODE_START  and  // USER_CODE_END
               Python:        # USER_CODE_START   and  # USER_CODE_END
 
-            R3 STUB: solve() between markers MUST be real compilable code (NEVER commented with // or #).
-              Returns only a default value — never the working algorithm.
-              Java: { return 0; } / { return new int[0]; } / { return ""; } / { return null; }
-              C++:  { return 0; } / { return {}; } / { return nullptr; }
-              C:    { return 0; }  or for arrays: int* solve(...,int* returnSize){*returnSize=0;return NULL;}
-              Python: return 0 / return [] / return ""    (never just `pass`)
-              JS:   { return 0; } / { return []; }
+            R3 STUB: The method MUST be named exactly "solve", be STATIC, and return a default value only.
+              Java class MUST be named "Main". Java method: public static ReturnType solve(params).
+              NEVER use class Solution, NEVER use instance methods, NEVER name it after the problem.
+              solve() MUST be real compilable code — NEVER commented out with // or #.
+              Java: public static int solve(...){return 0;} / int[]{return new int[0];} / String{return "";} / boolean{return false;} / Object{return null;}
+              C++:  ReturnType solve(...){return 0;} / {return {};} / {return nullptr;}
+              C:    ReturnType solve(...){return 0;} or arrays: int* solve(...,int* returnSize){*returnSize=0;return NULL;}
+              Python: def solve(...): return 0  /  return []  /  return ""   (never just `pass`)
+              JS:   function solve(...){return 0;} / {return [];}
 
             R4 OUTPUT (exact format, N is 1-based):
               TC:N:PASS           TC:N:PASS:hidden
@@ -200,9 +202,10 @@ public class AiProblemGeneratorController {
               TC:N:FAIL:hidden
               Multi-param: join with comma → input=[1,2,3],9
 
-            R5 TEST CASES: 4 visible + 2 hidden = 6 total.
+            R5 TEST CASES: EXACTLY 4 visible + 2 hidden = 6 total. No more, no less.
               Hidden: print only TC:N:FAIL:hidden (never input/expected/got).
-              Hand-trace each case and verify expected value before writing it.
+              Hand-trace each case. Expected values MUST only contain elements that exist in the input.
+              NEVER invent values not present in the input array.
 
             R6 INDEXING: If problem says "1-indexed"/"added by one" → use 1-based indices.
               Example LC167: {2,7,11,15} target=9 → [1,2] NOT [0,1]. Default is 0-based.
