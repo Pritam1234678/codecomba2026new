@@ -226,6 +226,23 @@ public class AiProblemGeneratorController {
             Java / C / C++ / JS : // USER_CODE_START   and   // USER_CODE_END
             Python               : # USER_CODE_START    and   # USER_CODE_END
 
+            RULE 2B — solve() MUST BE AN EMPTY STUB — THIS IS NON-NEGOTIABLE
+            The solve() function between USER_CODE_START and USER_CODE_END MUST contain
+            ONLY a default return value. NEVER put any working algorithm inside solve().
+            The user is supposed to write the algorithm themselves — if you put the answer
+            there you have destroyed the purpose of the platform.
+            Correct stub examples:
+              Java:       public static int solve(int[] nums) { return 0; }
+              Java:       public static String solve(String s) { return ""; }
+              Java:       public static boolean solve(int[] nums) { return false; }
+              C++:        int solve(vector<int>& nums) { return 0; }
+              Python:     def solve(nums): return 0
+              JavaScript: function solve(nums) { return 0; }
+            WRONG — never do this:
+              public static String solve(String s, int numRows) {
+                  // ... 20 lines of zigzag algorithm ...   ← FORBIDDEN
+              }
+
             RULE 3 — OUTPUT FORMAT (character-perfect, no extra spaces)
             Visible PASS : TC:N:PASS
             Hidden  PASS : TC:N:PASS:hidden
