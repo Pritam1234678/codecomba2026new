@@ -7,6 +7,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -16,19 +17,42 @@ import java.util.Map;
 public class AiProblemGeneratorController {
 
     @Value("${NVIDIA_API_KEY:}")
-    private String nvidiaApiKey;
+    private String kimiApiKey;          // Kimi K2.6
+
+    @Value("${DEEPSEEK_API_KEY:}")
+    private String deepseekApiKey;      // DeepSeek V4 Pro
 
     private static final String NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-    private static final String MODEL = "moonshotai/kimi-k2.6";
+
+    private static final String MODEL_KIMI      = "moonshotai/kimi-k2.6";
+    private static final String MODEL_DEEPSEEK  = "deepseek-ai/deepseek-v4-pro";
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /** Per-model configuration resolved from the request's {@code model} field. */
+    private record ModelConfig(String modelId, String apiKey, Map<String, Object> extra) {}
+
+    private ModelConfig resolveModel(String modelParam) {
+        if ("deepseek".equalsIgnoreCase(modelParam)) {
+            return new ModelConfig(
+                MODEL_DEEPSEEK,
+                deepseekApiKey,
+                Map.of("chat_template_kwargs", Map.of("thinking", false))
+            );
+        }
+        // default → Kimi K2.6
+        return new ModelConfig(MODEL_KIMI, kimiApiKey, Map.of());
+    }
+
     @PostMapping("/ai-generate")
     public ResponseEntity<?> generate(@RequestBody Map<String, String> request) {
-        if (nvidiaApiKey == null || nvidiaApiKey.isBlank()) {
+        String modelParam = request.getOrDefault("model", "kimi");
+        ModelConfig cfg = resolveModel(modelParam);
+
+        if (cfg.apiKey() == null || cfg.apiKey().isBlank()) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                .body(Map.of("error", "NVIDIA_API_KEY not configured"));
+                .body(Map.of("error", "API key for model '" + modelParam + "' is not configured"));
         }
 
         String query = request.getOrDefault("query", "").trim();
@@ -36,24 +60,24 @@ public class AiProblemGeneratorController {
             return ResponseEntity.badRequest().body(Map.of("error", "query is required"));
         }
 
-        Map<String, Object> payload = Map.of(
-            "model", MODEL,
-            "messages", List.of(
-                Map.of("role", "system", "content", buildSystemPrompt()),
-                Map.of("role", "user", "content",
-                    "Generate a complete CodeCombat problem for: " + query + "\n\n" +
-                    "OUTPUT ONLY the raw JSON object. No markdown fences, no ```json, " +
-                    "no explanation, no preamble. Start your response with { and end with }.")
-            ),
-            "max_tokens", 16384,
-            "temperature", 0.2,
-            "top_p", 0.9,
-            "stream", false
-        );
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("model",       cfg.modelId());
+        payload.put("messages",    List.of(
+            Map.of("role", "system", "content", buildSystemPrompt()),
+            Map.of("role", "user",   "content",
+                "Generate a complete CodeCombat problem for: " + query + "\n\n" +
+                "OUTPUT ONLY the raw JSON object. No markdown fences, no ```json, " +
+                "no explanation, no preamble. Start your response with { and end with }.")
+        ));
+        payload.put("max_tokens",  16384);
+        payload.put("temperature", 0.2);
+        payload.put("top_p",       0.9);
+        payload.put("stream",      false);
+        payload.putAll(cfg.extra());   // model-specific extras (e.g. chat_template_kwargs)
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(nvidiaApiKey);
+        headers.setBearerAuth(cfg.apiKey());
 
         try {
             ResponseEntity<Map> response = restTemplate.exchange(
