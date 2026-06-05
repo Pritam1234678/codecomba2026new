@@ -86,7 +86,7 @@ public class AiProblemGeneratorController {
                     "Generate a complete CodeCombat problem for: " + query + "\n\n" +
                     "OUTPUT ONLY the raw JSON object. No markdown fences, no ```json, " +
                     "no explanation, no preamble. Start your response with { and end with }.")
-            ), 12288);
+            ), 32768);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(Map.of("error", "AI call failed (pass 1): " + e.getMessage()));
