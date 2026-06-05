@@ -106,7 +106,7 @@ public class AiProblemGeneratorController {
         Map<String, Object> snippets = (Map<String, Object>) result.get("snippets");
         if (snippets != null && !snippets.isEmpty()) {
             try {
-                Map<String, Object> fixed = verifyTestCases(cfg, snippets);
+                Map<String, Object> fixed = verifyTestCases(cfg, snippets, query);
                 if (fixed != null) result.put("snippets", fixed);
             } catch (Exception ignored) {
                 // pass 2 failure → return pass 1 result as-is
@@ -120,12 +120,23 @@ public class AiProblemGeneratorController {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> verifyTestCases(ModelConfig cfg,
-                                                Map<String, Object> snippets) throws Exception {
+                                                Map<String, Object> snippets,
+                                                String originalQuery) throws Exception {
         StringBuilder prompt = new StringBuilder(4096);
-        prompt.append("These are code harnesses you generated for a competitive programming problem.\n");
-        prompt.append("TASK: For EACH test case in main(), re-trace the algorithm step-by-step\n");
-        prompt.append("from scratch and verify the expected value. Fix any that are wrong.\n");
-        prompt.append("Keep harness structure, markers, and helper functions identical.\n\n");
+        prompt.append("You generated harnesses for this problem: \"").append(originalQuery).append("\"\n\n");
+        prompt.append("CRITICAL TASK: For EACH test case in main(), independently compute the\n");
+        prompt.append("CORRECT expected value by hand-tracing the algorithm on the given input.\n");
+        prompt.append("Do NOT trust existing expected values — recompute every single one from scratch.\n\n");
+        prompt.append("INDEXING RULE: If the problem says \"1-indexed\", \"added by one\", or \"indices start at 1\",\n");
+        prompt.append("then array indices in the answer must be 1-based (first element = 1, not 0).\n");
+        prompt.append("If the problem says \"0-indexed\" or nothing, use 0-based.\n\n");
+        prompt.append("VERIFICATION STEPS for each test case:\n");
+        prompt.append("1. Write out the input values explicitly.\n");
+        prompt.append("2. Hand-simulate the algorithm step-by-step.\n");
+        prompt.append("3. Determine the correct output.\n");
+        prompt.append("4. Apply the correct indexing convention.\n");
+        prompt.append("5. Replace the expected value in the test() call if it was wrong.\n\n");
+        prompt.append("Keep harness structure, markers, and helper functions IDENTICAL.\n");
         prompt.append("Return ONLY this JSON (no markdown, no preamble, start with {, end with }):\n");
         prompt.append("{\"JAVA\":\"...\",\"CPP\":\"...\",\"C\":\"...\",\"PYTHON\":\"...\",\"JAVASCRIPT\":\"...\"}\n\n");
 
