@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -24,12 +25,21 @@ public class AiProblemGeneratorController {
     @Value("${DEEPSEEK_API_KEY:}")
     private String deepseekApiKey;
 
-    private static final String NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-    private static final String MODEL_KIMI     = "moonshotai/kimi-k2.6";
-    private static final String MODEL_DEEPSEEK = "deepseek-ai/deepseek-v4-pro";
+    private static final String NVIDIA_API_URL  = "https://integrate.api.nvidia.com/v1/chat/completions";
+    private static final String MODEL_KIMI      = "moonshotai/kimi-k2.6";
+    private static final String MODEL_QWEN      = "qwen/qwen3-coder-480b-a35b-instruct";
+    private static final String MODEL_DEEPSEEK  = "deepseek-ai/deepseek-v4-pro";
 
-    private final RestTemplate restTemplate = new RestTemplate();
-    // Lenient parser: tolerates literal newlines and non-standard escapes inside AI-generated JSON strings
+    // 10-minute read timeout — two AI passes can take up to ~8 min total
+    private final RestTemplate restTemplate = createRestTemplate();
+    private static RestTemplate createRestTemplate() {
+        SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
+        f.setConnectTimeout(10_000);
+        f.setReadTimeout(600_000);
+        return new RestTemplate(f);
+    }
+
+    // Lenient parser: tolerates literal newlines / non-standard escapes in AI JSON
     private final ObjectMapper objectMapper = new ObjectMapper(
         JsonFactory.builder()
             .enable(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS)
@@ -43,6 +53,9 @@ public class AiProblemGeneratorController {
         if ("deepseek".equalsIgnoreCase(modelParam)) {
             return new ModelConfig(MODEL_DEEPSEEK, deepseekApiKey,
                 Map.of("chat_template_kwargs", Map.of("thinking", false)));
+        }
+        if ("qwen".equalsIgnoreCase(modelParam)) {
+            return new ModelConfig(MODEL_QWEN, deepseekApiKey, Map.of());
         }
         return new ModelConfig(MODEL_KIMI, kimiApiKey, Map.of());
     }

@@ -51,7 +51,7 @@ export default function AddProblem() {
     // ── AI panel state ────────────────────────────────────────────────────────
     const [aiOpen,    setAiOpen]    = useState(false);
     const [aiQuery,   setAiQuery]   = useState('');
-    const aiModel = 'kimi';
+    const [aiModel, setAiModel] = useState('qwen'); // 'kimi' | 'qwen' | 'deepseek'
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError,   setAiError]   = useState('');
     const [aiStatus,  setAiStatus]  = useState('');
@@ -643,6 +643,27 @@ export default function AddProblem() {
 
                             {/* Body */}
                             <div style={{ padding: '1.5rem 2rem' }}>
+
+                                {/* Model selector */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '1.25rem' }}>
+                                    <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase' }}>AI Model</label>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        {[
+                                            { id: 'qwen',     label: 'Qwen3 Coder',     sub: 'qwen · 480B MoE' },
+                                            { id: 'kimi',     label: 'Kimi K2.6',        sub: 'moonshotai' },
+                                            { id: 'deepseek', label: 'DeepSeek V4 Pro',  sub: 'deepseek-ai · slow' },
+                                        ].map(m => {
+                                            const active = aiModel === m.id;
+                                            return (
+                                                <button key={m.id} type="button" disabled={aiLoading} onClick={() => setAiModel(m.id)}
+                                                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px', padding: '10px 14px', border: `1px solid ${active ? C.secondary : C.border}`, backgroundColor: active ? `${C.secondary}12` : 'transparent', cursor: aiLoading ? 'not-allowed' : 'pointer', transition: 'all 0.15s', textAlign: 'left' }}>
+                                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', fontWeight: 600, color: active ? C.secondary : C.muted, letterSpacing: '0.06em' }}>{m.label}</span>
+                                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: C.outline, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{m.sub}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
 
                                 {/* Input */}
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '1.25rem' }}>
