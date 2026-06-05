@@ -164,75 +164,90 @@ public class AiProblemGeneratorController {
 
     private String buildSystemPrompt() {
         return """
-            You are a competitive programming problem generator for CodeCombat 2026.
-            Given a LeetCode problem name/number, output ONE raw JSON object — nothing else.
-            First char {  Last char }  No markdown, no preamble, no trailing text.
+            You generate complete CodeCombat 2026 problem definitions + 5-language harnesses
+            following the exact format in PROBLEM_GUIDE.md.
+
+            OUTPUT: ONE raw JSON object — first char {, last char }. No markdown, no preamble.
             Newlines in strings → \\n   Quotes in strings → \\"
 
-            OUTPUT JSON SCHEMA:
+            JSON:
             {
-              "problem":{"title","description","inputFormat","outputFormat","constraints",
-                         "timeLimit"(double,SECONDS:EASY=3,MEDIUM=5,HARD=8),
-                         "memoryLimit"(int,MB,128-512),"level"("EASY"|"MEDIUM"|"HARD"),
-                         "example1","example2","example3"},
-              "snippets":{"JAVA","CPP","C","PYTHON","JAVASCRIPT"}
+              "problem": {"title","description","inputFormat","outputFormat","constraints",
+                          "timeLimit"(double seconds, EASY=3 MEDIUM=5 HARD=8),
+                          "memoryLimit"(int MB, 128-512),
+                          "level"("EASY"|"MEDIUM"|"HARD"),
+                          "example1","example2","example3"},
+              "snippets": {"JAVA","CPP","C","PYTHON","JAVASCRIPT"}
             }
 
-            HARNESS RULES — follow every rule, write COMPACT code (no blank lines between helpers):
+            ════ HARNESS FORMAT (5 languages, follow templates exactly) ════
 
-            R1 STDIN: Zero stdin. All test inputs hardcoded in main().
+            Each harness = single runnable file. Zero stdin. Test cases hardcoded in main().
 
-            R2 MARKERS: Exactly one pair per file, each marker on its own line.
-              Java/C++/JS/C: // USER_CODE_START  and  // USER_CODE_END
-              Python:        # USER_CODE_START   and  # USER_CODE_END
+            MARKERS: Exactly one pair per file, each on its own line.
+              Java/C++/C/JS:  // USER_CODE_START  and  // USER_CODE_END
+              Python:         # USER_CODE_START   and  # USER_CODE_END
+            Method between markers MUST be real compilable code (NEVER commented out).
+            Method name is problem-specific (e.g. twoSum, trap, threeSum) — LeetCode style.
+            Java class MUST be named `Main`. Java method MUST be `public static`.
 
-            R3 STUB: The method MUST be named exactly "solve", be STATIC, and return a default value only.
-              Java class MUST be named "Main". Java method: public static ReturnType solve(params).
-              NEVER use class Solution, NEVER use instance methods, NEVER name it after the problem.
-              solve() MUST be real compilable code — NEVER commented out with // or #.
-              Java: public static int solve(...){return 0;} / int[]{return new int[0];} / String{return "";} / boolean{return false;} / Object{return null;}
-              C++:  ReturnType solve(...){return 0;} / {return {};} / {return nullptr;}
-              C:    ReturnType solve(...){return 0;} or arrays: int* solve(...,int* returnSize){*returnSize=0;return NULL;}
-              Python: def solve(...): return 0  /  return []  /  return ""   (never just `pass`)
-              JS:   function solve(...){return 0;} / {return [];}
+            TC OUTPUT (one line per test, N is 1-based, no spaces):
+              PASS visible : TC:N:PASS
+              PASS hidden  : TC:N:PASS:hidden
+              FAIL visible : TC:N:FAIL:input=<repr>:expected=<val>:got=<val>
+              FAIL hidden  : TC:N:FAIL:hidden          ← NEVER expose input/expected/got
 
-            R4 OUTPUT (exact format, N is 1-based):
-              TC:N:PASS           TC:N:PASS:hidden
-              TC:N:FAIL:input=<repr>:expected=<val>:got=<val>
-              TC:N:FAIL:hidden
-              Multi-param: join with comma → input=[1,2,3],9
+            TC COUNT: 4 visible + 2 hidden = 6 total.
 
-            R5 TEST CASES: EXACTLY 4 visible + 2 hidden = 6 total. No more, no less.
-              Hidden: print only TC:N:FAIL:hidden (never input/expected/got).
-              Hand-trace each case. Expected values MUST only contain elements that exist in the input.
-              NEVER invent values not present in the input array.
+            CORRECTNESS: For each test case, hand-trace and verify. Expected values can only
+            contain elements that EXIST in the input array — never invent values.
+            If problem says "1-indexed" (LC167 etc.), expected indices are 1-based.
+            For "any-order valid" answers, sort both result and expected before comparing.
 
-            R6 INDEXING: If problem says "1-indexed"/"added by one" → use 1-based indices.
-              Example LC167: {2,7,11,15} target=9 → [1,2] NOT [0,1]. Default is 0-based.
+            COMPARISON BY TYPE:
+              int/bool/char     → ==
+              float/double      → abs(a-b) < 1e-9
+              String            → .equals() Java | == Python/JS | strcmp C
+              arrays            → Arrays.equals() Java | element loop C/C++/JS
+              List<List>        → sort inner + outer, then compare
+              ListNode/TreeNode → traverse / recurse on .val
 
-            R7 COMPARISON:
-              int/bool/char → ==
-              float/double  → abs(a-b)<1e-9
-              String        → .equals() Java | == Python/JS | strcmp C
-              int[]/arrays  → Arrays.equals() Java | element loop C/C++/JS
-              List<List>    → sort inner lists, sort outer list, compare element-by-element
-              ListNode/TreeNode → traverse/recurse node by node
-              NEVER use == for Java arrays/objects or Python lists.
+            CUSTOM TYPES (ListNode, TreeNode): Define ONCE before USER_CODE_START.
+            Repeat same definition as a comment INSIDE USER_CODE_START (LeetCode style).
+            Put buildList/buildTree + equality helpers AFTER USER_CODE_END.
 
-            R8 CUSTOM TYPES (ListNode/TreeNode):
-              Define type ONCE before USER_CODE_START.
-              Copy same definition as a comment INSIDE USER_CODE_START (user sees it like LeetCode).
-              Place buildList/buildTree and equality helpers AFTER USER_CODE_END.
+            C ARRAY RETURNS: int* solve(...,int* returnSize) {*returnSize=0; return NULL;}
+            Pass &returnSize from test(), free() the pointer after checking.
+            In-place: void solve(int* a, int n) {}
 
-            R9 FAIL VALUES: int/bool→as-is | String→"val" | null→null
-              array/List→[1,2,3] | 2D→[[1,2],[3,4]] | multi-param→[arr],scalar
+            COMPACT: helpers on as few lines as possible. No blank lines between methods.
 
-            R10 ANY-ORDER: Sort both result and expected before comparing.
+            ════ JAVA TEMPLATE ════
+            import java.util.*;
+            public class Main {
+                // USER_CODE_START
+                public static <ReturnType> twoSum(<params>) { return <default>; }
+                // USER_CODE_END
+                static String fmt(int[] a){return Arrays.toString(a);}
+                static void test(<params>, <ReturnType> expected, int tc, boolean hidden) {
+                    <ReturnType> r = twoSum(<args>);
+                    boolean ok = <correctCompare>;
+                    if (ok) System.out.println("TC:"+tc+":PASS"+(hidden?":hidden":""));
+                    else if (hidden) System.out.println("TC:"+tc+":FAIL:hidden");
+                    else System.out.println("TC:"+tc+":FAIL:input="+fmt(<in>)+":expected="+expected+":got="+r);
+                }
+                public static void main(String[] args) {
+                    test(...,1,false); test(...,2,false); test(...,3,false); test(...,4,false);
+                    test(...,5,true);  test(...,6,true);
+                }
+            }
 
-            R11 C ARRAYS: Use int* returnSize. free() after check. In-place → void solve(int* a,int n){}.
-
-            COMPACT HELPERS: Write all helper functions on as few lines as possible.
-            Use short names. Avoid redundant variables. Merge logic where readable.
+            ════ STUB DEFAULTS ════
+            Java: {return 0;} / {return new int[0];} / {return "";} / {return null;} / {return new ArrayList<>();}
+            C++:  {return 0;} / {return {};} / {return nullptr;}
+            C:    {return 0;}  (arrays → returnSize pattern above)
+            Python: return 0 / return [] / return "" / return None    (NEVER just `pass`)
+            JS:   {return 0;} / {return [];}
             """;
     }
 }
