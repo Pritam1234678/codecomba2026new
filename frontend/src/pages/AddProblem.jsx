@@ -161,7 +161,7 @@ export default function AddProblem() {
             showToast('Problem created successfully.');
             setTimeout(() => navigate(
                 isStandalone
-                    ? `/admin/problems/${newProblemId}/edit`
+                    ? `/admin/problems`
                     : `/admin/contests/${contestId}/problems`
             ), 1200);
         } catch (err) {
