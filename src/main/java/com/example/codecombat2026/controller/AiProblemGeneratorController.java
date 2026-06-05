@@ -17,38 +17,34 @@ import java.util.Map;
 public class AiProblemGeneratorController {
 
     @Value("${NVIDIA_API_KEY:}")
-    private String kimiApiKey;          // Kimi K2.6
+    private String kimiApiKey;
 
     @Value("${DEEPSEEK_API_KEY:}")
-    private String deepseekApiKey;      // DeepSeek V4 Pro
+    private String deepseekApiKey;
 
     private static final String NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-
-    private static final String MODEL_KIMI      = "moonshotai/kimi-k2.6";
-    private static final String MODEL_DEEPSEEK  = "deepseek-ai/deepseek-v4-pro";
+    private static final String MODEL_KIMI     = "moonshotai/kimi-k2.6";
+    private static final String MODEL_DEEPSEEK = "deepseek-ai/deepseek-v4-pro";
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper  = new ObjectMapper();
 
-    /** Per-model configuration resolved from the request's {@code model} field. */
     private record ModelConfig(String modelId, String apiKey, Map<String, Object> extra) {}
 
     private ModelConfig resolveModel(String modelParam) {
         if ("deepseek".equalsIgnoreCase(modelParam)) {
-            return new ModelConfig(
-                MODEL_DEEPSEEK,
-                deepseekApiKey,
-                Map.of("chat_template_kwargs", Map.of("thinking", false))
-            );
+            return new ModelConfig(MODEL_DEEPSEEK, deepseekApiKey,
+                Map.of("chat_template_kwargs", Map.of("thinking", false)));
         }
-        // default → Kimi K2.6
         return new ModelConfig(MODEL_KIMI, kimiApiKey, Map.of());
     }
+
+    // ─── Main endpoint ────────────────────────────────────────────────────────
 
     @PostMapping("/ai-generate")
     public ResponseEntity<?> generate(@RequestBody Map<String, String> request) {
         String modelParam = request.getOrDefault("model", "kimi");
-        ModelConfig cfg = resolveModel(modelParam);
+        ModelConfig cfg   = resolveModel(modelParam);
 
         if (cfg.apiKey() == null || cfg.apiKey().isBlank()) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -60,94 +56,133 @@ public class AiProblemGeneratorController {
             return ResponseEntity.badRequest().body(Map.of("error", "query is required"));
         }
 
+        // ── Pass 1: generate problem + harnesses ──────────────────────────────
+        String pass1Content;
+        try {
+            pass1Content = callNim(cfg, List.of(
+                Map.of("role", "system", "content", buildSystemPrompt()),
+                Map.of("role", "user", "content",
+                    "Generate a complete CodeCombat problem for: " + query + "\n\n" +
+                    "OUTPUT ONLY the raw JSON object. No markdown fences, no ```json, " +
+                    "no explanation, no preamble. Start your response with { and end with }.")
+            ), 12288);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of("error", "AI call failed (pass 1): " + e.getMessage()));
+        }
+
+        Map<String, Object> result;
+        try {
+            result = objectMapper.readValue(extractJsonObject(pass1Content), Map.class);
+        } catch (Exception e) {
+            String raw = pass1Content.length() > 500 ? pass1Content.substring(0, 500) + "..." : pass1Content;
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of("error", "AI returned invalid JSON: " + e.getMessage(), "raw", raw));
+        }
+
+        // ── Pass 2: verify + fix expected values (non-fatal if it fails) ──────
+        @SuppressWarnings("unchecked")
+        Map<String, Object> snippets = (Map<String, Object>) result.get("snippets");
+        if (snippets != null && !snippets.isEmpty()) {
+            try {
+                Map<String, Object> fixed = verifyTestCases(cfg, snippets);
+                if (fixed != null) result.put("snippets", fixed);
+            } catch (Exception ignored) {
+                // pass 2 failure → return pass 1 result as-is
+            }
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
+    // ─── Pass 2: re-trace every test case and fix wrong expected values ───────
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> verifyTestCases(ModelConfig cfg,
+                                                Map<String, Object> snippets) throws Exception {
+        StringBuilder prompt = new StringBuilder(4096);
+        prompt.append("These are code harnesses you generated for a competitive programming problem.\n");
+        prompt.append("TASK: For EACH test case in main(), re-trace the algorithm step-by-step\n");
+        prompt.append("from scratch and verify the expected value. Fix any that are wrong.\n");
+        prompt.append("Keep harness structure, markers, and helper functions identical.\n\n");
+        prompt.append("Return ONLY this JSON (no markdown, no preamble, start with {, end with }):\n");
+        prompt.append("{\"JAVA\":\"...\",\"CPP\":\"...\",\"C\":\"...\",\"PYTHON\":\"...\",\"JAVASCRIPT\":\"...\"}\n\n");
+
+        for (Map.Entry<String, Object> e : snippets.entrySet()) {
+            prompt.append("=== ").append(e.getKey()).append(" ===\n");
+            prompt.append(e.getValue()).append("\n\n");
+        }
+
+        String content = callNim(cfg,
+            List.of(Map.of("role", "user", "content", prompt.toString())),
+            8192);
+
+        Map<String, Object> fixed = objectMapper.readValue(extractJsonObject(content), Map.class);
+
+        // sanity-check: must contain at least one known language key
+        if (fixed.containsKey("JAVA") || fixed.containsKey("CPP") || fixed.containsKey("PYTHON")) {
+            return fixed;
+        }
+        return null;
+    }
+
+    // ─── NVIDIA NIM HTTP helper ───────────────────────────────────────────────
+
+    @SuppressWarnings("unchecked")
+    private String callNim(ModelConfig cfg,
+                           List<Map<String, Object>> messages,
+                           int maxTokens) throws Exception {
         Map<String, Object> payload = new HashMap<>();
         payload.put("model",       cfg.modelId());
-        payload.put("messages",    List.of(
-            Map.of("role", "system", "content", buildSystemPrompt()),
-            Map.of("role", "user",   "content",
-                "Generate a complete CodeCombat problem for: " + query + "\n\n" +
-                "OUTPUT ONLY the raw JSON object. No markdown fences, no ```json, " +
-                "no explanation, no preamble. Start your response with { and end with }.")
-        ));
-        payload.put("max_tokens",  16384);
+        payload.put("messages",    messages);
+        payload.put("max_tokens",  maxTokens);
         payload.put("temperature", 0.2);
         payload.put("top_p",       0.9);
         payload.put("stream",      false);
-        payload.putAll(cfg.extra());   // model-specific extras (e.g. chat_template_kwargs)
+        payload.putAll(cfg.extra());
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(cfg.apiKey());
 
-        try {
-            ResponseEntity<Map> response = restTemplate.exchange(
-                NVIDIA_API_URL, HttpMethod.POST,
-                new HttpEntity<>(payload, headers), Map.class
-            );
+        ResponseEntity<Map> response = restTemplate.exchange(
+            NVIDIA_API_URL, HttpMethod.POST,
+            new HttpEntity<>(payload, headers), Map.class);
 
-            Map body = response.getBody();
-            if (body == null) {
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(Map.of("error", "Empty response from AI"));
-            }
+        Map body = response.getBody();
+        if (body == null) throw new RuntimeException("Empty response from AI");
 
-            List<Map> choices = (List<Map>) body.get("choices");
-            if (choices == null || choices.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(Map.of("error", "No choices in AI response"));
-            }
+        List<Map> choices = (List<Map>) body.get("choices");
+        if (choices == null || choices.isEmpty()) throw new RuntimeException("No choices in AI response");
 
-            String content = (String) ((Map) choices.get(0).get("message")).get("content");
-            if (content == null || content.isBlank()) {
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(Map.of("error", "Empty content from AI"));
-            }
-
-            // Extract the outermost JSON object — handles any leading/trailing text or fences
-            String json = extractJsonObject(content);
-
-            try {
-                Map<String, Object> result = objectMapper.readValue(json, Map.class);
-                return ResponseEntity.ok(result);
-            } catch (Exception e) {
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(Map.of("error", "AI returned invalid JSON: " + e.getMessage(),
-                                 "raw", json.length() > 500 ? json.substring(0, 500) + "..." : json));
-            }
-
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                .body(Map.of("error", "AI call failed: " + e.getMessage()));
-        }
+        String content = (String) ((Map) choices.get(0).get("message")).get("content");
+        if (content == null || content.isBlank()) throw new RuntimeException("Empty content from AI");
+        return content;
     }
 
-    /**
-     * Extracts the outermost {...} block from arbitrary text.
-     * Correctly handles { and } inside JSON string values by tracking quote state.
-     */
+    // ─── Extract outermost {...} from arbitrary text ──────────────────────────
+
     private String extractJsonObject(String text) {
         int start = text.indexOf('{');
         if (start < 0) return text.trim();
 
-        boolean inString = false;
-        boolean escaped  = false;
+        boolean inString = false, escaped = false;
         int depth = 0;
 
         for (int i = start; i < text.length(); i++) {
             char c = text.charAt(i);
-
-            if (escaped) { escaped = false; continue; }
-            if (c == '\\' && inString) { escaped = true; continue; }
-            if (c == '"') { inString = !inString; continue; }
-
+            if (escaped)          { escaped = false; continue; }
+            if (c == '\\' && inString) { escaped = true;  continue; }
+            if (c == '"')         { inString = !inString; continue; }
             if (!inString) {
                 if      (c == '{') depth++;
-                else if (c == '}') { depth--; if (depth == 0) return text.substring(start, i + 1); }
+                else if (c == '}') { if (--depth == 0) return text.substring(start, i + 1); }
             }
         }
-        // Unbalanced — return everything from first { as best-effort
         return text.substring(start);
     }
+
+    // ─── System prompt ────────────────────────────────────────────────────────
 
     private String buildSystemPrompt() {
         return """
@@ -191,7 +226,7 @@ public class AiProblemGeneratorController {
             N is 1-based. No spaces around colons. Newline after each line.
 
             RULE 4 — TEST COUNT
-            Exactly 8 visible + 2 hidden = 10 total.
+            Exactly 4 visible + 2 hidden = 6 total.
             Hidden tests NEVER print input, expected, or got.
 
             RULE 5 — TEST CASE CORRECTNESS (MOST CRITICAL RULE)
@@ -227,8 +262,7 @@ public class AiProblemGeneratorController {
 
             B. IMMEDIATELY AFTER the // USER_CODE_START line, copy the SAME definition
                as a COMMENTED-OUT block. This shows the user what type they are working with
-               inside their editor — exactly like LeetCode does. Without this, the user cannot
-               write correct code because they cannot see the struct/class definition.
+               inside their editor — exactly like LeetCode does.
 
             C. The solve() function signature must USE the custom type in its parameters
                and/or return type.
@@ -237,72 +271,24 @@ public class AiProblemGeneratorController {
               class ListNode { int val; ListNode next; ListNode(int v){val=v;next=null;} }
               public class Main {
                   // USER_CODE_START
-                  // Definition for singly-linked list:
                   // class ListNode {
-                  //     int val;
-                  //     ListNode next;
+                  //     int val; ListNode next;
                   //     ListNode(int v) { val = v; next = null; }
                   // }
                   public static ListNode solve(ListNode head) { return null; }
                   // USER_CODE_END
-                  ...
-              }
-
-            C example (struct):
-              struct ListNode { int val; struct ListNode* next; };
-              // USER_CODE_START
-              /* Definition for singly-linked list:
-                 struct ListNode {
-                     int val;
-                     struct ListNode* next;
-                 }; */
-              struct ListNode* solve(struct ListNode* head) { return NULL; }
-              // USER_CODE_END
-
-            Python example (class):
-              class ListNode:
-                  def __init__(self, val=0, next=None):
-                      self.val = val
-                      self.next = next
-              # USER_CODE_START
-              # Definition for singly-linked list:
-              # class ListNode:
-              #     def __init__(self, val=0, next=None):
-              #         self.val = val
-              #         self.next = next
-              def solve(head):
-                  pass
-              # USER_CODE_END
-
-            JavaScript example (class):
-              class ListNode { constructor(val=0,next=null){this.val=val;this.next=next;} }
-              // USER_CODE_START
-              // Definition for singly-linked list:
-              // class ListNode {
-              //     constructor(val = 0, next = null) {
-              //         this.val = val;
-              //         this.next = next;
-              //     }
-              // }
-              function solve(head) { return null; }
-              // USER_CODE_END
 
             RULE 8 — HELPER FUNCTIONS (invisible to user)
             Place ALL helper functions (buildList, buildTree, listsEqual, treeEqual, etc.)
             AFTER USER_CODE_END. The user never sees or writes these.
-            For linked lists: provide buildList(array) and listsEqual(a,b).
-            For trees: provide buildTree(array) (level-order, null for missing) and treesEqual(a,b).
 
             RULE 9 — FAIL MESSAGE REPRESENTATION
-            Arrays  : [1,2,3]      (comma-separated, bracket-wrapped, no spaces)
-            Strings : "hello"      (double-quoted)
-            null    : null
+            Arrays  : [1,2,3]   Strings : "hello"   null : null
             Linked list in FAIL: print as [v1,v2,v3] by traversing nodes.
 
             RULE 10 — ARRAY COMPARISON FOR "ANY VALID ANSWER" PROBLEMS
             If the problem says "return any valid permutation / any valid path / order does not matter",
-            sort both result and expected before comparing so the test does not fail on a correct
-            but differently-ordered answer.
+            sort both result and expected before comparing.
 
             ════════════════════════════════════════
             SECTION 4 — LANGUAGE TEMPLATES
@@ -311,12 +297,12 @@ public class AiProblemGeneratorController {
             ── JAVA ──
             import java.util.*;
             public class Main {
-                // [Custom type definitions here, e.g.: class ListNode {...}]
+                // [Custom type definitions here]
                 // USER_CODE_START
-                // [Commented type definition here for user reference]
+                // [Commented type definition for user reference]
                 public static <ReturnType> solve(<Params>) { return <default>; }
                 // USER_CODE_END
-                // [Helper: buildList, listsEqual, buildTree, treesEqual, etc.]
+                // [Helpers: buildList, listsEqual, buildTree, treesEqual, etc.]
                 static void test(<Params>, <ReturnType> expected, int tc, boolean hidden) {
                     <ReturnType> result = solve(<callArgs>);
                     boolean ok = <correctComparison>;
@@ -326,81 +312,44 @@ public class AiProblemGeneratorController {
                 }
                 public static void main(String[] args) {
                     test(... , 1, false); // tc1 visible
-                    // ... tc2–tc8 visible
-                    test(... , 9, true);  // tc9 hidden
-                    test(... , 10, true); // tc10 hidden
+                    test(... , 2, false);
+                    test(... , 3, false);
+                    test(... , 4, false);
+                    test(... , 5, true);  // tc5 hidden
+                    test(... , 6, true);  // tc6 hidden
                 }
             }
 
             ── CPP ──
             #include <bits/stdc++.h>
             using namespace std;
-            // [struct/class definitions if needed]
             // USER_CODE_START
-            // [Commented struct definition for user reference]
             <ReturnType> solve(<Params>) { return <default>; }
             // USER_CODE_END
-            // [helper functions]
-            void test(<Params>, <ReturnType> expected, int tc, bool hidden) {
-                <ReturnType> result = solve(<callArgs>);
-                bool ok = <correctComparison>;
-                if (ok) cout << "TC:" << tc << ":PASS" << (hidden ? ":hidden" : "") << "\\n";
-                else if (hidden) cout << "TC:" << tc << ":FAIL:hidden\\n";
-                else cout << "TC:" << tc << ":FAIL:input=" << <inputRepr> << ":expected=" << <fmtExpected> << ":got=" << <fmtResult> << "\\n";
-            }
-            int main() { /* 10 test() calls */ return 0; }
+            void test(<Params>, <ReturnType> expected, int tc, bool hidden) { ... }
+            int main() { /* 6 test() calls */ return 0; }
 
             ── C ──
-            #include <stdio.h>
-            #include <stdlib.h>
-            #include <string.h>
-            // [struct definitions MUST be here before USER_CODE_START]
+            #include <stdio.h> #include <stdlib.h> #include <string.h>
             // USER_CODE_START
-            /* [Commented struct definition — user MUST see this to write correct C code]
-               struct Foo { int x; struct Foo* next; }; */
             <ReturnType> solve(<Params>) { return <default>; }
             // USER_CODE_END
-            // [helper functions: buildList, listsEqual, etc.]
-            void test(<Params>, <expected>, int tc, int hidden) {
-                <ReturnType> result = solve(<callArgs>);
-                int ok = <correctComparison>;
-                if (ok) printf(hidden ? "TC:%d:PASS:hidden\\n" : "TC:%d:PASS\\n", tc);
-                else if (hidden) printf("TC:%d:FAIL:hidden\\n", tc);
-                else printf("TC:%d:FAIL:input=<repr>:expected=<val>:got=<val>\\n", tc, ...);
-            }
-            int main() { /* 10 test() calls */ return 0; }
+            void test(...) { ... }
+            int main() { /* 6 test() calls */ return 0; }
 
             ── PYTHON ──
-            # [class definitions if needed]
             # USER_CODE_START
-            # [Commented class definition for user reference]
-            def solve(<params>):
-                pass
+            def solve(<params>): pass
             # USER_CODE_END
-            # [helper functions]
-            def test(<params>, expected, tc, hidden):
-                result = solve(<callArgs>)
-                ok = <correctComparison>
-                if ok: print(f"TC:{tc}:PASS{':hidden' if hidden else ''}")
-                elif hidden: print(f"TC:{tc}:FAIL:hidden")
-                else: print(f"TC:{tc}:FAIL:input=<repr>:expected={expected}:got={result}")
-            # 10 test() calls
+            def test(<params>, expected, tc, hidden): ...
+            # 6 test() calls
 
             ── JAVASCRIPT ──
-            // [class definitions if needed]
             // USER_CODE_START
-            // [Commented class definition for user reference]
             function solve(<params>) { return <default>; }
             // USER_CODE_END
-            // [helper functions]
-            function test(<params>, expected, tc, hidden) {
-                const result = solve(<callArgs>);
-                const ok = <correctComparison>;
-                if (ok) console.log(`TC:${tc}:PASS${hidden ? ':hidden' : ''}`);
-                else if (hidden) console.log(`TC:${tc}:FAIL:hidden`);
-                else console.log(`TC:${tc}:FAIL:input=<repr>:expected=${expected}:got=${result}`);
-            }
-            // 10 test() calls
+            function test(<params>, expected, tc, hidden) { ... }
+            // 6 test() calls
 
             ════════════════════════════════════════
             SECTION 5 — REQUIRED JSON STRUCTURE
