@@ -1,5 +1,7 @@
 package com.example.codecombat2026.controller;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -27,7 +29,13 @@ public class AiProblemGeneratorController {
     private static final String MODEL_DEEPSEEK = "deepseek-ai/deepseek-v4-pro";
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper  = new ObjectMapper();
+    // Lenient parser: tolerates literal newlines and non-standard escapes inside AI-generated JSON strings
+    private final ObjectMapper objectMapper = new ObjectMapper(
+        JsonFactory.builder()
+            .enable(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS)
+            .enable(JsonReadFeature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER)
+            .build()
+    );
 
     private record ModelConfig(String modelId, String apiKey, Map<String, Object> extra) {}
 
