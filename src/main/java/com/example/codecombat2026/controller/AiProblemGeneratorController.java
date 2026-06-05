@@ -101,65 +101,7 @@ public class AiProblemGeneratorController {
                 .body(Map.of("error", "AI returned invalid JSON: " + e.getMessage(), "raw", raw));
         }
 
-        // ── Pass 2: verify + fix expected values (non-fatal if it fails) ──────
-        @SuppressWarnings("unchecked")
-        Map<String, Object> snippets = (Map<String, Object>) result.get("snippets");
-        if (snippets != null && !snippets.isEmpty()) {
-            try {
-                Map<String, Object> fixed = verifyTestCases(cfg, snippets, query);
-                if (fixed != null) result.put("snippets", fixed);
-            } catch (Exception ignored) {
-                // pass 2 failure → return pass 1 result as-is
-            }
-        }
-
         return ResponseEntity.ok(result);
-    }
-
-    // ─── Pass 2: re-trace every test case and fix wrong expected values ───────
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> verifyTestCases(ModelConfig cfg,
-                                                Map<String, Object> snippets,
-                                                String originalQuery) throws Exception {
-        StringBuilder prompt = new StringBuilder(4096);
-        prompt.append("You generated harnesses for this problem: \"").append(originalQuery).append("\"\n\n");
-        prompt.append("CRITICAL TASK: For EACH test case in main(), independently compute the\n");
-        prompt.append("CORRECT expected value by hand-tracing the algorithm on the given input.\n");
-        prompt.append("Do NOT trust existing expected values — recompute every single one from scratch.\n\n");
-        prompt.append("INDEXING RULE: If the problem says \"1-indexed\", \"added by one\", or \"indices start at 1\",\n");
-        prompt.append("then array indices in the answer must be 1-based (first element = 1, not 0).\n");
-        prompt.append("If the problem says \"0-indexed\" or nothing, use 0-based.\n\n");
-        prompt.append("ARRAY ELEMENT RULE: The expected output can ONLY contain values that\n");
-        prompt.append("actually exist in the input array (for index/element problems).\n");
-        prompt.append("NEVER invent values not present in the input. If input is [-4,-2,0,2],\n");
-        prompt.append("the output cannot reference -8, -6, or any value outside that array.\n\n");
-        prompt.append("VERIFICATION STEPS for each test case:\n");
-        prompt.append("1. Write out the input values explicitly — list every element.\n");
-        prompt.append("2. Hand-simulate the algorithm step-by-step using ONLY those elements.\n");
-        prompt.append("3. Verify each output element EXISTS in the input array.\n");
-        prompt.append("4. Apply the correct indexing convention.\n");
-        prompt.append("5. Replace the expected value in the test() call if it was wrong.\n\n");
-        prompt.append("Keep harness structure, markers, and helper functions IDENTICAL.\n");
-        prompt.append("Return ONLY this JSON (no markdown, no preamble, start with {, end with }):\n");
-        prompt.append("{\"JAVA\":\"...\",\"CPP\":\"...\",\"C\":\"...\",\"PYTHON\":\"...\",\"JAVASCRIPT\":\"...\"}\n\n");
-
-        for (Map.Entry<String, Object> e : snippets.entrySet()) {
-            prompt.append("=== ").append(e.getKey()).append(" ===\n");
-            prompt.append(e.getValue()).append("\n\n");
-        }
-
-        String content = callNim(cfg,
-            List.of(Map.of("role", "user", "content", prompt.toString())),
-            8192);
-
-        Map<String, Object> fixed = objectMapper.readValue(extractJsonObject(content), Map.class);
-
-        // sanity-check: must contain at least one known language key
-        if (fixed.containsKey("JAVA") || fixed.containsKey("CPP") || fixed.containsKey("PYTHON")) {
-            return fixed;
-        }
-        return null;
     }
 
     // ─── NVIDIA NIM HTTP helper ───────────────────────────────────────────────
