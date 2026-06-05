@@ -30,12 +30,12 @@ public class AiProblemGeneratorController {
     private static final String MODEL_QWEN      = "qwen/qwen3-coder-480b-a35b-instruct";
     private static final String MODEL_DEEPSEEK  = "deepseek-ai/deepseek-v4-pro";
 
-    // 10-minute read timeout — two AI passes can take up to ~8 min total
+    // 20-minute read timeout — two AI passes can take up to ~16 min total
     private final RestTemplate restTemplate = createRestTemplate();
     private static RestTemplate createRestTemplate() {
         SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
         f.setConnectTimeout(10_000);
-        f.setReadTimeout(600_000);
+        f.setReadTimeout(1_200_000);
         return new RestTemplate(f);
     }
 
