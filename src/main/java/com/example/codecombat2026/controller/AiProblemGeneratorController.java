@@ -271,6 +271,15 @@ public class AiProblemGeneratorController {
             Before writing EACH test case, mentally trace the correct algorithm step-by-step
             and compute the expected output by hand. Write it down, verify it, then encode it.
             ONE wrong expected value = candidate fails for correct code. This is unacceptable.
+
+            RULE 5B — INDEXING CONVENTION (READ THE PROBLEM STATEMENT)
+            Before writing test cases, read the problem's return format carefully:
+              • If the problem says "1-indexed" or "added by one" (e.g. LeetCode 167):
+                expected values MUST be 1-based (first element = index 1, not 0).
+              • If the problem says "0-indexed" or standard array indices: use 0-based.
+              • NEVER assume 0-indexed by default. Match exactly what the problem says.
+            Example — LeetCode 167 Two Sum II: for [2,7,11,15] target=9 → answer=[1,2] NOT [0,1].
+
             Test cases must be DIVERSE — cover:
               • empty / null input (when allowed by constraints)
               • single-element input
