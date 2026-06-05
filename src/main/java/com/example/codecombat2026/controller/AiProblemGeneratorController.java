@@ -4,12 +4,14 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -160,94 +162,48 @@ public class AiProblemGeneratorController {
         return text.substring(start);
     }
 
-    // ─── System prompt ────────────────────────────────────────────────────────
+    // ─── System prompt: instruction + the entire PROBLEM_GUIDE.md ─────────────
+
+    private final String systemPrompt = loadSystemPrompt();
+
+    private static String loadSystemPrompt() {
+        String guide;
+        try {
+            var res = new ClassPathResource("PROBLEM_GUIDE.md");
+            guide = new String(res.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            guide = "(guide missing — follow CodeCombat harness conventions)";
+        }
+        return """
+            You are a problem generator for CodeCombat 2026. The user gives you a LeetCode
+            problem name/number OR a problem description. You output ONE raw JSON object
+            containing the problem + 5-language harnesses (JAVA, CPP, C, PYTHON, JAVASCRIPT).
+
+            FOLLOW THE GUIDE BELOW EXACTLY — it has the templates and rules for every language.
+
+            OUTPUT RULES:
+            • First char {, last char }. No markdown fences, no preamble.
+            • Newlines inside string values → \\n     Quotes inside strings → \\"
+            • Write COMPACT helpers (no blank lines, short helper code).
+            • 4 visible + 2 hidden = 6 total test cases (override the guide's "8+2" — keep it 6).
+            • Hand-verify every expected value. Values must only reference elements in the input.
+            • timeLimit (double, seconds): EASY=3 MEDIUM=5 HARD=8.  memoryLimit (int, MB) 128-512.
+
+            JSON SHAPE:
+            {
+              "problem": {
+                "title","description","inputFormat","outputFormat","constraints",
+                "timeLimit","memoryLimit","level"("EASY"|"MEDIUM"|"HARD"),
+                "example1","example2","example3"
+              },
+              "snippets": { "JAVA":"...", "CPP":"...", "C":"...", "PYTHON":"...", "JAVASCRIPT":"..." }
+            }
+
+            ════════════════ PROBLEM_GUIDE.md (authoritative) ════════════════
+            """ + guide;
+    }
 
     private String buildSystemPrompt() {
-        return """
-            You generate complete CodeCombat 2026 problem definitions + 5-language harnesses
-            following the exact format in PROBLEM_GUIDE.md.
-
-            OUTPUT: ONE raw JSON object — first char {, last char }. No markdown, no preamble.
-            Newlines in strings → \\n   Quotes in strings → \\"
-
-            JSON:
-            {
-              "problem": {"title","description","inputFormat","outputFormat","constraints",
-                          "timeLimit"(double seconds, EASY=3 MEDIUM=5 HARD=8),
-                          "memoryLimit"(int MB, 128-512),
-                          "level"("EASY"|"MEDIUM"|"HARD"),
-                          "example1","example2","example3"},
-              "snippets": {"JAVA","CPP","C","PYTHON","JAVASCRIPT"}
-            }
-
-            ════ HARNESS FORMAT (5 languages, follow templates exactly) ════
-
-            Each harness = single runnable file. Zero stdin. Test cases hardcoded in main().
-
-            MARKERS: Exactly one pair per file, each on its own line.
-              Java/C++/C/JS:  // USER_CODE_START  and  // USER_CODE_END
-              Python:         # USER_CODE_START   and  # USER_CODE_END
-            Method between markers MUST be real compilable code (NEVER commented out).
-            Method name is problem-specific (e.g. twoSum, trap, threeSum) — LeetCode style.
-            Java class MUST be named `Main`. Java method MUST be `public static`.
-
-            TC OUTPUT (one line per test, N is 1-based, no spaces):
-              PASS visible : TC:N:PASS
-              PASS hidden  : TC:N:PASS:hidden
-              FAIL visible : TC:N:FAIL:input=<repr>:expected=<val>:got=<val>
-              FAIL hidden  : TC:N:FAIL:hidden          ← NEVER expose input/expected/got
-
-            TC COUNT: 4 visible + 2 hidden = 6 total.
-
-            CORRECTNESS: For each test case, hand-trace and verify. Expected values can only
-            contain elements that EXIST in the input array — never invent values.
-            If problem says "1-indexed" (LC167 etc.), expected indices are 1-based.
-            For "any-order valid" answers, sort both result and expected before comparing.
-
-            COMPARISON BY TYPE:
-              int/bool/char     → ==
-              float/double      → abs(a-b) < 1e-9
-              String            → .equals() Java | == Python/JS | strcmp C
-              arrays            → Arrays.equals() Java | element loop C/C++/JS
-              List<List>        → sort inner + outer, then compare
-              ListNode/TreeNode → traverse / recurse on .val
-
-            CUSTOM TYPES (ListNode, TreeNode): Define ONCE before USER_CODE_START.
-            Repeat same definition as a comment INSIDE USER_CODE_START (LeetCode style).
-            Put buildList/buildTree + equality helpers AFTER USER_CODE_END.
-
-            C ARRAY RETURNS: int* solve(...,int* returnSize) {*returnSize=0; return NULL;}
-            Pass &returnSize from test(), free() the pointer after checking.
-            In-place: void solve(int* a, int n) {}
-
-            COMPACT: helpers on as few lines as possible. No blank lines between methods.
-
-            ════ JAVA TEMPLATE ════
-            import java.util.*;
-            public class Main {
-                // USER_CODE_START
-                public static <ReturnType> twoSum(<params>) { return <default>; }
-                // USER_CODE_END
-                static String fmt(int[] a){return Arrays.toString(a);}
-                static void test(<params>, <ReturnType> expected, int tc, boolean hidden) {
-                    <ReturnType> r = twoSum(<args>);
-                    boolean ok = <correctCompare>;
-                    if (ok) System.out.println("TC:"+tc+":PASS"+(hidden?":hidden":""));
-                    else if (hidden) System.out.println("TC:"+tc+":FAIL:hidden");
-                    else System.out.println("TC:"+tc+":FAIL:input="+fmt(<in>)+":expected="+expected+":got="+r);
-                }
-                public static void main(String[] args) {
-                    test(...,1,false); test(...,2,false); test(...,3,false); test(...,4,false);
-                    test(...,5,true);  test(...,6,true);
-                }
-            }
-
-            ════ STUB DEFAULTS ════
-            Java: {return 0;} / {return new int[0];} / {return "";} / {return null;} / {return new ArrayList<>();}
-            C++:  {return 0;} / {return {};} / {return nullptr;}
-            C:    {return 0;}  (arrays → returnSize pattern above)
-            Python: return 0 / return [] / return "" / return None    (NEVER just `pass`)
-            JS:   {return 0;} / {return [];}
-            """;
+        return systemPrompt;
     }
 }
