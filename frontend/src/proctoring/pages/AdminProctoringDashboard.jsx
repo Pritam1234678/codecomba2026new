@@ -43,6 +43,7 @@ import { C } from '../constants';
 const POLL_INTERVAL_MS = 5_000;
 const ALL_CONTESTS = '__ALL__';
 const BAND_OPTIONS = ['LOW', 'MEDIUM', 'HIGH'];
+const PAGE_SIZE = 12;
 
 const formatRelativeTime = (epochMs) => {
     if (!epochMs || typeof epochMs !== 'number') return '—';
@@ -345,6 +346,34 @@ const SessionCard = ({ row, contestName, onOpen }) => {
     );
 };
 
+// ── Pagination button ────────────────────────────────────────────────────────
+
+function DashPagBtn({ label, onClick, disabled, active }) {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                width: '34px', height: '34px',
+                border: `1px solid ${active ? C.secondary : hovered && !disabled ? C.primary : C.border}`,
+                backgroundColor: active ? C.secondary : hovered && !disabled ? C.surfaceCon : 'transparent',
+                color: active ? C.bg : disabled ? C.border : hovered ? C.primary : C.outline,
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '12px',
+                cursor: disabled ? 'default' : 'pointer',
+                transition: 'all 0.15s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+        >
+            {label}
+        </button>
+    );
+}
+
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function AdminProctoringDashboard() {
@@ -360,6 +389,7 @@ export default function AdminProctoringDashboard() {
     // Filters (client-side)
     const [bandFilter, setBandFilter] = useState(new Set()); // empty == all
     const [flaggedOnly, setFlaggedOnly] = useState(false);
+    const [page, setPage] = useState(1);
 
     // SSE bookkeeping — only used when a single contest is selected.
     const esRef = useRef(null);
@@ -528,11 +558,16 @@ export default function AdminProctoringDashboard() {
         });
     }, [rows, bandFilter, flaggedOnly]);
 
+    useEffect(() => { setPage(1); }, [bandFilter, flaggedOnly, contestId]);
+
     const contestNameById = useMemo(() => {
         const m = new Map();
         for (const c of contests) m.set(c.id, c.name);
         return m;
     }, [contests]);
+
+    const totalPages = Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE));
+    const pageRows = visibleRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     const toggleBand = (band) => {
         setBandFilter((prev) => {
@@ -628,7 +663,7 @@ export default function AdminProctoringDashboard() {
                     </div>
                 ) : (
                     <div style={styles.grid}>
-                        {visibleRows.map((row) => (
+                        {pageRows.map((row) => (
                             <SessionCard
                                 key={row.sessionId}
                                 row={row}
@@ -636,6 +671,28 @@ export default function AdminProctoringDashboard() {
                                 onOpen={handleOpen}
                             />
                         ))}
+                    </div>
+                )}
+                {totalPages > 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '2rem' }}>
+                        <DashPagBtn label="←" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} />
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
+                            .reduce((acc, n, idx, arr) => {
+                                if (idx > 0 && n - arr[idx - 1] > 1) acc.push('…');
+                                acc.push(n);
+                                return acc;
+                            }, [])
+                            .map((item, idx) =>
+                                item === '…'
+                                    ? <span key={`e${idx}`} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline, padding: '0 4px' }}>…</span>
+                                    : <DashPagBtn key={item} label={item} active={item === page} onClick={() => setPage(item)} />
+                            )
+                        }
+                        <DashPagBtn label="→" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} />
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline, marginLeft: '12px', letterSpacing: '0.1em' }}>
+                            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, visibleRows.length)} / {visibleRows.length}
+                        </span>
                     </div>
                 )}
             </section>

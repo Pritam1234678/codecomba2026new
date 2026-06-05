@@ -29,6 +29,7 @@ const AdminUserManagement = () => {
     const [deleteModal,  setDeleteModal]  = useState({ show: false, userId: null, username: '', email: '' });
     const [confirmInput, setConfirmInput] = useState('');
     const [toast,        setToast]        = useState(null);
+    const [page,         setPage]         = useState(1);
 
     useEffect(() => { loadUsers(); }, []);
 
@@ -76,6 +77,12 @@ const AdminUserManagement = () => {
         const matchFilter = filter === 'ALL' || (filter === 'ACTIVE' && u.enabled) || (filter === 'DISABLED' && !u.enabled);
         return matchSearch && matchFilter;
     });
+
+    useEffect(() => { setPage(1); }, [search, filter]);
+
+    const PAGE_SIZE_USERS = 20;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE_USERS));
+    const pageUsers = filtered.slice((page - 1) * PAGE_SIZE_USERS, page * PAGE_SIZE_USERS);
 
     if (loading) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', letterSpacing: '0.1em' }}>
@@ -177,7 +184,7 @@ const AdminUserManagement = () => {
                         No operatives found
                     </div>
                 ) : (
-                    filtered.map((user, i) => (
+                    pageUsers.map((user, i) => (
                         <UserRow
                             key={user.id}
                             user={user}
@@ -188,11 +195,29 @@ const AdminUserManagement = () => {
                     ))
                 )}
 
-                {/* Pagination info */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', borderTop: `1px solid ${C.border}`, backgroundColor: C.surfaceLow }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', borderTop: `1px solid ${C.border}`, backgroundColor: C.surfaceLow, flexWrap: 'wrap', gap: '12px' }}>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
-                        Showing {filtered.length} of {users.length} entries
+                        {filtered.length === 0 ? '0 entries' : `${(page - 1) * PAGE_SIZE_USERS + 1}–${Math.min(page * PAGE_SIZE_USERS, filtered.length)} of ${filtered.length}`}
                     </span>
+                    {totalPages > 1 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <UserPagBtn label="←" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} />
+                            {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
+                                .reduce((acc, n, idx, arr) => {
+                                    if (idx > 0 && n - arr[idx - 1] > 1) acc.push('…');
+                                    acc.push(n);
+                                    return acc;
+                                }, [])
+                                .map((item, idx) =>
+                                    item === '…'
+                                        ? <span key={`e${idx}`} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline, padding: '0 4px' }}>…</span>
+                                        : <UserPagBtn key={item} label={item} active={item === page} onClick={() => setPage(item)} />
+                                )
+                            }
+                            <UserPagBtn label="→" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} />
+                        </div>
+                    )}
                 </div>
             </motion.div>
 
@@ -388,6 +413,31 @@ const UserRow = ({ user, index, onToggle, onDelete }) => {
                 </button>
             </div>
         </motion.div>
+    );
+};
+
+const UserPagBtn = ({ label, onClick, disabled, active }) => {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <button
+            onClick={onClick}
+            disabled={disabled}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                width: '30px', height: '30px',
+                border: `1px solid ${active ? C.secondary : hovered && !disabled ? C.primary : C.border}`,
+                backgroundColor: active ? C.secondary : hovered && !disabled ? C.surfaceCon : 'transparent',
+                color: active ? C.bg : disabled ? C.border : hovered ? C.primary : C.outline,
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '11px',
+                cursor: disabled ? 'default' : 'pointer',
+                transition: 'all 0.15s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+        >
+            {label}
+        </button>
     );
 };
 
