@@ -26,6 +26,8 @@ const DIFF_CFG = {
     HARD:   { color: C.error,     label: 'Hard' },
 };
 
+const PAGE_SIZE = 12;
+
 const Practice = () => {
     const { isMobile } = useResponsive();
     const navigate = useNavigate();
@@ -34,6 +36,7 @@ const Practice = () => {
     const [loading, setLoading]   = useState(true);
     const [filter, setFilter]     = useState('ALL'); // ALL | UNSOLVED | SOLVED | EASY | MEDIUM | HARD
     const [search, setSearch]     = useState('');
+    const [page, setPage]         = useState(1);
 
     useEffect(() => {
         Promise.all([PracticeService.listProblems(), PracticeService.stats()])
@@ -45,6 +48,9 @@ const Practice = () => {
             .finally(() => setLoading(false));
     }, []);
 
+    // Reset to page 1 whenever filter/search changes
+    useEffect(() => { setPage(1); }, [filter, search]);
+
     const filtered = problems.filter(p => {
         const matchSearch = p.title.toLowerCase().includes(search.toLowerCase());
         let matchFilter = true;
@@ -53,6 +59,9 @@ const Practice = () => {
         else if (['EASY','MEDIUM','HARD'].includes(filter)) matchFilter = p.level === filter;
         return matchSearch && matchFilter;
     });
+
+    const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    const paginated   = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
     if (loading) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
@@ -137,9 +146,54 @@ const Practice = () => {
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-                    {filtered.map((p, i) => (
+                    {paginated.map((p, i) => (
                         <ProblemCard key={p.id} problem={p} index={i} onSolve={() => navigate(`/practice/${p.id}`)} />
                     ))}
+                </div>
+            )}
+
+            {/* ── Pagination ── */}
+            {totalPages > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '3rem' }}>
+                    {/* Prev */}
+                    <PagBtn
+                        label="←"
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                    />
+
+                    {/* Page numbers */}
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(n => n === 1 || n === totalPages || Math.abs(n - page) <= 2)
+                        .reduce((acc, n, idx, arr) => {
+                            if (idx > 0 && n - arr[idx - 1] > 1) acc.push('…');
+                            acc.push(n);
+                            return acc;
+                        }, [])
+                        .map((item, idx) =>
+                            item === '…' ? (
+                                <span key={`ellipsis-${idx}`} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline, padding: '0 4px' }}>…</span>
+                            ) : (
+                                <PagBtn
+                                    key={item}
+                                    label={item}
+                                    active={item === page}
+                                    onClick={() => setPage(item)}
+                                />
+                            )
+                        )
+                    }
+
+                    {/* Next */}
+                    <PagBtn
+                        label="→"
+                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                    />
+
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline, marginLeft: '12px', letterSpacing: '0.1em' }}>
+                        {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} / {filtered.length}
+                    </span>
                 </div>
             )}
 
@@ -243,6 +297,31 @@ const ProblemCard = ({ problem, index, onSolve }) => {
                 {problem.solved ? 'Practice Again' : 'Solve'}
             </button>
         </motion.div>
+    );
+};
+
+const PagBtn = ({ label, onClick, disabled, active }) => {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <button
+            onClick={onClick}
+            disabled={disabled}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                width: '36px', height: '36px',
+                border: `1px solid ${active ? C.secondary : hovered && !disabled ? C.primary : C.border}`,
+                backgroundColor: active ? C.secondary : hovered && !disabled ? C.surfaceCon : 'transparent',
+                color: active ? C.bg : disabled ? C.border : hovered ? C.primary : C.outline,
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '12px',
+                cursor: disabled ? 'default' : 'pointer',
+                transition: 'all 0.15s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+        >
+            {label}
+        </button>
     );
 };
 
