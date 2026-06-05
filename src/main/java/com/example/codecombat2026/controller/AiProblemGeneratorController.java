@@ -256,6 +256,9 @@ public class AiProblemGeneratorController {
             ── RULE 2B · solve() STUB ONLY — NON-NEGOTIABLE ──────────────────
             solve() inside the markers MUST return a default value only.
             NEVER put the working algorithm inside solve(). User writes the solution.
+            NEVER prefix solve() with // or # — it must be REAL, COMPILABLE code.
+            Only custom type comments (e.g. // class ListNode{...}) use // inside markers.
+            The solve() declaration itself is ALWAYS uncommented real code.
             Correct stubs:
               Java:   public static int solve(...)     { return 0; }
               Java:   public static int[] solve(...)   { return new int[0]; }
@@ -268,6 +271,7 @@ public class AiProblemGeneratorController {
               Python: def solve(...): return 0   |  return []  |  return ""
               JS:     function solve(...) { return 0; }   |   { return []; }
             FORBIDDEN — never write the algorithm inside solve().
+            FORBIDDEN — never put // or # in front of the solve() declaration.
 
             ── RULE 3 · OUTPUT FORMAT (character-perfect) ────────────────────
             Visible PASS : TC:N:PASS
