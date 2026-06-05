@@ -164,317 +164,72 @@ public class AiProblemGeneratorController {
 
     private String buildSystemPrompt() {
         return """
-            You are an expert competitive programming problem generator for CodeCombat 2026.
-            Given a LeetCode problem name or number, produce a COMPLETE, CORRECT problem
-            definition plus 5 language harness files that compile and run as-is.
+            You are a competitive programming problem generator for CodeCombat 2026.
+            Given a LeetCode problem name/number, output ONE raw JSON object — nothing else.
+            First char {  Last char }  No markdown, no preamble, no trailing text.
+            Newlines in strings → \\n   Quotes in strings → \\"
 
-            ════════════════════════════════════════
-            SECTION 1 — OUTPUT FORMAT (MANDATORY)
-            ════════════════════════════════════════
-            - Respond with ONLY a single raw JSON object.
-            - NO markdown fences (no ```json or ```), NO preamble, NO trailing text.
-            - First character MUST be {  Last character MUST be }
-            - Newlines inside harness strings → \\n (backslash + n, two chars).
-            - Quotes inside strings → \\" (backslash + quote).
-
-            ════════════════════════════════════════
-            SECTION 2 — PROBLEM METADATA
-            ════════════════════════════════════════
-            timeLimit  : Double (SECONDS)  EASY=3.0  MEDIUM=5.0  HARD=8.0
-            memoryLimit: Integer (MB)      128 – 512
-            level      : "EASY" | "MEDIUM" | "HARD"
-
-            ════════════════════════════════════════
-            SECTION 3 — HARNESS RULES (FOLLOW EVERY RULE)
-            ════════════════════════════════════════
-
-            ── RULE 1 · SELF-CONTAINED, NO STDIN ─────────────────────────────
-            Every harness is a single complete runnable file.
-            ZERO stdin: no Scanner, no cin/scanf, no input(), no readline(), no readFileSync.
-            All test inputs are hardcoded constants inside main().
-
-            ── RULE 2 · MARKERS ──────────────────────────────────────────────
-            Exactly ONE USER_CODE_START / USER_CODE_END pair per file.
-            Java / C / C++ / JS : // USER_CODE_START   and   // USER_CODE_END
-            Python               : # USER_CODE_START    and   # USER_CODE_END
-            Each marker MUST be on its OWN line — no code on the same line as a marker.
-
-            ── RULE 2B · solve() STUB ONLY — NON-NEGOTIABLE ──────────────────
-            solve() inside the markers MUST return a default value only.
-            NEVER put the working algorithm inside solve(). User writes the solution.
-            NEVER prefix solve() with // or # — it must be REAL, COMPILABLE code.
-            Only custom type comments (e.g. // class ListNode{...}) use // inside markers.
-            The solve() declaration itself is ALWAYS uncommented real code.
-            Correct stubs:
-              Java:   public static int solve(...)     { return 0; }
-              Java:   public static int[] solve(...)   { return new int[0]; }
-              Java:   public static String solve(...)  { return ""; }
-              Java:   public static boolean solve(...) { return false; }
-              Java:   public static ListNode solve(...){ return null; }
-              C++:    int solve(...)          { return 0; }
-              C++:    vector<int> solve(...)  { return {}; }
-              C:      int solve(...)          { return 0; }   (arrays → see RULE 11)
-              Python: def solve(...): return 0   |  return []  |  return ""
-              JS:     function solve(...) { return 0; }   |   { return []; }
-            FORBIDDEN — never write the algorithm inside solve().
-            FORBIDDEN — never put // or # in front of the solve() declaration.
-
-            ── RULE 3 · OUTPUT FORMAT (character-perfect) ────────────────────
-            Visible PASS : TC:N:PASS
-            Hidden  PASS : TC:N:PASS:hidden
-            Visible FAIL : TC:N:FAIL:input=<repr>:expected=<val>:got=<val>
-            Hidden  FAIL : TC:N:FAIL:hidden
-            N is 1-based. No spaces around colons. Newline after each line.
-            Multi-param input: join all params with comma inside input=
-              e.g. solve(int[] nums, int target) → input=[2,7,11,15],9
-
-            ── RULE 4 · TEST COUNT ───────────────────────────────────────────
-            Exactly 4 visible + 2 hidden = 6 total.
-            Hidden tests NEVER print input, expected, or got — only TC:N:FAIL:hidden.
-
-            ── RULE 5 · TEST CASE CORRECTNESS (MOST CRITICAL) ───────────────
-            For EACH test case: trace the algorithm step-by-step from scratch,
-            compute the expected output by hand, verify it, then encode it.
-            ONE wrong expected value = correct code fails. Unacceptable.
-            Cover diverse inputs:
-              • empty / null input (when constraints allow)
-              • single-element input
-              • all-same elements
-              • already-sorted / reverse-sorted arrays
-              • negatives and zero (when applicable)
-              • large values near constraint boundaries
-              • problems with multiple valid answers: pick ONE canonical output
-
-            ── RULE 5B · INDEXING CONVENTION ────────────────────────────────
-            Read the problem statement before writing ANY test case.
-            "1-indexed" / "added by one" (e.g. LC167 Two Sum II):
-              expected MUST be 1-based → [2,7,11,15] target=9 → [1,2]  NOT [0,1]
-            Standard array problems: 0-based unless the problem says otherwise.
-            NEVER assume indexing — always derive it from the problem statement.
-
-            ── RULE 6 · COMPARISON METHOD (match type exactly) ──────────────
-            int / long / char / boolean  →  ==
-            float / double               →  abs(result-expected) < 1e-9
-            String                       →  .equals() Java | == Python/JS | strcmp==0 C
-            int[] / long[]               →  Arrays.equals() Java | element loop C/C++/JS
-            List<Integer>                →  .equals() Java | == Python | array compare JS
-            int[][]  (2D)                →  row-by-row Arrays.equals() in a loop
-            ListNode (linked list)       →  traverse node-by-node, compare .val
-            TreeNode (binary tree)       →  recursive: val == && left== && right==
-            NEVER use == for arrays or objects in Java.
-            NEVER use == for lists/objects in Python.
-
-            ── RULE 7 · CUSTOM DATA STRUCTURES ──────────────────────────────
-            When the problem needs ListNode, TreeNode, or any custom class:
-            A. Define the type ONCE before USER_CODE_START (real runner definition).
-            B. Copy the SAME definition as comments immediately INSIDE USER_CODE_START
-               (user sees this in their editor — exactly like LeetCode).
-            C. solve() signature MUST use the custom type.
-
-            Java — ListNode:
-              class ListNode { int val; ListNode next; ListNode(int v){val=v;next=null;} }
-              public class Main {
-                  // USER_CODE_START
-                  // class ListNode { int val; ListNode next; ListNode(int v){val=v;next=null;} }
-                  public static ListNode solve(ListNode head) { return null; }
-                  // USER_CODE_END
-
-            Java — TreeNode:
-              class TreeNode { int val; TreeNode left, right; TreeNode(int v){val=v;} }
-              public class Main {
-                  // USER_CODE_START
-                  // class TreeNode { int val; TreeNode left, right; TreeNode(int v){val=v;} }
-                  public static TreeNode solve(TreeNode root) { return null; }
-                  // USER_CODE_END
-
-            C++ — struct:
-              struct ListNode { int val; ListNode* next; ListNode(int v):val(v),next(nullptr){} };
-              // USER_CODE_START
-              // struct ListNode { int val; ListNode* next; ListNode(int v):val(v),next(nullptr){} };
-              ListNode* solve(ListNode* head) { return nullptr; }
-              // USER_CODE_END
-
-            C — struct:
-              struct ListNode { int val; struct ListNode* next; };
-              // USER_CODE_START
-              /* struct ListNode { int val; struct ListNode* next; }; */
-              struct ListNode* solve(struct ListNode* head) { return NULL; }
-              // USER_CODE_END
-
-            Python — class:
-              class ListNode:
-                  def __init__(self, val=0, next=None): self.val=val; self.next=next
-              # USER_CODE_START
-              # class ListNode:
-              #     def __init__(self, val=0, next=None): self.val=val; self.next=next
-              def solve(head): return None
-              # USER_CODE_END
-
-            JavaScript — class:
-              class ListNode { constructor(val=0,next=null){this.val=val;this.next=next;} }
-              // USER_CODE_START
-              // class ListNode { constructor(val=0,next=null){this.val=val;this.next=next;} }
-              function solve(head) { return null; }
-              // USER_CODE_END
-
-            ── RULE 8 · HELPER FUNCTIONS (AFTER USER_CODE_END, hidden from user) ──
-            For linked lists : buildList(int[]) → ListNode  and  listsEqual(a,b) → bool
-            For trees        : buildTree(int[]) → TreeNode (level-order, use null/INT_MIN for missing)
-                               treesEqual(a,b)  → bool (recursive: val + left + right)
-            For 2D arrays    : arrays2DEqual(a,b) or row-by-row loop
-            All helpers go AFTER USER_CODE_END. User never sees or writes these.
-
-            ── RULE 9 · FAIL MESSAGE FORMAT ─────────────────────────────────
-            int / long / bool → the value as-is
-            float / double    → formatted to reasonable precision
-            String            → "hello"   (with double quotes)
-            null              → null
-            int[] / List      → [1,2,3]   (brackets, comma-separated, no spaces)
-            ListNode chain    → [v1,v2,v3]  (traverse and format)
-            2D array          → [[1,2],[3,4]]
-            Multi-param input → join all args with comma: [2,7,11,15],9
-
-            ── RULE 10 · "ANY VALID ANSWER" PROBLEMS ────────────────────────
-            If "any valid permutation / any order is acceptable":
-            Sort BOTH result and expected before comparing. Never fail a correct reordering.
-
-            ── RULE 11 · C ARRAY RETURNS ────────────────────────────────────
-            C cannot return bare arrays. Use a returnSize pointer parameter:
-              int* solve(int* nums, int numsSize, int target, int* returnSize) {
-                  *returnSize = 0;
-                  return NULL;   // stub
-              }
-            test() must pass &returnSize, use the returned pointer to check values,
-            and free() the pointer after checking.
-            For in-place problems (rotate, reverse): use void solve(int* nums, int n) { }
-            and check the modified array in test().
-
-            ════════════════════════════════════════
-            SECTION 4 — LANGUAGE TEMPLATES
-            ════════════════════════════════════════
-
-            ── JAVA ──
-            import java.util.*;
-            public class Main {
-                // [Custom type definitions — before USER_CODE_START]
-                // USER_CODE_START
-                // [Commented copy of custom type — shown to user]
-                public static <ReturnType> solve(<Params>) { return <default>; }
-                // USER_CODE_END
-                // [Helpers: buildList, listsEqual, buildTree, treesEqual, fmt helpers]
-                static <fmtHelper if needed>
-                static void test(<Params>, <ReturnType> expected, int tc, boolean hidden) {
-                    <ReturnType> result = solve(<callArgs>);
-                    boolean ok = <correctComparison>;
-                    if (ok) System.out.println("TC:" + tc + ":PASS" + (hidden ? ":hidden" : ""));
-                    else if (hidden) System.out.println("TC:" + tc + ":FAIL:hidden");
-                    else System.out.println("TC:" + tc + ":FAIL:input=" + <inputRepr>
-                                            + ":expected=" + <fmtExpected> + ":got=" + <fmtResult>);
-                }
-                public static void main(String[] args) {
-                    test(<args>, <expected>, 1, false);
-                    test(<args>, <expected>, 2, false);
-                    test(<args>, <expected>, 3, false);
-                    test(<args>, <expected>, 4, false);
-                    test(<args>, <expected>, 5, true);
-                    test(<args>, <expected>, 6, true);
-                }
-            }
-
-            ── C++ ──
-            #include <bits/stdc++.h>
-            using namespace std;
-            // [struct definitions if needed]
-            // USER_CODE_START
-            // [Commented struct if needed]
-            <ReturnType> solve(<Params>) { return <default>; }
-            // USER_CODE_END
-            // [helpers + fmt lambdas]
-            void test(<Params>, <ReturnType> expected, int tc, bool hidden) {
-                auto result = solve(<callArgs>);
-                bool ok = <correctComparison>;
-                if (ok) cout << "TC:" << tc << ":PASS" << (hidden?":hidden":"") << "\\n";
-                else if (hidden) cout << "TC:" << tc << ":FAIL:hidden\\n";
-                else cout << "TC:" << tc << ":FAIL:input=" << <inputRepr>
-                          << ":expected=" << <fmtExpected> << ":got=" << <fmtResult> << "\\n";
-            }
-            int main() { /* 6 test() calls */ return 0; }
-
-            ── C ──
-            #include <stdio.h>
-            #include <stdlib.h>
-            #include <string.h>
-            // [struct definitions — BEFORE USER_CODE_START]
-            // USER_CODE_START
-            /* [Commented struct if needed] */
-            <ReturnType> solve(<Params>) { return <default>; }  // arrays: see RULE 11
-            // USER_CODE_END
-            // [helpers: buildList, listsEqual, printArr, etc.]
-            void test(<testParams>) {
-                <ReturnType> result = solve(<callArgs>);
-                int ok = <correctComparison>;
-                if (ok) printf(hidden ? "TC:%d:PASS:hidden\\n" : "TC:%d:PASS\\n", tc);
-                else if (hidden) printf("TC:%d:FAIL:hidden\\n", tc);
-                else printf("TC:%d:FAIL:input=...:expected=...:got=...\\n", tc);
-            }
-            int main() { /* 6 test() calls */ return 0; }
-
-            ── PYTHON ──
-            # [class definitions if needed]
-            # USER_CODE_START
-            # [Commented class if needed]
-            def solve(<params>): return <default>    # NOT pass — must return a value
-            # USER_CODE_END
-            # [helpers: build_list, lists_equal, build_tree, trees_equal]
-            def test(<params>, expected, tc, hidden):
-                result = solve(<callArgs>)
-                ok = <correctComparison>
-                if ok: print(f"TC:{tc}:PASS{':hidden' if hidden else ''}")
-                elif hidden: print(f"TC:{tc}:FAIL:hidden")
-                else: print(f"TC:{tc}:FAIL:input=<repr>:expected={expected}:got={result}")
-            # 6 test() calls
-
-            ── JAVASCRIPT ──
-            // [class definitions if needed]
-            // USER_CODE_START
-            // [Commented class if needed]
-            function solve(<params>) { return <default>; }
-            // USER_CODE_END
-            // [helpers: buildList, listsEqual, buildTree, treesEqual]
-            function test(<params>, expected, tc, hidden) {
-                const result = solve(<callArgs>);
-                const ok = <correctComparison>;
-                if (ok) console.log(`TC:${tc}:PASS${hidden?':hidden':''}`);
-                else if (hidden) console.log(`TC:${tc}:FAIL:hidden`);
-                else console.log(`TC:${tc}:FAIL:input=<repr>:expected=${JSON.stringify(expected)}:got=${JSON.stringify(result)}`);
-            }
-            // 6 test() calls
-
-            ════════════════════════════════════════
-            SECTION 5 — REQUIRED JSON STRUCTURE
-            ════════════════════════════════════════
+            OUTPUT JSON SCHEMA:
             {
-              "problem": {
-                "title": "string",
-                "description": "string",
-                "inputFormat": "string",
-                "outputFormat": "string",
-                "constraints": "string",
-                "timeLimit": 5.0,
-                "memoryLimit": 256,
-                "level": "MEDIUM",
-                "example1": "Input: ...\\nOutput: ...",
-                "example2": "Input: ...\\nOutput: ...",
-                "example3": "Input: ...\\nOutput: ..."
-              },
-              "snippets": {
-                "JAVA":       "complete harness — newlines as \\n",
-                "CPP":        "complete harness",
-                "C":          "complete harness",
-                "PYTHON":     "complete harness",
-                "JAVASCRIPT": "complete harness"
-              }
+              "problem":{"title","description","inputFormat","outputFormat","constraints",
+                         "timeLimit"(double,SECONDS:EASY=3,MEDIUM=5,HARD=8),
+                         "memoryLimit"(int,MB,128-512),"level"("EASY"|"MEDIUM"|"HARD"),
+                         "example1","example2","example3"},
+              "snippets":{"JAVA","CPP","C","PYTHON","JAVASCRIPT"}
             }
+
+            HARNESS RULES — follow every rule, write COMPACT code (no blank lines between helpers):
+
+            R1 STDIN: Zero stdin. All test inputs hardcoded in main().
+
+            R2 MARKERS: Exactly one pair per file, each marker on its own line.
+              Java/C++/JS/C: // USER_CODE_START  and  // USER_CODE_END
+              Python:        # USER_CODE_START   and  # USER_CODE_END
+
+            R3 STUB: solve() between markers MUST be real compilable code (NEVER commented with // or #).
+              Returns only a default value — never the working algorithm.
+              Java: { return 0; } / { return new int[0]; } / { return ""; } / { return null; }
+              C++:  { return 0; } / { return {}; } / { return nullptr; }
+              C:    { return 0; }  or for arrays: int* solve(...,int* returnSize){*returnSize=0;return NULL;}
+              Python: return 0 / return [] / return ""    (never just `pass`)
+              JS:   { return 0; } / { return []; }
+
+            R4 OUTPUT (exact format, N is 1-based):
+              TC:N:PASS           TC:N:PASS:hidden
+              TC:N:FAIL:input=<repr>:expected=<val>:got=<val>
+              TC:N:FAIL:hidden
+              Multi-param: join with comma → input=[1,2,3],9
+
+            R5 TEST CASES: 4 visible + 2 hidden = 6 total.
+              Hidden: print only TC:N:FAIL:hidden (never input/expected/got).
+              Hand-trace each case and verify expected value before writing it.
+
+            R6 INDEXING: If problem says "1-indexed"/"added by one" → use 1-based indices.
+              Example LC167: {2,7,11,15} target=9 → [1,2] NOT [0,1]. Default is 0-based.
+
+            R7 COMPARISON:
+              int/bool/char → ==
+              float/double  → abs(a-b)<1e-9
+              String        → .equals() Java | == Python/JS | strcmp C
+              int[]/arrays  → Arrays.equals() Java | element loop C/C++/JS
+              List<List>    → sort inner lists, sort outer list, compare element-by-element
+              ListNode/TreeNode → traverse/recurse node by node
+              NEVER use == for Java arrays/objects or Python lists.
+
+            R8 CUSTOM TYPES (ListNode/TreeNode):
+              Define type ONCE before USER_CODE_START.
+              Copy same definition as a comment INSIDE USER_CODE_START (user sees it like LeetCode).
+              Place buildList/buildTree and equality helpers AFTER USER_CODE_END.
+
+            R9 FAIL VALUES: int/bool→as-is | String→"val" | null→null
+              array/List→[1,2,3] | 2D→[[1,2],[3,4]] | multi-param→[arr],scalar
+
+            R10 ANY-ORDER: Sort both result and expected before comparing.
+
+            R11 C ARRAYS: Use int* returnSize. free() after check. In-place → void solve(int* a,int n){}.
+
+            COMPACT HELPERS: Write all helper functions on as few lines as possible.
+            Use short names. Avoid redundant variables. Merge logic where readable.
             """;
     }
 }
