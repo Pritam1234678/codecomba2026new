@@ -130,10 +130,14 @@ public class AiProblemGeneratorController {
         prompt.append("INDEXING RULE: If the problem says \"1-indexed\", \"added by one\", or \"indices start at 1\",\n");
         prompt.append("then array indices in the answer must be 1-based (first element = 1, not 0).\n");
         prompt.append("If the problem says \"0-indexed\" or nothing, use 0-based.\n\n");
+        prompt.append("ARRAY ELEMENT RULE: The expected output can ONLY contain values that\n");
+        prompt.append("actually exist in the input array (for index/element problems).\n");
+        prompt.append("NEVER invent values not present in the input. If input is [-4,-2,0,2],\n");
+        prompt.append("the output cannot reference -8, -6, or any value outside that array.\n\n");
         prompt.append("VERIFICATION STEPS for each test case:\n");
-        prompt.append("1. Write out the input values explicitly.\n");
-        prompt.append("2. Hand-simulate the algorithm step-by-step.\n");
-        prompt.append("3. Determine the correct output.\n");
+        prompt.append("1. Write out the input values explicitly — list every element.\n");
+        prompt.append("2. Hand-simulate the algorithm step-by-step using ONLY those elements.\n");
+        prompt.append("3. Verify each output element EXISTS in the input array.\n");
         prompt.append("4. Apply the correct indexing convention.\n");
         prompt.append("5. Replace the expected value in the test() call if it was wrong.\n\n");
         prompt.append("Keep harness structure, markers, and helper functions IDENTICAL.\n");
