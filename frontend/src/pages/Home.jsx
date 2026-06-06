@@ -30,7 +30,7 @@ const Home = () => {
             setCurrentUser(user);
             setIsAdmin(user.roles?.includes('ROLE_ADMIN'));
         }
-        ContestService.getContests()
+        ContestService.getAllContests()
             .then(res => {
                 const all = Array.isArray(res.data) ? res.data : [];
                 setLatestContests([...all].sort((a, b) => b.id - a.id).slice(0, 2));
