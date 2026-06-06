@@ -188,11 +188,13 @@ function App() {
   }
 
   // ── Public layout (navbar + footer) ───────────────────────────────────────
-  // Compiler is full-height — hide footer there
   const isCompilerPage = location.pathname === '/compiler';
+  const isHomePage     = location.pathname === '/';
   return (
     <div className="text-on-surface font-sans" style={{ backgroundColor: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
       {showNavbar && <Navbar />}
+      {/* Spacer for fixed navbar — home page handles its own spacing */}
+      {showNavbar && !isHomePage && <div style={{ height: '76px' }} />}
       {routes}
       {showFooter && !isCompilerPage && <Footer />}
     </div>

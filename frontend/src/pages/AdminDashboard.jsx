@@ -240,10 +240,10 @@ const AdminDashboard = () => {
                         </h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1, justifyContent: 'space-between' }}>
                             {[
-                                { to: '/admin/users',    label: 'Manage Users',    icon: 'group' },
+                                { to: '/admin/proctoring',    label: 'Proctoring Dashboard',    icon: 'group' },
                                 { to: '/admin/contests', label: 'Manage Contests', icon: 'military_tech' },
                                 { to: '/admin/leaderboard', label: 'Leaderboard', icon: 'leaderboard' },
-                                { to: '/admin/platform-details', label: 'Platform Details', icon: 'tune' },
+                                { to: '/admin/problems', label: 'Problem List', icon: 'tune' },
                             ].map(({ to, label, icon }) => (
                                 <Link
                                     key={to}
@@ -327,7 +327,7 @@ const AdminDashboard = () => {
                     </motion.section>
 
                     {/* Live Duels — 12 cols */}
-                    <motion.section
+                   { /*<motion.section
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, delay: 0.35 }}
@@ -396,7 +396,7 @@ const AdminDashboard = () => {
                                 );
                             })}
                         </div>
-                    </motion.section>
+                    </motion.section>*/}
 
                     {/* Profile Info — 12 cols */}
                     <motion.section
@@ -441,7 +441,7 @@ const AdminDashboard = () => {
                                 { label: 'Username',    value: adminProfile?.username   || '—' },
                                 { label: 'Full Name',   value: adminProfile?.fullName   || '—' },
                                 { label: 'Email',       value: adminProfile?.email      || '—' },
-                                { label: 'Roll Number', value: adminProfile?.rollNumber || '—' },
+                                
                             ].map(({ label, value }) => (
                                 <div key={label} style={{ borderTop: `1px solid ${C.border}`, paddingTop: '1rem' }}>
                                     <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', marginBottom: '6px' }}>

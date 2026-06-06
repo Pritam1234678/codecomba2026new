@@ -84,16 +84,18 @@ const AppSidebar = () => {
                 display: 'flex', alignItems: 'center', gap: '12px',
                 overflow: 'hidden', whiteSpace: 'nowrap',
             }}>
-                <Link to="/" style={{ textDecoration: 'none', flexShrink: 0 }}>
-                    <span style={{
-                        fontFamily: "'Playfair Display', serif",
-                        fontSize: '26px', fontWeight: 700,
-                        color: C.primary, fontStyle: 'italic',
-                    }}>
-                        C
-                    </span>
-                </Link>
-                {open && (
+                {/* Minimised: show "CC" logo; Expanded: show full name */}
+                {!open ? (
+                    <Link to="/" style={{ textDecoration: 'none', flexShrink: 0 }}>
+                        <span style={{
+                            fontFamily: "'Playfair Display', serif",
+                            fontSize: '22px', fontWeight: 700,
+                            color: C.primary, fontStyle: 'italic',
+                        }}>
+                            CC
+                        </span>
+                    </Link>
+                ) : (
                     <Link to="/" style={{ textDecoration: 'none' }}>
                         <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '16px', color: C.primary, fontStyle: 'italic', display: 'block', lineHeight: 1.2 }}>
                             Code Coder
