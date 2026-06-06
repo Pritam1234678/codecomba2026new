@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AuthService from '../services/auth.service';
+import ContestService from '../services/contest.service';
 import useResponsive from '../hooks/useResponsive';
 
 const C = {
@@ -21,6 +22,7 @@ const Home = () => {
     const { isMobile, isTablet } = useResponsive();
     const [currentUser, setCurrentUser] = useState(null);
     const [isAdmin, setIsAdmin]         = useState(false);
+    const [latestContests, setLatestContests] = useState([]);
 
     useEffect(() => {
         const user = AuthService.getCurrentUser();
@@ -28,6 +30,12 @@ const Home = () => {
             setCurrentUser(user);
             setIsAdmin(user.roles?.includes('ROLE_ADMIN'));
         }
+        ContestService.getContests()
+            .then(res => {
+                const all = Array.isArray(res.data) ? res.data : [];
+                setLatestContests([...all].sort((a, b) => b.id - a.id).slice(0, 2));
+            })
+            .catch(() => {});
     }, []);
 
     const links = {
@@ -377,24 +385,15 @@ const Home = () => {
                     position: 'relative', zIndex: 10,
                 }}
             >
-                {[
-                    {
-                        division: 'Alpha Division', divColor: C.primary,
-                        title: 'Graph Theory Invitational',
-                        desc: 'Navigating complex topologies with constrained memory parameters.',
-                        time: 'T-Minus 14:00:00',
-                    },
-                    {
-                        division: 'Beta Division', divColor: C.secondary,
-                        title: 'Dynamic Programming Blitz',
-                        desc: 'Optimize overlapping subproblems in a high-speed sprint.',
-                        time: 'T-Minus 48:30:00',
-                    },
-                ].map(({ division, divColor, title, desc, time }) => (
+                {(latestContests.length > 0 ? latestContests : [{}, {}]).map((c, i) => (
                     <ContestCard
-                        key={title}
-                        division={division} divColor={divColor}
-                        title={title} desc={desc} time={time}
+                        key={c.id ?? i}
+                        division={i === 0 ? 'Alpha Division' : 'Beta Division'}
+                        divColor={i === 0 ? C.primary : C.secondary}
+                        title={c.name ?? '—'}
+                        desc={c.description ?? ''}
+                        startTime={c.startTime}
+                        endTime={c.endTime}
                         to={links.contests}
                     />
                 ))}
@@ -496,8 +495,24 @@ const StatCard = ({ value, label, isLast }) => {
 };
 
 /* ── Contest Card ────────────────────────────────────────────────────────── */
-const ContestCard = ({ division, divColor, title, desc, time, to }) => {
+const ContestCard = ({ division, divColor, title, desc, startTime, endTime, to }) => {
     const [hovered, setHovered] = useState(false);
+    const [time, setTime] = useState('—');
+    useEffect(() => {
+        const tick = () => {
+            if (!startTime && !endTime) return;
+            const now = Date.now(), s = new Date(startTime).getTime(), e = new Date(endTime).getTime();
+            let diff, pre;
+            if (now < s)    { diff = s - now; pre = 'T-Minus '; }
+            else if (now < e) { diff = e - now; pre = 'Ends in '; }
+            else { setTime('Ended'); return; }
+            const h = Math.floor(diff/3600000), m = Math.floor(diff%3600000/60000), sec = Math.floor(diff%60000/1000);
+            setTime(`${pre}${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`);
+        };
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, [startTime, endTime]);
     return (
         <Link
             to={to}
