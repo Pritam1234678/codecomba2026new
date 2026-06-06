@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import AuthService from '../services/auth.service';
+import ContestService from '../services/contest.service';
 import useResponsive from '../hooks/useResponsive';
 
 const C = {
@@ -19,22 +20,37 @@ const C = {
 
 const Home = () => {
     const { isMobile, isTablet } = useResponsive();
+    const navigate = useNavigate();
     const [currentUser, setCurrentUser] = useState(null);
     const [isAdmin, setIsAdmin]         = useState(false);
+    const [contests, setContests]       = useState([]);
 
     useEffect(() => {
         const user = AuthService.getCurrentUser();
         if (user) {
             setCurrentUser(user);
-            setIsAdmin(user.roles?.includes('ROLE_ADMIN'));
+            const admin = user.roles?.includes('ROLE_ADMIN');
+            setIsAdmin(admin);
+            // Redirect logged-in users immediately
+            navigate(admin ? '/admin/contests' : '/contests', { replace: true });
+            return;
         }
-    }, []);
+        // Not logged in — fetch latest 2 contests for display
+        ContestService.getContests()
+            .then(res => {
+                const all = Array.isArray(res.data) ? res.data : [];
+                // Sort by id desc, take latest 2
+                const latest = [...all].sort((a, b) => b.id - a.id).slice(0, 2);
+                setContests(latest);
+            })
+            .catch(() => {});
+    }, [navigate]);
 
     const links = {
-        primary:  !currentUser ? '/login'   : isAdmin ? '/admin/contests'    : '/contests',
-        explore:  !currentUser ? '/login'   : isAdmin ? '/admin/contests'    : '/contests',
-        contests: !currentUser ? '/login'   : isAdmin ? '/admin/contests'    : '/contests',
-        cta:      !currentUser ? '/register': isAdmin ? '/admin/leaderboard' : '/contests',
+        primary:  '/login',
+        explore:  '/login',
+        contests: '/login',
+        cta:      '/register',
     };
 
     return (
@@ -377,27 +393,27 @@ const Home = () => {
                     position: 'relative', zIndex: 10,
                 }}
             >
-                {[
-                    {
-                        division: 'Alpha Division', divColor: C.primary,
-                        title: 'Graph Theory Invitational',
-                        desc: 'Navigating complex topologies with constrained memory parameters.',
-                        time: 'T-Minus 14:00:00',
-                    },
-                    {
-                        division: 'Beta Division', divColor: C.secondary,
-                        title: 'Dynamic Programming Blitz',
-                        desc: 'Optimize overlapping subproblems in a high-speed sprint.',
-                        time: 'T-Minus 48:30:00',
-                    },
-                ].map(({ division, divColor, title, desc, time }) => (
-                    <ContestCard
-                        key={title}
-                        division={division} divColor={divColor}
-                        title={title} desc={desc} time={time}
-                        to={links.contests}
-                    />
-                ))}
+                {contests.length > 0
+                    ? contests.map((c, i) => (
+                        <ContestCard
+                            key={c.id}
+                            division={i === 0 ? 'Alpha Division' : 'Beta Division'}
+                            divColor={i === 0 ? C.primary : C.secondary}
+                            title={c.name}
+                            desc={c.description || ''}
+                            startTime={c.startTime}
+                            endTime={c.endTime}
+                            to={links.contests}
+                        />
+                    ))
+                    : [
+                        { division: 'Alpha Division', divColor: C.primary,   title: '—', desc: '' },
+                        { division: 'Beta Division',  divColor: C.secondary, title: '—', desc: '' },
+                    ].map(({ division, divColor, title, desc }) => (
+                        <ContestCard key={division} division={division} divColor={divColor}
+                            title={title} desc={desc} to={links.contests} />
+                    ))
+                }
 
                 {/* View All */}
                 <Link
@@ -496,8 +512,30 @@ const StatCard = ({ value, label, isLast }) => {
 };
 
 /* ── Contest Card ────────────────────────────────────────────────────────── */
-const ContestCard = ({ division, divColor, title, desc, time, to }) => {
+const ContestCard = ({ division, divColor, title, desc, startTime, endTime, to }) => {
     const [hovered, setHovered] = useState(false);
+    const [timeLabel, setTimeLabel] = useState('');
+
+    useEffect(() => {
+        const compute = () => {
+            if (!startTime && !endTime) { setTimeLabel(''); return; }
+            const now  = Date.now();
+            const start = new Date(startTime).getTime();
+            const end   = new Date(endTime).getTime();
+            let diff, prefix;
+            if (now < start)      { diff = start - now; prefix = 'Starts in '; }
+            else if (now < end)   { diff = end - now;   prefix = 'Ends in ';   }
+            else                  { setTimeLabel('Ended'); return; }
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            setTimeLabel(`${prefix}${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
+        };
+        compute();
+        const t = setInterval(compute, 1000);
+        return () => clearInterval(t);
+    }, [startTime, endTime]);
+
     return (
         <Link
             to={to}
@@ -533,7 +571,7 @@ const ContestCard = ({ division, divColor, title, desc, time, to }) => {
                 opacity: hovered ? 1 : 0.6, transition: 'opacity 0.3s',
             }}>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#d4c4b7', letterSpacing: '0.05em' }}>
-                    {time}
+                    {timeLabel}
                 </span>
                 <span style={{
                     color: divColor, fontSize: '18px',
