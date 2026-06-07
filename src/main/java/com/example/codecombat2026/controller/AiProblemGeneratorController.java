@@ -97,18 +97,27 @@ public class AiProblemGeneratorController {
         }
 
         // ── Pass 1: problem spec (statement + signature + tests) ──────────────
-        Map<String, Object> spec;
-        try {
-            String specRaw = callNim(cfg, List.of(
-                Map.of("role", "system", "content", PASS1_SYSTEM),
-                Map.of("role", "user", "content",
-                    "Design the problem spec for: " + query + "\n\n" +
-                    "Output ONLY the raw JSON spec object. Start with { and end with }.")
-            ), 6144);
-            spec = parseJsonObject(specRaw);
-        } catch (Exception e) {
+        // Retry: the model occasionally degenerates (finish_reason repetition/length)
+        // and yields truncated JSON; a fresh attempt almost always succeeds.
+        Map<String, Object> spec = null;
+        Exception pass1Err = null;
+        for (int attempt = 0; attempt < 3 && spec == null; attempt++) {
+            try {
+                String specRaw = callNim(cfg, List.of(
+                    Map.of("role", "system", "content", PASS1_SYSTEM),
+                    Map.of("role", "user", "content",
+                        "Design the problem spec for: " + query + "\n\n" +
+                        "Output ONLY the raw JSON spec object. Start with { and end with }.")
+                ), 6144);
+                spec = parseJsonObject(specRaw);
+            } catch (Exception e) {
+                pass1Err = e;
+            }
+        }
+        if (spec == null) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                .body(Map.of("error", "AI failed (pass 1 — problem spec): " + e.getMessage()));
+                .body(Map.of("error", "AI failed (pass 1 — problem spec): "
+                    + (pass1Err == null ? "unknown" : pass1Err.getMessage())));
         }
 
         @SuppressWarnings("unchecked")
@@ -205,8 +214,10 @@ public class AiProblemGeneratorController {
         String content = (String) ((Map) choice.get("message")).get("content");
         if (content == null || content.isBlank()) throw new RuntimeException("Empty content from AI");
 
-        if ("length".equals(finishReason)) {
-            throw new RuntimeException("output truncated (model hit its token limit). Try the DeepSeek model.");
+        // "length" = hit token cap; "repetition" = NIM cut a degenerate loop.
+        // Both leave the JSON / code incomplete, so treat them as retryable failures.
+        if ("length".equals(finishReason) || "repetition".equals(finishReason)) {
+            throw new RuntimeException("model output was incomplete (finish_reason=" + finishReason + ")");
         }
         return content;
     }
@@ -292,9 +303,25 @@ public class AiProblemGeneratorController {
         • Each "expected" must follow ONLY from that test's own "args". NEVER use a number or
           element that does not appear in / derive from that test's input.
         • "args" keys must EXACTLY equal the param names declared in "signature".
-        • Pick 6 meaningful tests including edge cases (empty, single element, all equal,
-          negatives, maximum) wherever the constraints allow them.
         • Values are JSON literals: arrays like [1,2,3], strings like "abc", booleans true/false.
+
+        TEST VALIDITY (this is where mistakes happen — be strict):
+        • Every test input MUST be legal under the problem's own rules AND have a well-defined
+          answer. If the statement guarantees "exactly one solution exists", every input you
+          create MUST genuinely have one. If no valid answer exists for an input, CHANGE the input.
+        • Never fabricate an answer for an impossible input. Example: Two Sum needs two DISTINCT
+          indices — do NOT output [0,0] for a single-element array; pick inputs that truly contain
+          a valid pair.
+        • Respect the stated constraints (length ranges, value ranges, uniqueness). Do not create
+          inputs the constraints forbid (e.g. an empty array when length >= 2 is required).
+        • Pick 6 meaningful tests covering valid edge cases (smallest legal size, all-equal,
+          negatives, maximum) — but only edges that are actually permitted by the constraints.
+        • After writing each test, re-solve it from scratch and confirm "expected" matches. If it
+          does not, fix "expected" or the input before moving on.
+
+        FORMATTING FOR THE JUDGE:
+        • Keep expected values free of ':' characters (the judge splits output on colons).
+        • For array/string answers, expected stays a JSON array/string — the harness formats it.
 
         OUTPUT: only the JSON object. First character {, last character }. No markdown, no comments.
         """;
