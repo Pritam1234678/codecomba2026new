@@ -105,16 +105,21 @@ public class AiProblemGeneratorController {
         }
 
         // ── Pass 1: problem spec (statement + signature + tests) ──────────────
+        // Escalating sampling per attempt: start conservative (normal problems succeed
+        // immediately), then raise temperature / drop the penalty so hard, loop-prone
+        // problems (interactive ones the model must reframe) get more diversity to escape
+        // the repetition loop that truncates their JSON.
+        double[][] pass1Sampling = { {0.5, 0.2}, {0.65, 0.1}, {0.8, 0.0}, {0.9, 0.0} };
         Map<String, Object> spec = null;
         Exception pass1Err = null;
-        for (int attempt = 0; attempt < 4 && spec == null; attempt++) {
+        for (int attempt = 0; attempt < pass1Sampling.length && spec == null; attempt++) {
             try {
                 String specRaw = callNim(cfg, List.of(
                     Map.of("role", "system", "content", PASS1_SYSTEM),
                     Map.of("role", "user", "content",
                         "Design the problem spec for: " + query + "\n\n" +
                         "Output ONLY the raw JSON spec object. Start with { and end with }.")
-                ), 6144, 0.4);   // freq penalty: low temp + this avoids repetition loops
+                ), 8192, pass1Sampling[attempt][0], pass1Sampling[attempt][1]);
                 spec = parseJsonObject(specRaw);
             } catch (Exception e) {
                 pass1Err = e;
@@ -152,9 +157,12 @@ public class AiProblemGeneratorController {
         }
 
         // ── Pass 2: all five harnesses in one delimited response ──────────────
+        // Harnesses repeat by nature, so NO frequency penalty (it truncates the later
+        // languages). Nudge the temperature up on retry to break any rare loop.
+        double[] pass2Temp = { 0.5, 0.65, 0.8 };
         Map<String, String> snippets = null;
         Exception pass2Err = null;
-        for (int attempt = 0; attempt < 3 && snippets == null; attempt++) {
+        for (int attempt = 0; attempt < pass2Temp.length && snippets == null; attempt++) {
             try {
                 String harnessRaw = callNim(cfg, List.of(
                     Map.of("role", "system", "content", HARNESS_SYSTEM),
@@ -163,7 +171,7 @@ public class AiProblemGeneratorController {
                         "Output all five harnesses. Before each one put a line exactly like " +
                         "===HARNESS:JAVA=== (then CPP, PYTHON, JAVASCRIPT, C). Raw source only, " +
                         "no markdown fences, no commentary.")
-                ), 8192, 0.0);   // NO freq penalty: harnesses repeat by nature; a penalty truncates later langs
+                ), 8192, pass2Temp[attempt], 0.0);
                 Map<String, String> parsed = splitHarnesses(harnessRaw);
                 if (parsed.keySet().containsAll(LANGS)) {
                     snippets = parsed;
@@ -192,12 +200,13 @@ public class AiProblemGeneratorController {
     private String callNim(ModelConfig cfg,
                            List<Map<String, Object>> messages,
                            int maxTokens,
+                           double temperature,
                            double frequencyPenalty) throws Exception {
         Map<String, Object> payload = new HashMap<>();
         payload.put("model",             cfg.modelId());
         payload.put("messages",          messages);
         payload.put("max_tokens",        maxTokens);
-        payload.put("temperature",       0.55);   // moderate: low temp makes Kimi loop (finish_reason=repetition)
+        payload.put("temperature",       temperature);
         payload.put("top_p",             0.95);
         payload.put("frequency_penalty", frequencyPenalty);
         payload.put("stream",            false);
@@ -381,6 +390,17 @@ public class AiProblemGeneratorController {
         The user gives EITHER a LeetCode problem (name or number) OR a custom problem
         described in their own words (possibly a story). Produce ONE raw JSON object —
         the problem spec — and NOTHING else.
+
+        REFRAMING (critical — read first):
+        The judge runs exactly ONE pure function: array/scalar inputs in, one concrete value
+        out. If the requested problem is interactive or class/API-based (e.g. "Robot Room
+        Cleaner", an iterator, a data-structure to implement, a design problem), or otherwise
+        has no direct input→output, you MUST REFRAME it into an equivalent pure function:
+        pass the hidden state as explicit inputs (e.g. the grid as int[][], start as int row
+        and int col) and return a concrete value (e.g. the number of cells cleaned, or the
+        resulting grid). Never use a parameter whose type is a custom object — only the
+        allowed types below. Keep "description" concise (about 60-120 words) and matching the
+        reframed pure-function version. Do NOT ramble or repeat sentences.
 
         Shape:
         {
