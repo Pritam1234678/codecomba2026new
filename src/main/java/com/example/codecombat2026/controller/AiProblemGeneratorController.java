@@ -8,31 +8,39 @@ import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
- * AI problem generator — MULTI-PASS design.
+ * AI problem generator — TWO-PASS design.
  *
- * The old single-call approach asked the model to emit the whole problem PLUS all
- * five language harnesses inside one JSON object. On NVIDIA NIM that output blew
- * past the token budget and got truncated → "invalid JSON / unexpected end-of-input".
- * Embedding code inside JSON also made escaping fragile.
+ * Pass 1 — the model returns the problem spec: statement + function signature + a
+ *          Python reference solution + 6 test INPUTS (small JSON output).
+ * Verify — the reference solution is EXECUTED locally (python3) against each input to
+ *          compute the true expected values. LLMs are good at writing a solution but
+ *          unreliable at hand-computing outputs (especially negatives / large numbers),
+ *          so we never trust the model's arithmetic — we run real code.
+ * Pass 2 — a SINGLE call returns all five language harnesses as RAW delimited text
+ *          (each block prefixed by ===HARNESS:<LANG>===), embedding the VERIFIED test
+ *          values. Raw text → no JSON escaping; one call → friendly to NVIDIA NIM's
+ *          rate limit (the old per-language design fired 6 calls and tripped 429s).
  *
- * New flow:
- *   Pass 1  — AI returns ONLY the problem spec: statement + function signature +
- *             6 canonical test cases as STRUCTURED data (small JSON, expected values
- *             computed once).
- *   Pass 2..6 — one call PER language, each returns RAW harness source (not wrapped
- *             in JSON, so no escaping issues), embedding the SAME test values.
+ * Sampling is tuned to avoid Kimi's repetition loops: a low temperature (0.2) makes
+ * the model degenerate into repeated tokens (finish_reason=repetition → truncated
+ * JSON), so we use a moderate temperature plus a frequency penalty. Both passes retry
+ * on incomplete output, and the HTTP helper backs off on 429.
  *
- * Every individual response is small → no truncation. Test values are computed a
- * single time in pass 1 → all five harnesses stay consistent. Works for custom
- * story-line problems too, not just LeetCode.
+ * Works for custom story-line problems too, not just LeetCode names/numbers.
  */
 @RestController
 @RequestMapping("/api/admin/problems")
@@ -49,10 +57,10 @@ public class AiProblemGeneratorController {
     private static final String MODEL_KIMI     = "moonshotai/kimi-k2.6";
     private static final String MODEL_DEEPSEEK = "deepseek-ai/deepseek-v4-pro";
 
-    // Frontend expects snippets keyed in this exact order.
+    // Frontend consumes snippets keyed by these names.
     private static final List<String> LANGS = List.of("JAVA", "CPP", "PYTHON", "JAVASCRIPT", "C");
 
-    // 20-minute read timeout — up to 6 sequential AI calls.
+    // 20-minute read timeout — a couple of large AI passes plus retries.
     private final RestTemplate restTemplate = createRestTemplate();
     private static RestTemplate createRestTemplate() {
         SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
@@ -97,18 +105,16 @@ public class AiProblemGeneratorController {
         }
 
         // ── Pass 1: problem spec (statement + signature + tests) ──────────────
-        // Retry: the model occasionally degenerates (finish_reason repetition/length)
-        // and yields truncated JSON; a fresh attempt almost always succeeds.
         Map<String, Object> spec = null;
         Exception pass1Err = null;
-        for (int attempt = 0; attempt < 3 && spec == null; attempt++) {
+        for (int attempt = 0; attempt < 4 && spec == null; attempt++) {
             try {
                 String specRaw = callNim(cfg, List.of(
                     Map.of("role", "system", "content", PASS1_SYSTEM),
                     Map.of("role", "user", "content",
                         "Design the problem spec for: " + query + "\n\n" +
                         "Output ONLY the raw JSON spec object. Start with { and end with }.")
-                ), 6144);
+                ), 6144, 0.4);   // freq penalty: low temp + this avoids repetition loops
                 spec = parseJsonObject(specRaw);
             } catch (Exception e) {
                 pass1Err = e;
@@ -129,7 +135,10 @@ public class AiProblemGeneratorController {
                 .body(Map.of("error", "AI pass 1 returned an incomplete spec (missing problem/signature/tests)."));
         }
 
-        // Compact spec string fed to every harness call so all languages share data.
+        // ── Verify: run the reference solution to compute true expected values ──
+        verifyExpectedValues(spec);
+
+        // Compact spec string fed to the harness pass so all languages share data.
         String specForHarness;
         try {
             Map<String, Object> slim = new LinkedHashMap<>();
@@ -142,15 +151,33 @@ public class AiProblemGeneratorController {
                 .body(Map.of("error", "Could not serialize spec for harness generation: " + e.getMessage()));
         }
 
-        // ── Pass 2..6: one harness per language ───────────────────────────────
-        Map<String, String> snippets = new LinkedHashMap<>();
-        for (String lang : LANGS) {
+        // ── Pass 2: all five harnesses in one delimited response ──────────────
+        Map<String, String> snippets = null;
+        Exception pass2Err = null;
+        for (int attempt = 0; attempt < 3 && snippets == null; attempt++) {
             try {
-                snippets.put(lang, generateHarness(cfg, lang, specForHarness));
+                String harnessRaw = callNim(cfg, List.of(
+                    Map.of("role", "system", "content", HARNESS_SYSTEM),
+                    Map.of("role", "user", "content",
+                        "Spec:\n" + specForHarness + "\n\n" +
+                        "Output all five harnesses. Before each one put a line exactly like " +
+                        "===HARNESS:JAVA=== (then CPP, PYTHON, JAVASCRIPT, C). Raw source only, " +
+                        "no markdown fences, no commentary.")
+                ), 8192, 0.0);   // NO freq penalty: harnesses repeat by nature; a penalty truncates later langs
+                Map<String, String> parsed = splitHarnesses(harnessRaw);
+                if (parsed.keySet().containsAll(LANGS)) {
+                    snippets = parsed;
+                } else {
+                    pass2Err = new RuntimeException("missing languages: only got " + parsed.keySet());
+                }
             } catch (Exception e) {
-                return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(Map.of("error", "AI failed generating the " + lang + " harness: " + e.getMessage()));
+                pass2Err = e;
             }
+        }
+        if (snippets == null) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of("error", "AI failed (pass 2 — harnesses): "
+                    + (pass2Err == null ? "unknown" : pass2Err.getMessage())));
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
@@ -159,49 +186,42 @@ public class AiProblemGeneratorController {
         return ResponseEntity.ok(result);
     }
 
-    // ─── Per-language harness call (with one retry) ───────────────────────────
-
-    private String generateHarness(ModelConfig cfg, String lang, String specJson) throws Exception {
-        String system = harnessSystem(lang);
-        String user   = "Spec:\n" + specJson + "\n\nOutput ONLY the raw " + lang +
-                        " harness source code. No markdown fences, no explanation.";
-        Exception last = null;
-        for (int attempt = 0; attempt < 2; attempt++) {
-            try {
-                String code = callNim(cfg, List.of(
-                    Map.of("role", "system", "content", system),
-                    Map.of("role", "user",   "content", user)
-                ), 4096);
-                return stripCodeFences(code);
-            } catch (Exception e) {
-                last = e;
-            }
-        }
-        throw last;
-    }
-
-    // ─── NVIDIA NIM HTTP helper ───────────────────────────────────────────────
+    // ─── NVIDIA NIM HTTP helper (with 429 backoff) ────────────────────────────
 
     @SuppressWarnings("unchecked")
     private String callNim(ModelConfig cfg,
                            List<Map<String, Object>> messages,
-                           int maxTokens) throws Exception {
+                           int maxTokens,
+                           double frequencyPenalty) throws Exception {
         Map<String, Object> payload = new HashMap<>();
-        payload.put("model",       cfg.modelId());
-        payload.put("messages",    messages);
-        payload.put("max_tokens",  maxTokens);
-        payload.put("temperature", 0.2);
-        payload.put("top_p",       0.9);
-        payload.put("stream",      false);
+        payload.put("model",             cfg.modelId());
+        payload.put("messages",          messages);
+        payload.put("max_tokens",        maxTokens);
+        payload.put("temperature",       0.55);   // moderate: low temp makes Kimi loop (finish_reason=repetition)
+        payload.put("top_p",             0.95);
+        payload.put("frequency_penalty", frequencyPenalty);
+        payload.put("stream",            false);
         payload.putAll(cfg.extra());
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.setBearerAuth(cfg.apiKey());
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
-        ResponseEntity<Map> response = restTemplate.exchange(
-            NVIDIA_API_URL, HttpMethod.POST,
-            new HttpEntity<>(payload, headers), Map.class);
+        ResponseEntity<Map> response = null;
+        for (int attempt = 0; attempt < 4; attempt++) {
+            try {
+                response = restTemplate.exchange(NVIDIA_API_URL, HttpMethod.POST, entity, Map.class);
+                break;
+            } catch (HttpStatusCodeException ex) {
+                if (ex.getStatusCode().value() == 429 && attempt < 3) {
+                    Thread.sleep(8000L * (attempt + 1));   // 8s, 16s, 24s backoff
+                    continue;
+                }
+                throw ex;
+            }
+        }
+        if (response == null) throw new RuntimeException("rate-limited (429) after retries");
 
         Map body = response.getBody();
         if (body == null) throw new RuntimeException("Empty response from AI");
@@ -215,11 +235,79 @@ public class AiProblemGeneratorController {
         if (content == null || content.isBlank()) throw new RuntimeException("Empty content from AI");
 
         // "length" = hit token cap; "repetition" = NIM cut a degenerate loop.
-        // Both leave the JSON / code incomplete, so treat them as retryable failures.
+        // Both leave the output incomplete, so treat them as retryable failures.
         if ("length".equals(finishReason) || "repetition".equals(finishReason)) {
             throw new RuntimeException("model output was incomplete (finish_reason=" + finishReason + ")");
         }
         return content;
+    }
+
+    // ─── Reference-solution execution (computes TRUE expected values) ─────────
+
+    /**
+     * Runs the Pass-1 Python reference solution against every test's args and
+     * overwrites each test's "expected" with the executed result. The model is
+     * reliable at WRITING a solution but not at hand-computing outputs, so we never
+     * trust its arithmetic. On any failure we silently keep the model's expected
+     * values as a fallback (generation still works, just less verified).
+     */
+    @SuppressWarnings("unchecked")
+    private void verifyExpectedValues(Map<String, Object> spec) {
+        Path tmp = null;
+        try {
+            Object refObj = spec.get("referenceSolutionPython");
+            if (!(refObj instanceof String ref) || ref.isBlank()) return;
+            ref = stripCodeFences(ref);
+
+            Map<String, Object> sig = (Map<String, Object>) spec.get("signature");
+            String fname = sig == null ? null : (String) sig.get("name");
+            if (fname == null || fname.isBlank()) return;
+
+            List<Map<String, Object>> tests = (List<Map<String, Object>>) spec.get("tests");
+            if (tests == null || tests.isEmpty()) return;
+
+            List<Object> argsList = new ArrayList<>();
+            for (Map<String, Object> t : tests) argsList.add(t.get("args"));
+            String argsJson = objectMapper.writeValueAsString(argsList);
+
+            // Driver: define the reference fn, then print one OK:/ERR: line per test.
+            String driver = ref
+                + "\n\nimport json as _json\n"
+                + "_tests = " + argsJson + "\n"
+                + "for _t in _tests:\n"
+                + "    try:\n"
+                + "        _r = " + fname + "(**_t)\n"
+                + "        print('OK:' + _json.dumps(_r))\n"
+                + "    except Exception as _e:\n"
+                + "        print('ERR:' + str(_e))\n";
+
+            tmp = Files.createTempFile("ccref", ".py");
+            Files.writeString(tmp, driver);
+
+            Process p = new ProcessBuilder("python3", tmp.toString()).start();
+            boolean done = p.waitFor(15, TimeUnit.SECONDS);
+            if (!done) { p.destroyForcibly(); return; }
+            String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+
+            int idx = 0;
+            for (String line : out.split("\\r?\\n")) {
+                if (idx >= tests.size()) break;
+                line = line.trim();
+                if (line.startsWith("OK:")) {
+                    try {
+                        Object val = objectMapper.readValue(line.substring(3), Object.class);
+                        tests.get(idx).put("expected", val);
+                    } catch (Exception ignore) { /* keep model value */ }
+                    idx++;
+                } else if (line.startsWith("ERR:")) {
+                    idx++;   // keep model's expected for this one
+                }
+            }
+        } catch (Exception ignored) {
+            // fall back entirely to model-provided expected values
+        } finally {
+            if (tmp != null) { try { Files.deleteIfExists(tmp); } catch (Exception ignore) {} }
+        }
     }
 
     // ─── Parsing helpers ──────────────────────────────────────────────────────
@@ -247,6 +335,31 @@ public class AiProblemGeneratorController {
             }
         }
         return text.substring(start);
+    }
+
+    /** Split a delimited multi-harness response into {LANG -> code}. */
+    private Map<String, String> splitHarnesses(String raw) {
+        Map<String, String> out = new LinkedHashMap<>();
+        // Match a header line: ===HARNESS:JAVA=== (tolerate spaces / case).
+        String[] parts = raw.split("(?im)^\\s*=+\\s*HARNESS\\s*:\\s*");
+        for (String part : parts) {
+            String t = part.stripLeading();
+            int nl = t.indexOf('\n');
+            if (nl < 0) continue;
+            String header = t.substring(0, nl).replace("=", "").trim().toUpperCase();
+            String lang = switch (header) {
+                case "JAVA" -> "JAVA";
+                case "CPP", "C++" -> "CPP";
+                case "PYTHON", "PY" -> "PYTHON";
+                case "JAVASCRIPT", "JS", "NODE" -> "JAVASCRIPT";
+                case "C" -> "C";
+                default -> null;
+            };
+            if (lang == null || out.containsKey(lang)) continue;
+            String code = stripCodeFences(t.substring(nl + 1));
+            if (!code.isBlank()) out.put(lang, code);
+        }
+        return out;
     }
 
     /** Remove ```lang fences / stray markdown around raw code. */
@@ -289,6 +402,7 @@ public class AiProblemGeneratorController {
             "returnType": "<type>",
             "params": [ { "name": "paramName", "type": "<type>" } ]
           },
+          "referenceSolutionPython": "def camelCaseFunctionName(paramName, ...):\\n    ...correct solution...\\n    return answer",
           "tests": [
             { "args": { "paramName": <value> }, "expected": <value>, "hidden": false },
             ... EXACTLY 6 entries: the first 4 have hidden=false, the last 2 have hidden=true
@@ -298,149 +412,127 @@ public class AiProblemGeneratorController {
         Allowed <type> values ONLY: int, long, double, boolean, String, char,
         int[], long[], double[], boolean[], String[], int[][].
 
-        CORRECTNESS RULES (most important):
-        • Mentally SOLVE the problem and compute every "expected" by hand, then re-check each one.
-        • Each "expected" must follow ONLY from that test's own "args". NEVER use a number or
-          element that does not appear in / derive from that test's input.
+        THE REFERENCE SOLUTION IS THE MOST IMPORTANT FIELD:
+        • "referenceSolutionPython" must be a CORRECT, complete Python function named EXACTLY
+          signature.name, taking parameters named EXACTLY the signature param names, and
+          RETURNING the answer (do not print anything).
+        • It will be EXECUTED to compute the real expected values, so it must actually work.
+          Standard library imports (collections, heapq, math, bisect, itertools) are allowed —
+          put any import lines at the top of the string.
+        • Use JSON-friendly return types: int, float, bool, str, or lists of those. For index
+          answers return a list like [i, j].
+
+        TEST INPUT RULES:
         • "args" keys must EXACTLY equal the param names declared in "signature".
-        • Values are JSON literals: arrays like [1,2,3], strings like "abc", booleans true/false.
-
-        TEST VALIDITY (this is where mistakes happen — be strict):
-        • Every test input MUST be legal under the problem's own rules AND have a well-defined
-          answer. If the statement guarantees "exactly one solution exists", every input you
-          create MUST genuinely have one. If no valid answer exists for an input, CHANGE the input.
-        • Never fabricate an answer for an impossible input. Example: Two Sum needs two DISTINCT
-          indices — do NOT output [0,0] for a single-element array; pick inputs that truly contain
-          a valid pair.
-        • Respect the stated constraints (length ranges, value ranges, uniqueness). Do not create
-          inputs the constraints forbid (e.g. an empty array when length >= 2 is required).
-        • Pick 6 meaningful tests covering valid edge cases (smallest legal size, all-equal,
-          negatives, maximum) — but only edges that are actually permitted by the constraints.
-        • After writing each test, re-solve it from scratch and confirm "expected" matches. If it
-          does not, fix "expected" or the input before moving on.
-
-        FORMATTING FOR THE JUDGE:
-        • Keep expected values free of ':' characters (the judge splits output on colons).
-        • For array/string answers, expected stays a JSON array/string — the harness formats it.
+        • Every test input MUST be legal under the problem's rules and have a well-defined answer.
+          If the statement guarantees "exactly one solution exists", every input must genuinely
+          have one. Respect stated constraints (length/value ranges, uniqueness). Do not create
+          inputs the constraints forbid (e.g. a single-element array when two distinct indices
+          are required).
+        • Choose 6 meaningful inputs incl. valid edge cases (smallest legal size, all-equal,
+          negatives, maximum) — only edges the constraints actually permit.
+        • Still fill each "expected" with your best hand-computed answer (used only as a fallback
+          if execution fails), but the executed reference solution is the source of truth.
 
         OUTPUT: only the JSON object. First character {, last character }. No markdown, no comments.
         """;
 
-    /** Per-language harness system prompt = shared contract + a worked anchor example. */
-    private String harnessSystem(String lang) {
-        String contract = """
-            You generate ONE complete %LANG% test-harness file for the CodeCombat 2026 judge.
-            INPUT: a JSON spec containing the function `signature` and `tests` (each test has
-            args, expected, hidden). OUTPUT: ONLY the raw %LANG% source code — no markdown
-            fences, no JSON, no commentary.
+    private static final String HARNESS_SYSTEM = """
+        You generate the five CodeCombat 2026 judge harnesses (JAVA, CPP, PYTHON, JAVASCRIPT, C)
+        for a given problem spec. INPUT: a JSON spec with the function `signature` and `tests`
+        (each test has args, expected, hidden). OUTPUT: raw source code only.
 
-            Harness contract:
-            • One self-contained, runnable file. NO stdin (no Scanner/cin/scanf/input()/readFileSync).
-              Hardcode the test data taken from the spec.
-            • Wrap ONLY the solution stub with the markers (Python/C-style comments shown below). The
-              stub is the `signature` function with an empty body returning a default value — this is
-              the part the user will replace.
-            • A test(...) helper is called once per spec test, numbered 1..6 in spec order, receiving
-              the hidden flag. Each test prints EXACTLY one line:
-                 visible pass:  TC:<n>:PASS
-                 hidden  pass:  TC:<n>:PASS:hidden
-                 visible fail:  TC:<n>:FAIL:input=<args repr>:expected=<exp>:got=<got>
-                 hidden  fail:  TC:<n>:FAIL:hidden
-            • Compare scalars with ==; compare arrays element-wise. Hidden tests must NEVER print
-              input/expected/got. Compact code, minimal blank lines.
+        Emit the harnesses in this order, each preceded by its own header line EXACTLY:
+        ===HARNESS:JAVA===
+        ===HARNESS:CPP===
+        ===HARNESS:PYTHON===
+        ===HARNESS:JAVASCRIPT===
+        ===HARNESS:C===
+        No markdown fences, no prose — just the header lines and the code.
 
-            Match the structure of this worked example exactly (adapt names, types and values to the spec):
-            """.replace("%LANG%", lang);
-        return contract + "\n" + harnessExample(lang);
-    }
+        Harness contract (identical across languages):
+        • One self-contained, runnable file. NO stdin (no Scanner/cin/scanf/input()/readFileSync).
+          Hardcode the test data from the spec.
+        • Wrap ONLY the solution stub with the markers (// USER_CODE_START / // USER_CODE_END;
+          Python uses # ). The stub is the `signature` function with an empty body returning a
+          default — this is the part the user replaces.
+        • A test(...) helper is called once per spec test, numbered 1..6 in spec order, receiving
+          the hidden flag. Each test prints EXACTLY one line:
+             visible pass:  TC:<n>:PASS
+             hidden  pass:  TC:<n>:PASS:hidden
+             visible fail:  TC:<n>:FAIL:input=<args repr>:expected=<exp>:got=<got>
+             hidden  fail:  TC:<n>:FAIL:hidden
+        • Compare scalars with ==; compare arrays element-wise. Hidden tests must NEVER print
+          input/expected/got. Keep the printed input/expected/got free of ':' characters.
 
-    /** Worked anchor example per language (int return, int[] param — adapt to real signature). */
-    private String harnessExample(String lang) {
-        return switch (lang) {
-            case "JAVA" -> """
-                import java.util.*;
-                public class Main {
-                    // USER_CODE_START
-                    public static int solve(int[] arr) { return 0; }
-                    // USER_CODE_END
-                    static void test(int[] arr, int expected, int tc, boolean hidden) {
-                        int got = solve(arr);
-                        if (got == expected) System.out.println("TC:" + tc + ":PASS" + (hidden ? ":hidden" : ""));
-                        else if (hidden) System.out.println("TC:" + tc + ":FAIL:hidden");
-                        else System.out.println("TC:" + tc + ":FAIL:input=" + Arrays.toString(arr) + ":expected=" + expected + ":got=" + got);
-                    }
-                    public static void main(String[] a) {
-                        test(new int[]{1,2,3}, 6, 1, false);
-                        test(new int[]{5}, 5, 2, false);
-                        // ...4 visible then 2 hidden (hidden=true)
-                    }
-                }
-                """;
-            case "CPP" -> """
-                #include <bits/stdc++.h>
-                using namespace std;
-                // USER_CODE_START
-                int solve(vector<int>& arr) { return 0; }
-                // USER_CODE_END
-                void test(vector<int> arr, int expected, int tc, bool hidden=false) {
-                    int got = solve(arr);
-                    if (got == expected) cout << "TC:" << tc << ":PASS" << (hidden ? ":hidden" : "") << "\\n";
-                    else if (hidden) cout << "TC:" << tc << ":FAIL:hidden\\n";
-                    else { cout << "TC:" << tc << ":FAIL:input=["; for (size_t i=0;i<arr.size();i++){ if(i) cout<<","; cout<<arr[i]; } cout << "]:expected=" << expected << ":got=" << got << "\\n"; }
-                }
-                int main() {
-                    test({1,2,3}, 6, 1);
-                    test({5}, 5, 2);
-                    return 0;
-                }
-                """;
-            case "C" -> """
-                #include <stdio.h>
-                // USER_CODE_START
-                int solve(int* arr, int n) { return 0; }
-                // USER_CODE_END
-                void test(int* arr, int n, int expected, int tc, int hidden) {
-                    int got = solve(arr, n);
-                    if (got == expected) { if (hidden) printf("TC:%d:PASS:hidden\\n", tc); else printf("TC:%d:PASS\\n", tc); }
-                    else if (hidden) printf("TC:%d:FAIL:hidden\\n", tc);
-                    else { printf("TC:%d:FAIL:input=[", tc); for (int i=0;i<n;i++){ if(i) printf(","); printf("%d", arr[i]); } printf("]:expected=%d:got=%d\\n", expected, got); }
-                }
-                int main() {
-                    int t1[]={1,2,3}; test(t1, 3, 6, 1, 0);
-                    int t2[]={5};     test(t2, 1, 5, 2, 0);
-                    return 0;
-                }
-                """;
-            case "PYTHON" -> """
-                # USER_CODE_START
-                def solve(arr):
-                    return 0
-                # USER_CODE_END
-                def test(arr, expected, tc, hidden=False):
-                    got = solve(arr)
-                    if got == expected:
-                        print(f"TC:{tc}:PASS" + (":hidden" if hidden else ""))
-                    elif hidden:
-                        print(f"TC:{tc}:FAIL:hidden")
-                    else:
-                        print(f"TC:{tc}:FAIL:input={arr}:expected={expected}:got={got}")
-                test([1,2,3], 6, 1)
-                test([5], 5, 2)
-                """;
-            case "JAVASCRIPT" -> """
-                // USER_CODE_START
-                function solve(arr) { return 0; }
-                // USER_CODE_END
-                function test(arr, expected, tc, hidden = false) {
-                    const got = solve(arr);
-                    if (got === expected) console.log(`TC:${tc}:PASS` + (hidden ? ':hidden' : ''));
-                    else if (hidden) console.log(`TC:${tc}:FAIL:hidden`);
-                    else console.log(`TC:${tc}:FAIL:input=[${arr}]:expected=${expected}:got=${got}`);
-                }
-                test([1,2,3], 6, 1);
-                test([5], 5, 2);
-                """;
-            default -> "";
-        };
-    }
+        Java class MUST be named Main. Match the structure of these worked examples (adapt names,
+        types and values to the spec):
+
+        ===HARNESS:JAVA===
+        import java.util.*;
+        public class Main {
+            // USER_CODE_START
+            public static int solve(int[] arr) { return 0; }
+            // USER_CODE_END
+            static void test(int[] arr, int expected, int tc, boolean hidden) {
+                int got = solve(arr);
+                if (got == expected) System.out.println("TC:" + tc + ":PASS" + (hidden ? ":hidden" : ""));
+                else if (hidden) System.out.println("TC:" + tc + ":FAIL:hidden");
+                else System.out.println("TC:" + tc + ":FAIL:input=" + Arrays.toString(arr) + ":expected=" + expected + ":got=" + got);
+            }
+            public static void main(String[] a) {
+                test(new int[]{1,2,3}, 6, 1, false);
+                test(new int[]{5}, 5, 2, false);
+            }
+        }
+        ===HARNESS:CPP===
+        #include <bits/stdc++.h>
+        using namespace std;
+        // USER_CODE_START
+        int solve(vector<int>& arr) { return 0; }
+        // USER_CODE_END
+        void test(vector<int> arr, int expected, int tc, bool hidden=false) {
+            int got = solve(arr);
+            if (got == expected) cout << "TC:" << tc << ":PASS" << (hidden ? ":hidden" : "") << "\\n";
+            else if (hidden) cout << "TC:" << tc << ":FAIL:hidden\\n";
+            else { cout << "TC:" << tc << ":FAIL:input=["; for (size_t i=0;i<arr.size();i++){ if(i) cout<<","; cout<<arr[i]; } cout << "]:expected=" << expected << ":got=" << got << "\\n"; }
+        }
+        int main(){ test({1,2,3},6,1); test({5},5,2); return 0; }
+        ===HARNESS:PYTHON===
+        # USER_CODE_START
+        def solve(arr):
+            return 0
+        # USER_CODE_END
+        def test(arr, expected, tc, hidden=False):
+            got = solve(arr)
+            if got == expected: print(f"TC:{tc}:PASS" + (":hidden" if hidden else ""))
+            elif hidden: print(f"TC:{tc}:FAIL:hidden")
+            else: print(f"TC:{tc}:FAIL:input={arr}:expected={expected}:got={got}")
+        test([1,2,3], 6, 1)
+        test([5], 5, 2)
+        ===HARNESS:JAVASCRIPT===
+        // USER_CODE_START
+        function solve(arr) { return 0; }
+        // USER_CODE_END
+        function test(arr, expected, tc, hidden = false) {
+            const got = solve(arr);
+            if (got === expected) console.log(`TC:${tc}:PASS` + (hidden ? ':hidden' : ''));
+            else if (hidden) console.log(`TC:${tc}:FAIL:hidden`);
+            else console.log(`TC:${tc}:FAIL:input=[${arr}]:expected=${expected}:got=${got}`);
+        }
+        test([1,2,3], 6, 1);
+        test([5], 5, 2);
+        ===HARNESS:C===
+        #include <stdio.h>
+        // USER_CODE_START
+        int solve(int* arr, int n) { return 0; }
+        // USER_CODE_END
+        void test(int* arr, int n, int expected, int tc, int hidden) {
+            int got = solve(arr, n);
+            if (got == expected) { if (hidden) printf("TC:%d:PASS:hidden\\n", tc); else printf("TC:%d:PASS\\n", tc); }
+            else if (hidden) printf("TC:%d:FAIL:hidden\\n", tc);
+            else { printf("TC:%d:FAIL:input=[", tc); for (int i=0;i<n;i++){ if(i) printf(","); printf("%d", arr[i]); } printf("]:expected=%d:got=%d\\n", expected, got); }
+        }
+        int main(){ int t1[]={1,2,3}; test(t1,3,6,1,0); int t2[]={5}; test(t2,1,5,2,0); return 0; }
+        """;
 }
