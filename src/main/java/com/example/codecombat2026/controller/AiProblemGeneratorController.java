@@ -135,8 +135,16 @@ public class AiProblemGeneratorController {
         List<Map> choices = (List<Map>) body.get("choices");
         if (choices == null || choices.isEmpty()) throw new RuntimeException("No choices in AI response");
 
-        String content = (String) ((Map) choices.get(0).get("message")).get("content");
+        Map choice = choices.get(0);
+        String finishReason = (String) choice.get("finish_reason");
+        String content = (String) ((Map) choice.get("message")).get("content");
         if (content == null || content.isBlank()) throw new RuntimeException("Empty content from AI");
+
+        if ("length".equals(finishReason)) {
+            throw new RuntimeException(
+                "Output truncated: model hit its token limit on NVIDIA NIM. " +
+                "The JSON is incomplete. Try DeepSeek model or simplify the problem name.");
+        }
         return content;
     }
 
@@ -169,8 +177,10 @@ public class AiProblemGeneratorController {
     private static String loadSystemPrompt() {
         String guide;
         try {
-            var res = new ClassPathResource("PROBLEM_GUIDE.md");
-            guide = new String(res.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            ClassPathResource guideRes = new ClassPathResource("PROBLEM_GUIDE.md");
+            String raw = new String(guideRes.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            // Strip blank lines to reduce token count (Kimi K2.6 has tight output budget on NVIDIA NIM)
+            guide = String.join("\n", raw.lines().filter(l -> !l.isBlank()).toArray(String[]::new));
         } catch (Exception e) {
             guide = "(guide missing — follow CodeCombat harness conventions)";
         }

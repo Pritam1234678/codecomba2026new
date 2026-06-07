@@ -51,7 +51,7 @@ export default function AddProblem() {
     // ── AI panel state ────────────────────────────────────────────────────────
     const [aiOpen,    setAiOpen]    = useState(false);
     const [aiQuery,   setAiQuery]   = useState('');
-    const [aiModel, setAiModel] = useState('kimi'); // 'kimi' | 'qwen' | 'deepseek'
+    const [aiModel, setAiModel] = useState('kimi'); // 'kimi' | 'deepseek'
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError,   setAiError]   = useState('');
     const [aiStatus,  setAiStatus]  = useState('');
@@ -618,7 +618,7 @@ export default function AddProblem() {
                                         <span className="material-symbols-outlined" style={{ fontSize: '22px', color: C.secondary }}>auto_awesome</span>
                                         <div>
                                             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.secondary, textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
-                                                {aiModel === 'deepseek' ? 'DeepSeek V4 Pro · NVIDIA NIM' : aiModel === 'qwen' ? 'Qwen3 Coder · NVIDIA NIM' : 'Kimi K2.6 · NVIDIA NIM'}
+                                                {aiModel === 'deepseek' ? 'DeepSeek V4 Pro · NVIDIA NIM' : 'Kimi K2.6 · NVIDIA NIM'}
                                             </span>
                                             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', fontWeight: 600, color: C.onBg, margin: 0 }}>
                                                 AI Problem Generator
@@ -650,7 +650,6 @@ export default function AddProblem() {
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                         {[
                                             { id: 'kimi',     label: 'Kimi K2.6',        sub: 'moonshotai · fast' },
-                                            { id: 'qwen',     label: 'Qwen3 Coder',      sub: 'qwen · may timeout' },
                                             { id: 'deepseek', label: 'DeepSeek V4 Pro',  sub: 'deepseek-ai · slow' },
                                         ].map(m => {
                                             const active = aiModel === m.id;
