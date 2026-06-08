@@ -13,19 +13,21 @@ import java.util.List;
 
 @Repository
 public interface SubmissionRepository extends JpaRepository<Submission, Long> {
-    List<Submission> findByUser_Id(Long userId);
+    // Real submissions only — test runs are excluded from all user-facing reads.
+    @Query("SELECT s FROM Submission s WHERE s.user.id = :userId AND s.testRun = false")
+    List<Submission> findByUser_Id(@Param("userId") Long userId);
 
     /**
      * Fetch only the N most recent submissions for a user — avoids loading
      * hundreds of rows just to show the dashboard table.
      */
-    @Query("SELECT s FROM Submission s WHERE s.user.id = :userId ORDER BY s.submittedAt DESC")
+    @Query("SELECT s FROM Submission s WHERE s.user.id = :userId AND s.testRun = false ORDER BY s.submittedAt DESC")
     List<Submission> findRecentByUserId(@Param("userId") Long userId,
                                         org.springframework.data.domain.Pageable pageable);
 
     List<Submission> findByContest_Id(Long contestId);
 
-    @Query("SELECT s FROM Submission s JOIN FETCH s.user WHERE s.contest.id = :contestId")
+    @Query("SELECT s FROM Submission s JOIN FETCH s.user WHERE s.contest.id = :contestId AND s.testRun = false")
     List<Submission> findByContestIdWithUser(@Param("contestId") Long contestId);
 
     List<Submission> findByProblem_Id(Long problemId);
@@ -51,6 +53,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     @Query("SELECT s FROM Submission s " +
            "WHERE s.user.id = :userId " +
            "AND s.contest.id = :contestId " +
+           "AND s.testRun = false " +
            "AND s.submittedAt BETWEEN :start AND :end " +
            "ORDER BY s.submittedAt ASC")
     List<Submission> findByUser_IdAndContest_IdAndSubmittedAtBetween(
@@ -64,7 +67,7 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
      * Uses ORDER BY submittedAt DESC + LIMIT 1 to avoid NonUniqueResultException
      * when multiple test-run submissions exist for the same user+problem.
      */
-    @Query("SELECT s FROM Submission s WHERE s.user.id = :userId AND s.problem.id = :problemId ORDER BY s.submittedAt DESC")
+    @Query("SELECT s FROM Submission s WHERE s.user.id = :userId AND s.problem.id = :problemId AND s.testRun = false ORDER BY s.submittedAt DESC")
     List<Submission> findByUser_IdAndProblem_IdOrderBySubmittedAtDesc(
         @Param("userId") Long userId,
         @Param("problemId") Long problemId,

@@ -41,7 +41,7 @@ export default function AddProblem() {
 
     const [formData, setFormData] = useState({
         title: '', description: '', inputFormat: '', outputFormat: '',
-        constraints: '', timeLimit: 1000, memoryLimit: 256,
+        constraints: '', timeLimit: 2, memoryLimit: 256,
         example1: '', example2: '', example3: '', images: '',
         active: true, level: 'MEDIUM',
     });
@@ -96,8 +96,8 @@ export default function AddProblem() {
                 inputFormat:  p.inputFormat  || '',
                 outputFormat: p.outputFormat || '',
                 constraints:  p.constraints  || '',
-                // AI returns seconds (5.0); form stores ms
-                timeLimit:    p.timeLimit    ? Math.round(p.timeLimit * 1000) : 5000,
+                // Canonical unit is SECONDS everywhere (form, DB, judge, display).
+                timeLimit:    p.timeLimit    || 2,
                 memoryLimit:  p.memoryLimit  || 256,
                 level:        p.level        || 'MEDIUM',
                 example1:     p.example1     || '',
@@ -362,12 +362,12 @@ export default function AddProblem() {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                         <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>
-                                            Time Limit (ms)
+                                            Time Limit (seconds)
                                         </label>
                                         <input
                                             type="number" name="timeLimit"
                                             value={formData.timeLimit} onChange={handleChange}
-                                            min="100" step="100"
+                                            min="1" max="15" step="1"
                                             style={{ width: '100%', backgroundColor: 'transparent', border: 'none', borderBottom: `1px solid ${C.border}`, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '14px', padding: '8px 0', outline: 'none', boxSizing: 'border-box' }}
                                             onFocus={e => e.target.style.borderBottomColor = C.secondary}
                                             onBlur={e => e.target.style.borderBottomColor = C.border}

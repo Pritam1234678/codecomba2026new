@@ -179,6 +179,7 @@ public class SubmissionService {
         submission.setUserName(user.getUsername());
         submission.setUserRoll(null);
         submission.setProblemName(problem.getTitle());
+        submission.setTestRun(true);   // a "Run" — never counts as a real submission
         submission = submissionRepository.save(submission);
 
         Long contestId = problem.getContest() != null ? problem.getContest().getId() : null;

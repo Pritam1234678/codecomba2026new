@@ -41,7 +41,7 @@ export default function EditProblem() {
 
     const [formData, setFormData] = useState({
         title: '', description: '', inputFormat: '', outputFormat: '',
-        constraints: '', timeLimit: 1000, memoryLimit: 256,
+        constraints: '', timeLimit: 2, memoryLimit: 256,
         example1: '', example2: '', example3: '', images: '', active: true, level: 'MEDIUM'
     });
 
@@ -59,7 +59,7 @@ export default function EditProblem() {
                 const h = { Authorization: `Bearer ${token}` };
                 const res = await axios.get(`${API_URL}/problems/${id}`, { headers: h });
                 const p = res.data;
-                setFormData({ title: p.title || '', description: p.description || '', inputFormat: p.inputFormat || '', outputFormat: p.outputFormat || '', constraints: p.constraints || '', timeLimit: p.timeLimit || 1000, memoryLimit: p.memoryLimit || 256, example1: p.example1 || '', example2: p.example2 || '', example3: p.example3 || '', images: p.images || '', active: p.active !== undefined ? p.active : true, level: p.level || 'MEDIUM' });
+                setFormData({ title: p.title || '', description: p.description || '', inputFormat: p.inputFormat || '', outputFormat: p.outputFormat || '', constraints: p.constraints || '', timeLimit: (p.timeLimit > 100 ? Math.round(p.timeLimit / 1000) : p.timeLimit) || 2, memoryLimit: p.memoryLimit || 256, example1: p.example1 || '', example2: p.example2 || '', example3: p.example3 || '', images: p.images || '', active: p.active !== undefined ? p.active : true, level: p.level || 'MEDIUM' });
                 if (p.contestId) setContestId(p.contestId);
                 try {
                     const sRes = await ProblemService.getSnippetsAdmin(id);
@@ -170,8 +170,8 @@ export default function EditProblem() {
                                 <UField label="Problem Title" name="title" type="text" value={formData.title} onChange={handleChange} required />
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                        <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Time Limit (ms)</label>
-                                        <input type="number" name="timeLimit" value={formData.timeLimit} onChange={handleChange} min="100" step="100"
+                                        <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Time Limit (seconds)</label>
+                                        <input type="number" name="timeLimit" value={formData.timeLimit} onChange={handleChange} min="1" max="15" step="1"
                                             style={{ width: '100%', backgroundColor: 'transparent', border: 'none', borderBottom: `1px solid ${C.border}`, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '14px', padding: '8px 0', outline: 'none', boxSizing: 'border-box' }}
                                             onFocus={e => e.target.style.borderBottomColor = C.secondary} onBlur={e => e.target.style.borderBottomColor = C.border}
                                         />

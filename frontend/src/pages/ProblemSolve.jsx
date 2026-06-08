@@ -193,6 +193,11 @@ const ProblemSolve = () => {
     const [isDraggingH,   setIsDraggingH]   = useState(false);
 
     const sseRef       = useRef(null);
+    // The submission the user is actively waiting on. The SSE stream delivers
+    // EVERY verdict for this user (including stale/previous ones), so we only
+    // render a verdict that matches the in-flight submission — otherwise a Run
+    // could show an old Submit's "Submission saved" footer, and vice-versa.
+    const activeSubRef = useRef(null);
     const dragStartX   = useRef(0);
     const dragStartW   = useRef(0);
     const dragStartY   = useRef(0);
@@ -231,6 +236,11 @@ const ProblemSolve = () => {
                 es.addEventListener('verdict', (e) => {
                     try {
                         const verdict = JSON.parse(e.data);
+                        // Ignore verdicts that aren't for the submission we're waiting on
+                        // (stale/previous verdicts, or another tab's submission).
+                        if (activeSubRef.current != null &&
+                            verdict.submissionId !== activeSubRef.current) return;
+                        activeSubRef.current = null;
                         setSubmitting(false);
                         setRunning(false);
                         setOutput(buildVerdictUI(verdict, verdict.testRun === true));
@@ -271,7 +281,17 @@ const ProblemSolve = () => {
         setSnippets({});
 
         api.get(`/problems/${id}`)
-            .then(res => { setProblem(res.data); setLoading(false); })
+            .then(res => {
+                // timeLimit is canonically SECONDS. Legacy rows may hold ms (e.g. 5000);
+                // normalize so the displayed "Ns" and the poll cap are sane.
+                const p = res.data;
+                if (p && typeof p.timeLimit === 'number') {
+                    let tl = p.timeLimit > 100 ? p.timeLimit / 1000 : p.timeLimit;
+                    p.timeLimit = Math.max(1, Math.min(15, Math.round(tl)));
+                }
+                setProblem(p);
+                setLoading(false);
+            })
             .catch(() => setLoading(false));
 
         ProblemService.getSnippets(id)
@@ -460,6 +480,7 @@ const ProblemSolve = () => {
             .then(res => {
                 const submissionId = res.data?.id;
                 if (submissionId) {
+                    activeSubRef.current = submissionId;
                     pollVerdict(submissionId, true);
                 } else {
                     setRunning(false);
@@ -490,6 +511,7 @@ const ProblemSolve = () => {
             .then(res => {
                 const submissionId = res.data?.id;
                 if (submissionId) {
+                    activeSubRef.current = submissionId;
                     pollVerdict(submissionId, false);
                 } else {
                     setSubmitting(false);
@@ -536,6 +558,7 @@ const ProblemSolve = () => {
                 consecutiveErrors = 0;
                 const done = sub.status !== 'PENDING' && sub.status !== 'JUDGING';
                 if (done) {
+                    if (activeSubRef.current === submissionId) activeSubRef.current = null;
                     setSubmitting(false);
                     setRunning(false);
                     setOutput(buildVerdictUI({ ...sub, testRun: isTestRun }, isTestRun));

@@ -79,6 +79,13 @@ public class Submission {
     @Column(name = "problem_name")
     private String problemName;
 
+    // true = a "Run" / test-run row, NOT a real submission. Persisted so the
+    // polling fallback (/submissions/{id}/status) can read the verdict by id,
+    // but excluded from dashboards, the latest-submission lookup, and the
+    // leaderboard. Real submissions are false.
+    @Column(name = "is_test_run", nullable = false)
+    private boolean testRun = false;
+
     // Helper methods to expose IDs for JSON serialization without loading lazy
     // entities
     public Long getUserId() {

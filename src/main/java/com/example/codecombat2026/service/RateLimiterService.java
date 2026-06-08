@@ -34,25 +34,36 @@ public class RateLimiterService {
 
     private static final int MAX_SUBMISSIONS = 5;
     private static final int WINDOW_SECONDS  = 30;
+    // "Run" (test run) is used iteratively while coding, so a higher ceiling —
+    // but still bounded so a user can't flood the judge queue by holding Run.
+    private static final int MAX_TEST_RUNS   = 15;
 
-    /** Local fallback window-bucket: userId → (windowStartMs, count). */
-    private final ConcurrentHashMap<Long, LocalBucket> localBuckets = new ConcurrentHashMap<>();
+    /** Local fallback window-bucket: rate-limit key → (windowStartMs, count). */
+    private final ConcurrentHashMap<String, LocalBucket> localBuckets = new ConcurrentHashMap<>();
 
     /**
      * Returns true if the user is allowed to submit, false if rate-limited.
      */
     public boolean allowSubmission(Long userId) {
+        return allow("ratelimit:submit:" + userId, MAX_SUBMISSIONS, userId);
+    }
+
+    /** Returns true if the user may start another "Run" (test run). */
+    public boolean allowTestRun(Long userId) {
+        return allow("ratelimit:testrun:" + userId, MAX_TEST_RUNS, userId);
+    }
+
+    private boolean allow(String key, int max, Long userId) {
         try {
-            String key = "ratelimit:submit:" + userId;
             Long count = redis.opsForValue().increment(key);
             if (count != null && count == 1) {
                 redis.expire(key, Duration.ofSeconds(WINDOW_SECONDS));
             }
-            return count != null && count <= MAX_SUBMISSIONS;
+            return count != null && count <= max;
         } catch (Exception e) {
             // Valkey unreachable — fall back to per-JVM tracking instead of fail-open
             log.warn("Valkey rate-limiter unavailable, falling back to local: {}", e.getMessage());
-            return allowLocally(userId);
+            return allowLocally(key, max);
         }
     }
 
@@ -64,7 +75,7 @@ public class RateLimiterService {
             return ttl != null && ttl > 0 ? ttl : WINDOW_SECONDS;
         } catch (Exception e) {
             // Local fallback — compute from bucket
-            LocalBucket b = localBuckets.get(userId);
+            LocalBucket b = localBuckets.get("ratelimit:submit:" + userId);
             if (b == null) return WINDOW_SECONDS;
             long elapsed = (System.currentTimeMillis() - b.windowStartMs) / 1000L;
             long remaining = WINDOW_SECONDS - elapsed;
@@ -72,9 +83,9 @@ public class RateLimiterService {
         }
     }
 
-    private boolean allowLocally(Long userId) {
+    private boolean allowLocally(String key, int max) {
         long now = System.currentTimeMillis();
-        LocalBucket b = localBuckets.compute(userId, (k, existing) -> {
+        LocalBucket b = localBuckets.compute(key, (k, existing) -> {
             if (existing == null || (now - existing.windowStartMs) >= WINDOW_SECONDS * 1000L) {
                 LocalBucket fresh = new LocalBucket();
                 fresh.windowStartMs = now;
@@ -84,7 +95,7 @@ public class RateLimiterService {
             return existing;
         });
         int count = b.count.incrementAndGet();
-        return count <= MAX_SUBMISSIONS;
+        return count <= max;
     }
 
     private static class LocalBucket {

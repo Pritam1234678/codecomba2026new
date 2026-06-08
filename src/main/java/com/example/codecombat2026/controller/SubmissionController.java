@@ -72,8 +72,14 @@ public class SubmissionController {
      */
     @PostMapping("/test")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Submission> testCode(@RequestBody SubmissionRequest request,
-                                               @AuthenticationPrincipal UserDetailsImpl userDetails) {
+    public ResponseEntity<?> testCode(@RequestBody SubmissionRequest request,
+                                      @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        if (!rateLimiter.allowTestRun(userDetails.getId())) {
+            long retryAfter = rateLimiter.getRetryAfterSeconds(userDetails.getId());
+            return ResponseEntity.status(429)
+                .header("Retry-After", String.valueOf(retryAfter))
+                .body(new MessageResponse("Too many runs. Try again in " + retryAfter + "s"));
+        }
         Submission submission = submissionService.testCodeAsync(
             userDetails.getId(),
             request.getProblemId(),

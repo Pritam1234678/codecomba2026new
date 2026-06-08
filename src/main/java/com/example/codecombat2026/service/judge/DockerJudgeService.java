@@ -83,6 +83,14 @@ public class DockerJudgeService {
         String jobId = UUID.randomUUID().toString().substring(0, 8);
         Path workDir = Paths.get(TEMP_DIR, jobId);
 
+        // Defensive normalization — timeLimit is ALWAYS seconds here. Legacy rows
+        // stored milliseconds (e.g. 5000, 100000); without this a "5000" would make
+        // the judge wait ~83 minutes before declaring TLE. Any value > 100 is treated
+        // as milliseconds and converted, then clamped to a sane [1, 15]s window so a
+        // bad value can never hang a worker.
+        if (timeLimitSeconds > 100) timeLimitSeconds = timeLimitSeconds / 1000.0;
+        timeLimitSeconds = Math.max(1.0, Math.min(15.0, timeLimitSeconds));
+
         try {
             Files.createDirectories(workDir);
             // Owner-only permissions — defence in depth even with sandbox
