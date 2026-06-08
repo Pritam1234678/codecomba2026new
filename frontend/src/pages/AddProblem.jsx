@@ -96,8 +96,8 @@ export default function AddProblem() {
                 inputFormat:  p.inputFormat  || '',
                 outputFormat: p.outputFormat || '',
                 constraints:  p.constraints  || '',
-                // Canonical unit is SECONDS everywhere (form, DB, judge, display).
-                timeLimit:    p.timeLimit    || 2,
+                // Canonical unit is SECONDS. Defensive: if AI returns ms (>100), convert.
+                timeLimit:    (() => { const t = p.timeLimit; if (!t) return 2; return Math.max(1, Math.min(15, t > 100 ? Math.round(t / 1000) : Math.round(t))); })(),
                 memoryLimit:  p.memoryLimit  || 256,
                 level:        p.level        || 'MEDIUM',
                 example1:     p.example1     || '',
