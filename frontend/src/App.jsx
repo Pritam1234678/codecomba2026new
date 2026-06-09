@@ -9,10 +9,13 @@ import GuestRoute from './components/GuestRoute';
 import api from './services/api';
 import AuthService from './services/auth.service';
 
+// Home is eagerly imported — it's the landing page, lazy-loading it causes a
+// full-screen "Loading..." flash before the hero renders.
+import Home from './pages/Home';
+
 // ── Lazy-loaded routes (code-split per page) ─────────────────────────────────
-// Even Home/Login/Register are split out — keeps the App shell tiny so the
+// Even Login/Register are split out — keeps the App shell tiny so the
 // initial bundle is just routing + auth wrappers + sidebar.
-const Home           = lazy(() => import('./pages/Home'));
 const Login          = lazy(() => import('./pages/Login'));
 const Register       = lazy(() => import('./pages/Register'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
@@ -111,7 +114,7 @@ function App() {
   const routes = (
     <Routes>
       {/* Public */}
-      <Route path="/" element={lazyWrap(<Home />)} />
+      <Route path="/" element={<Home />} />
       <Route path="/login" element={lazyWrap(<GuestRoute><Login /></GuestRoute>)} />
       <Route path="/register" element={lazyWrap(<GuestRoute><Register /></GuestRoute>)} />
       <Route path="/forgot-password" element={lazyWrap(<ForgotPassword />)} />
