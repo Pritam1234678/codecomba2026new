@@ -226,8 +226,7 @@ const PracticeSolve = () => {
     useEffect(() => {
         setLoading(true);
         setOutput(null);
-        setCode('// Write your code here\n');
-        setLanguage('JAVA');
+        // Do NOT reset code/language — lazy initializers already restored from localStorage.
         setSnippets({});
 
         PracticeService.getProblem(id)
@@ -247,7 +246,15 @@ const PracticeSolve = () => {
                 const map = {};
                 res.data.forEach(s => { map[s.language] = s.starterCode; });
                 setSnippets(map);
-                if (map['JAVA']) setCode(map['JAVA']);
+                // Only seed with snippet if the user has no saved draft for this problem+lang.
+                const savedLang = (() => { try { return localStorage.getItem(`lang_practice_${id}`); } catch { return null; } })();
+                const activeLang = savedLang || 'JAVA';
+                const savedCode = (() => { try { return localStorage.getItem(`code_practice_${id}_${activeLang}`); } catch { return null; } })();
+                if (!savedCode) {
+                    if (map[activeLang]) { setCode(map[activeLang]); setLanguage(activeLang); }
+                    else if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
+                }
+                // If savedCode exists, lazy initializer already loaded it — do nothing.
             })
             .catch(() => {});
     }, [id]);

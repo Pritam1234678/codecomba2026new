@@ -186,8 +186,15 @@ const ProblemSolveEmbed = ({ problemId, onSubmissionComplete, proctored = false 
 
     // ── Core state ────────────────────────────────────────────────────────────
     const [problem,    setProblem]    = useState(null);
-    const [code,       setCode]       = useState('// Write your code here\n');
-    const [language,   setLanguage]   = useState('JAVA');
+    const [code,       setCode]       = useState(() => {
+        // proctor_ prefix so proctored-contest drafts are namespaced separately
+        // from regular contest/practice drafts for the same problem.
+        const lang = (() => { try { return localStorage.getItem(`lang_proctor_${id}`) || 'JAVA'; } catch { return 'JAVA'; } })();
+        try { return localStorage.getItem(`code_proctor_${id}_${lang}`) || '// Write your code here\n'; } catch { return '// Write your code here\n'; }
+    });
+    const [language,   setLanguage]   = useState(() => {
+        try { return localStorage.getItem(`lang_proctor_${id}`) || 'JAVA'; } catch { return 'JAVA'; }
+    });
     const [output,     setOutput]     = useState(null);
     const [loading,    setLoading]    = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -209,6 +216,7 @@ const ProblemSolveEmbed = ({ problemId, onSubmissionComplete, proctored = false 
     const dragStartH   = useRef(0);
     const runningRef   = useRef(false);
     const workspaceRef = useRef(null);
+    const saveTimer    = useRef(null);
 
     // Stable callback ref so the SSE / poll handlers always see the latest
     // `onSubmissionComplete` without re-subscribing.
@@ -216,6 +224,16 @@ const ProblemSolveEmbed = ({ problemId, onSubmissionComplete, proctored = false 
     useEffect(() => { onSubCompleteRef.current = onSubmissionComplete; }, [onSubmissionComplete]);
 
     useEffect(() => { runningRef.current = running; }, [running]);
+
+    // ── Persist code + language to localStorage (debounced 500ms) ────────────
+    useEffect(() => {
+        try { localStorage.setItem(`lang_proctor_${id}`, language); } catch {}
+        clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => {
+            try { localStorage.setItem(`code_proctor_${id}_${language}`, code); } catch {}
+        }, 500);
+        return () => clearTimeout(saveTimer.current);
+    }, [code, language, id]);
 
     // ── SSE connection (verdict push channel) ─────────────────────────────────
     useEffect(() => {
@@ -272,8 +290,7 @@ const ProblemSolveEmbed = ({ problemId, onSubmissionComplete, proctored = false 
         setLoading(true);
         setHasExistingSubmission(false);
         setOutput(null);
-        setCode('// Write your code here\n');
-        setLanguage('JAVA');
+        // Do NOT reset code/language — lazy initializers already restored from localStorage.
         setSnippets({});
 
         api.get(`/problems/${id}`)
@@ -292,8 +309,15 @@ const ProblemSolveEmbed = ({ problemId, onSubmissionComplete, proctored = false 
                         if (cancelled) return;
                         if (subRes.data) {
                             setHasExistingSubmission(true);
-                            setCode(subRes.data.code);
-                            setLanguage(subRes.data.language);
+                            // Prefer localStorage draft over last-submitted code.
+                            const savedCode = (() => { try { return localStorage.getItem(`code_proctor_${id}_${subRes.data.language}`); } catch { return null; } })();
+                            const savedLang = (() => { try { return localStorage.getItem(`lang_proctor_${id}`); } catch { return null; } })();
+                            if (!savedCode) {
+                                setCode(subRes.data.code);
+                                setLanguage(subRes.data.language);
+                            } else if (savedLang) {
+                                setLanguage(savedLang);
+                            }
                             setOutput(
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', backgroundColor: 'rgba(74,222,128,0.1)', border: `1px solid rgba(74,222,128,0.3)` }}>
@@ -308,7 +332,14 @@ const ProblemSolveEmbed = ({ problemId, onSubmissionComplete, proctored = false 
                                 </div>
                             );
                         } else {
-                            if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
+                            // No existing submission — prefer draft, then snippet.
+                            const savedLang = (() => { try { return localStorage.getItem(`lang_proctor_${id}`); } catch { return null; } })();
+                            const activeLang = savedLang || 'JAVA';
+                            const savedCode = (() => { try { return localStorage.getItem(`code_proctor_${id}_${activeLang}`); } catch { return null; } })();
+                            if (!savedCode) {
+                                if (map[activeLang]) { setCode(map[activeLang]); setLanguage(activeLang); }
+                                else if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
+                            }
                         }
                     })
                     .catch(err => {
@@ -317,7 +348,13 @@ const ProblemSolveEmbed = ({ problemId, onSubmissionComplete, proctored = false 
                             // eslint-disable-next-line no-console
                             console.error(err);
                         }
-                        if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
+                        const savedLang = (() => { try { return localStorage.getItem(`lang_proctor_${id}`); } catch { return null; } })();
+                        const activeLang = savedLang || 'JAVA';
+                        const savedCode = (() => { try { return localStorage.getItem(`code_proctor_${id}_${activeLang}`); } catch { return null; } })();
+                        if (!savedCode) {
+                            if (map[activeLang]) { setCode(map[activeLang]); setLanguage(activeLang); }
+                            else if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
+                        }
                     });
             })
             .catch(() => { /* ignored */ });
@@ -372,6 +409,10 @@ const ProblemSolveEmbed = ({ problemId, onSubmissionComplete, proctored = false 
     // ── Handlers ──────────────────────────────────────────────────────────────
     const handleLanguageChange = (lang) => {
         setLanguage(lang);
+        try {
+            const saved = localStorage.getItem(`code_proctor_${id}_${lang}`);
+            if (saved) { setCode(saved); return; }
+        } catch {}
         if (snippets[lang]) setCode(snippets[lang]);
         else setCode('');
     };

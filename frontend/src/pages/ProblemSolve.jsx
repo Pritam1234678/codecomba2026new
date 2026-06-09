@@ -298,8 +298,9 @@ const ProblemSolve = () => {
         setLoading(true);
         setHasExistingSubmission(false);
         setOutput(null);
-        setCode('// Write your code here\n');
-        setLanguage('JAVA');
+        // Do NOT reset code/language here — lazy initializers already restored
+        // them from localStorage on mount. Resetting here would wipe the user's
+        // saved draft every time they revisit the same problem in the same session.
         setSnippets({});
 
         api.get(`/problems/${id}`)
@@ -326,8 +327,18 @@ const ProblemSolve = () => {
                     .then(subRes => {
                         if (subRes.data) {
                             setHasExistingSubmission(true);
-                            setCode(subRes.data.code);
-                            setLanguage(subRes.data.language);
+                            // Existing submission: restore its code+language but only if the
+                            // user hasn't already typed something new (localStorage draft wins).
+                            const savedCode = (() => { try { return localStorage.getItem(`code_problem_${id}_${subRes.data.language}`); } catch { return null; } })();
+                            const savedLang = (() => { try { return localStorage.getItem(`lang_problem_${id}`); } catch { return null; } })();
+                            // If localStorage has a draft for this problem, prefer it; otherwise
+                            // fall back to the last-submitted code so the user isn't left blank.
+                            if (!savedCode) {
+                                setCode(subRes.data.code);
+                                setLanguage(subRes.data.language);
+                            } else if (savedLang) {
+                                setLanguage(savedLang);
+                            }
                             setOutput(
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px', backgroundColor: 'rgba(74,222,128,0.1)', border: `1px solid rgba(74,222,128,0.3)` }}>
@@ -342,12 +353,28 @@ const ProblemSolve = () => {
                                 </div>
                             );
                         } else {
-                            if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
+                            // No existing submission. Use saved draft if present; else snippet.
+                            const savedLang = (() => { try { return localStorage.getItem(`lang_problem_${id}`); } catch { return null; } })();
+                            const activeLang = savedLang || 'JAVA';
+                            const savedCode = (() => { try { return localStorage.getItem(`code_problem_${id}_${activeLang}`); } catch { return null; } })();
+                            if (!savedCode) {
+                                // No draft yet — seed editor with the starter snippet.
+                                if (map[activeLang]) { setCode(map[activeLang]); setLanguage(activeLang); }
+                                else if (map['JAVA'])  { setCode(map['JAVA']);  setLanguage('JAVA'); }
+                            }
+                            // If savedCode exists, lazy initializer already loaded it — do nothing.
                         }
                     })
                     .catch(err => {
                         if (err.response?.status !== 404) console.error(err);
-                        if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
+                        // Same logic: prefer saved draft, fall back to snippet.
+                        const savedLang = (() => { try { return localStorage.getItem(`lang_problem_${id}`); } catch { return null; } })();
+                        const activeLang = savedLang || 'JAVA';
+                        const savedCode = (() => { try { return localStorage.getItem(`code_problem_${id}_${activeLang}`); } catch { return null; } })();
+                        if (!savedCode) {
+                            if (map[activeLang]) { setCode(map[activeLang]); setLanguage(activeLang); }
+                            else if (map['JAVA'])  { setCode(map['JAVA']);  setLanguage('JAVA'); }
+                        }
                     });
             })
             .catch(() => {});
