@@ -69,29 +69,22 @@ const AdminProctoringDashboard   = lazy(() => import('./proctoring/pages/AdminPr
 const AdminProctoringSession     = lazy(() => import('./proctoring/pages/AdminProctoringSession'));
 
 // Skeleton fallback — shown briefly while a lazy chunk loads
+const SKEL = {
+  background: 'linear-gradient(90deg,#1c1b1b 25%,#272523 50%,#1c1b1b 75%)',
+  backgroundSize: '600px 100%',
+  animation: 'cc-shimmer 1.4s infinite linear',
+  borderRadius: 2,
+};
 const PageFallback = () => (
   <div style={{ padding: '2rem 2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-    <style>{`
-      @keyframes cc-shimmer {
-        0%   { background-position: -600px 0; }
-        100% { background-position:  600px 0; }
-      }
-      .cc-skel {
-        background: linear-gradient(90deg, #1c1b1b 25%, #2a2826 50%, #1c1b1b 75%);
-        background-size: 600px 100%;
-        animation: cc-shimmer 1.4s infinite linear;
-        border-radius: 2px;
-      }
-    `}</style>
-    {/* Title bar */}
-    <div className="cc-skel" style={{ height: 28, width: '38%' }} />
-    <div className="cc-skel" style={{ height: 14, width: '55%' }} />
-    {/* Content rows */}
-    {[1,2,3].map(i => (
+    <style>{`@keyframes cc-shimmer{0%{background-position:-600px 0}100%{background-position:600px 0}}`}</style>
+    <div style={{ ...SKEL, height: 26, width: '36%' }} />
+    <div style={{ ...SKEL, height: 13, width: '52%' }} />
+    {[0,1,2].map(i => (
       <div key={i} style={{ display: 'flex', gap: '1rem' }}>
-        <div className="cc-skel" style={{ height: 48, flex: 1 }} />
-        <div className="cc-skel" style={{ height: 48, width: 90 }} />
-        <div className="cc-skel" style={{ height: 48, width: 70 }} />
+        <div style={{ ...SKEL, height: 44, flex: 1 }} />
+        <div style={{ ...SKEL, height: 44, width: 88 }} />
+        <div style={{ ...SKEL, height: 44, width: 68 }} />
       </div>
     ))}
   </div>
