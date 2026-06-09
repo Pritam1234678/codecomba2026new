@@ -68,10 +68,32 @@ const ProctoredContestTerminated = lazy(() => import('./proctoring/pages/Proctor
 const AdminProctoringDashboard   = lazy(() => import('./proctoring/pages/AdminProctoringDashboard'));
 const AdminProctoringSession     = lazy(() => import('./proctoring/pages/AdminProctoringSession'));
 
-// Loading fallback shown briefly while a chunk loads
+// Skeleton fallback — shown briefly while a lazy chunk loads
 const PageFallback = () => (
-  <div className="flex items-center justify-center min-h-[60vh]" style={{ color: '#9d8e83', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
-    Loading...
+  <div style={{ padding: '2rem 2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <style>{`
+      @keyframes cc-shimmer {
+        0%   { background-position: -600px 0; }
+        100% { background-position:  600px 0; }
+      }
+      .cc-skel {
+        background: linear-gradient(90deg, #1c1b1b 25%, #2a2826 50%, #1c1b1b 75%);
+        background-size: 600px 100%;
+        animation: cc-shimmer 1.4s infinite linear;
+        border-radius: 2px;
+      }
+    `}</style>
+    {/* Title bar */}
+    <div className="cc-skel" style={{ height: 28, width: '38%' }} />
+    <div className="cc-skel" style={{ height: 14, width: '55%' }} />
+    {/* Content rows */}
+    {[1,2,3].map(i => (
+      <div key={i} style={{ display: 'flex', gap: '1rem' }}>
+        <div className="cc-skel" style={{ height: 48, flex: 1 }} />
+        <div className="cc-skel" style={{ height: 48, width: 90 }} />
+        <div className="cc-skel" style={{ height: 48, width: 70 }} />
+      </div>
+    ))}
   </div>
 );
 const lazyWrap = (el) => <Suspense fallback={<PageFallback />}>{el}</Suspense>;
