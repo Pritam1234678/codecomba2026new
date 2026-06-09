@@ -185,6 +185,10 @@ const ProblemSolve = () => {
     const [showStatusBanner, setShowStatusBanner] = useState(false);
     const [timeRemaining,    setTimeRemaining]    = useState('');
 
+    // ── Contest stats (run count + execution time) ────────────────────────────
+    const [runCount,     setRunCount]     = useState(0);
+    const [lastExecMs,   setLastExecMs]   = useState(null);
+
     // ── UI state ──────────────────────────────────────────────────────────────
     const [consoleTab,    setConsoleTab]    = useState('output'); // 'output'
     const [leftWidth,     setLeftWidth]     = useState(42);       // % of total width
@@ -243,6 +247,8 @@ const ProblemSolve = () => {
                         activeSubRef.current = null;
                         setSubmitting(false);
                         setRunning(false);
+                        const execMs = verdict.timeConsumedMs || verdict.timeConsumed || null;
+                        if (execMs > 0) setLastExecMs(execMs);
                         setOutput(buildVerdictUI(verdict, verdict.testRun === true));
                     } catch (err) {
                         console.error('SSE parse error:', err);
@@ -354,6 +360,14 @@ const ProblemSolve = () => {
             })
             .catch(() => {});
     }, [id]);
+
+    // ── Fetch run count (contest problems only) ───────────────────────────────
+    useEffect(() => {
+        if (!contestStatus.exists) return;
+        api.get(`/submissions/run-count/${id}`)
+            .then(res => setRunCount(res.data?.runCount ?? 0))
+            .catch(() => {});
+    }, [id, contestStatus.exists]);
 
     // ── Contest status polling ────────────────────────────────────────────────
     useEffect(() => {
@@ -476,6 +490,7 @@ const ProblemSolve = () => {
                 Running tests...
             </div>
         );
+        if (contestStatus.exists) setRunCount(c => c + 1);
         SubmissionService.testCode(id, code, language)
             .then(res => {
                 const submissionId = res.data?.id;
@@ -561,6 +576,7 @@ const ProblemSolve = () => {
                     if (activeSubRef.current === submissionId) activeSubRef.current = null;
                     setSubmitting(false);
                     setRunning(false);
+                    if (sub.timeConsumed > 0) setLastExecMs(sub.timeConsumed);
                     setOutput(buildVerdictUI({ ...sub, testRun: isTestRun }, isTestRun));
                     return;
                 }
@@ -958,10 +974,19 @@ const ProblemSolve = () => {
 
                     {/* Bottom action bar */}
                     <div style={{ height: '56px', flexShrink: 0, borderTop: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
-                        {/* Left: console toggle info */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
+                        {/* Left: contest stats (run count + last exec time) */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>terminal</span>
                             Console
+                            {contestStatus.exists && (
+                                <>
+                                    <span style={{ color: C.border }}>|</span>
+                                    <span title="Times you pressed Run">▶ {runCount}×</span>
+                                    {lastExecMs != null && (
+                                        <span title="Last execution time">⏱ {lastExecMs}ms</span>
+                                    )}
+                                </>
+                            )}
                         </div>
 
                         {/* Right: Run + Submit */}

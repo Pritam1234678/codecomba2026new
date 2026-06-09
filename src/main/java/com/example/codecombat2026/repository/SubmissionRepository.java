@@ -76,6 +76,9 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     void deleteByUser_Id(Long userId);
 
+    @Query("SELECT COUNT(s) FROM Submission s WHERE s.user.id = :userId AND s.problem.id = :problemId AND s.testRun = true AND s.contest.id IS NOT NULL")
+    long countContestRunsByUserAndProblem(@Param("userId") Long userId, @Param("problemId") Long problemId);
+
     // ─── Async worker update methods ──────────────────────────────────────────
 
     @Modifying

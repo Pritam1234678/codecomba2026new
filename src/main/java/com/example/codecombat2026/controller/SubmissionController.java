@@ -163,6 +163,14 @@ public class SubmissionController {
         return ResponseEntity.ok(sub);
     }
 
+    @GetMapping("/run-count/{problemId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Long>> getRunCount(@PathVariable Long problemId,
+                                                          @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        long count = submissionService.countContestRuns(userDetails.getId(), problemId);
+        return ResponseEntity.ok(Map.of("runCount", count));
+    }
+
     @GetMapping("/user/{problemId}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Submission> getUserSubmission(@PathVariable Long problemId,

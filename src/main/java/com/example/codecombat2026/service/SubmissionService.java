@@ -221,4 +221,8 @@ public class SubmissionService {
         return submissionRepository.findById(submissionId)
             .orElseThrow(() -> new ResourceNotFoundException("Submission not found"));
     }
+
+    public long countContestRuns(Long userId, Long problemId) {
+        return submissionRepository.countContestRunsByUserAndProblem(userId, problemId);
+    }
 }
