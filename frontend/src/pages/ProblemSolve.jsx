@@ -998,13 +998,14 @@ const ProblemSolve = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <button
                                 onClick={handleRun}
-                                disabled={running || submitting}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', border: 'none', borderBottom: `1px solid transparent`, color: running || submitting ? C.outline : C.onBg, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: running || submitting ? 'not-allowed' : 'pointer', opacity: running || submitting ? 0.5 : 1, transition: 'all 0.2s' }}
-                                onMouseEnter={e => { if (!running && !submitting) { e.currentTarget.style.borderBottomColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
-                                onMouseLeave={e => { e.currentTarget.style.borderBottomColor = 'transparent'; e.currentTarget.style.color = running || submitting ? C.outline : C.onBg; }}
+                                disabled={running || submitting || (contestStatus.exists && runCount >= 10)}
+                                title={contestStatus.exists && runCount >= 10 ? 'Run limit reached (10/10)' : ''}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', border: 'none', borderBottom: `1px solid transparent`, color: (running || submitting || (contestStatus.exists && runCount >= 10)) ? C.outline : C.onBg, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: (running || submitting || (contestStatus.exists && runCount >= 10)) ? 'not-allowed' : 'pointer', opacity: (running || submitting || (contestStatus.exists && runCount >= 10)) ? 0.4 : 1, transition: 'all 0.2s' }}
+                                onMouseEnter={e => { if (!running && !submitting && !(contestStatus.exists && runCount >= 10)) { e.currentTarget.style.borderBottomColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                                onMouseLeave={e => { e.currentTarget.style.borderBottomColor = 'transparent'; e.currentTarget.style.color = (running || submitting || (contestStatus.exists && runCount >= 10)) ? C.outline : C.onBg; }}
                             >
                                 <span className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
-                                {running ? 'Running...' : 'Run Code'}
+                                {running ? 'Running...' : contestStatus.exists ? `Run (${runCount}/10)` : 'Run Code'}
                             </button>
 
                             <button

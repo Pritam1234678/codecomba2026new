@@ -80,6 +80,12 @@ public class SubmissionController {
                 .header("Retry-After", String.valueOf(retryAfter))
                 .body(new MessageResponse("Too many runs. Try again in " + retryAfter + "s"));
         }
+        // Hard cap: 10 runs per problem in a contest (no reset)
+        long contestRunCount = submissionService.countContestRuns(userDetails.getId(), request.getProblemId());
+        if (contestRunCount >= 10) {
+            return ResponseEntity.status(429)
+                .body(new MessageResponse("Run limit reached (10/10). No more test runs allowed for this contest problem."));
+        }
         Submission submission = submissionService.testCodeAsync(
             userDetails.getId(),
             request.getProblemId(),
