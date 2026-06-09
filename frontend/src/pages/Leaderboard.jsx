@@ -158,7 +158,7 @@ const Leaderboard = () => {
                                     </span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.muted }}>
-                                    —
+                                    {contest.participantCount ?? '—'}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <button

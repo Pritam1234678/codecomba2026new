@@ -43,25 +43,35 @@ public class ContestController {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private com.example.codecombat2026.repository.SubmissionRepository submissionRepository;
+
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getAllContests() {
         List<Contest> contests = contestService.getVisibleContests();
 
-        // One batch query for the full proctored-id set, then O(1) membership
-        // check per contest — avoids existsByContestId(N) round-trips (Req 1.6, 1.7).
         Set<Long> proctoredIds = new HashSet<>(proctoredContestRepo.findAllContestIds());
+
+        // Batch-fetch participant counts — one query for all contests
+        List<Long> contestIds = contests.stream().map(Contest::getId).collect(Collectors.toList());
+        Map<Long, Long> participantCounts = new HashMap<>();
+        if (!contestIds.isEmpty()) {
+            for (Object[] row : submissionRepository.countParticipantsByContestIds(contestIds)) {
+                participantCounts.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+            }
+        }
 
         List<Map<String, Object>> response = contests.stream()
                 .map(c -> {
                     Map<String, Object> m = objectMapper.convertValue(
                             c, new TypeReference<Map<String, Object>>() {});
                     m.put("proctored", proctoredIds.contains(c.getId()));
+                    m.put("participantCount", participantCounts.getOrDefault(c.getId(), 0L));
                     return m;
                 })
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok()
-                // Cache in browser for 30s, CDN/proxy for 15s
                 .header("Cache-Control", "public, max-age=30, s-maxage=15")
                 .body(response);
     }
