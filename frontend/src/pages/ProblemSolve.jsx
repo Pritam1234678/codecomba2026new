@@ -167,8 +167,13 @@ const ProblemSolve = () => {
 
     // ── Core state ────────────────────────────────────────────────────────────
     const [problem,    setProblem]    = useState(null);
-    const [code,       setCode]       = useState('// Write your code here\n');
-    const [language,   setLanguage]   = useState('JAVA');
+    const [language,   setLanguage]   = useState(() => {
+        try { return localStorage.getItem(`lang_problem_${id}`) || 'JAVA'; } catch { return 'JAVA'; }
+    });
+    const [code,       setCode]       = useState(() => {
+        const lang = (() => { try { return localStorage.getItem(`lang_problem_${id}`) || 'JAVA'; } catch { return 'JAVA'; } })();
+        try { return localStorage.getItem(`code_problem_${id}_${lang}`) || '// Write your code here\n'; } catch { return '// Write your code here\n'; }
+    });
     const [output,     setOutput]     = useState(null);
     const [loading,    setLoading]    = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -195,6 +200,17 @@ const ProblemSolve = () => {
     const [isDragging,    setIsDragging]    = useState(false);
     const [consoleHeight, setConsoleHeight] = useState(220);      // px
     const [isDraggingH,   setIsDraggingH]   = useState(false);
+
+    // ── Persist code + language to localStorage (debounced) ─────────────────
+    const saveTimer = useRef(null);
+    useEffect(() => {
+        try { localStorage.setItem(`lang_problem_${id}`, language); } catch {}
+        clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => {
+            try { localStorage.setItem(`code_problem_${id}_${language}`, code); } catch {}
+        }, 500);
+        return () => clearTimeout(saveTimer.current);
+    }, [code, language, id]);
 
     const sseRef       = useRef(null);
     // The submission the user is actively waiting on. The SSE stream delivers
@@ -473,6 +489,10 @@ const ProblemSolve = () => {
     // ── Handlers ──────────────────────────────────────────────────────────────
     const handleLanguageChange = (lang) => {
         setLanguage(lang);
+        try {
+            const saved = localStorage.getItem(`code_problem_${id}_${lang}`);
+            if (saved) { setCode(saved); return; }
+        } catch {}
         if (snippets[lang]) setCode(snippets[lang]);
         else setCode('');
     };

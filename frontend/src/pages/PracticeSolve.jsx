@@ -190,8 +190,13 @@ const PracticeSolve = () => {
     const [solved,   setSolved]   = useState(false);
     const [pointsAvailable, setPointsAvailable] = useState(0);
     const [snippets, setSnippets] = useState({});
-    const [code,     setCode]     = useState('// Write your code here\n');
-    const [language, setLanguage] = useState('JAVA');
+    const [language, setLanguage] = useState(() => {
+        try { return localStorage.getItem(`lang_practice_${id}`) || 'JAVA'; } catch { return 'JAVA'; }
+    });
+    const [code,     setCode]     = useState(() => {
+        const lang = (() => { try { return localStorage.getItem(`lang_practice_${id}`) || 'JAVA'; } catch { return 'JAVA'; } })();
+        try { return localStorage.getItem(`code_practice_${id}_${lang}`) || '// Write your code here\n'; } catch { return '// Write your code here\n'; }
+    });
     const [output,   setOutput]   = useState(null);
     const [loading,  setLoading]  = useState(true);
     const [running,  setRunning]  = useState(false);
@@ -205,6 +210,17 @@ const PracticeSolve = () => {
     const dragStartW = useRef(0);
     const dragStartY = useRef(0);
     const dragStartH = useRef(0);
+    const saveTimer  = useRef(null);
+
+    // ── Persist code + language to localStorage (debounced) ──────────────────
+    useEffect(() => {
+        try { localStorage.setItem(`lang_practice_${id}`, language); } catch {}
+        clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(() => {
+            try { localStorage.setItem(`code_practice_${id}_${language}`, code); } catch {}
+        }, 500);
+        return () => clearTimeout(saveTimer.current);
+    }, [code, language, id]);
 
     // ── Load problem + snippets ───────────────────────────────────────────────
     useEffect(() => {
@@ -238,6 +254,10 @@ const PracticeSolve = () => {
 
     const handleLanguageChange = (lang) => {
         setLanguage(lang);
+        try {
+            const saved = localStorage.getItem(`code_practice_${id}_${lang}`);
+            if (saved) { setCode(saved); return; }
+        } catch {}
         if (snippets[lang]) setCode(snippets[lang]);
         else setCode('');
     };
