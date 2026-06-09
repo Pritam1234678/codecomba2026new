@@ -29,7 +29,7 @@ const ForgotUsername = () => {
 
     const resetTurnstile = () => {
         setTurnstileToken('');
-        try { window.turnstile?.reset(turnstileWidgetRef.current); } catch { /* ignore */ }
+        try { if (turnstileWidgetRef.current != null) window.turnstile?.reset(turnstileWidgetRef.current); } catch { /* ignore */ }
     };
 
     const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -188,8 +188,9 @@ const ForgotUsername = () => {
 
                             {/* Captcha */}
                             <TurnstileWidget
-                                widgetRef={turnstileWidgetRef}
-                                onVerify={setTurnstileToken}
+                                widgetIdRef={turnstileWidgetRef}
+                                onToken={setTurnstileToken}
+                                onExpire={() => setTurnstileToken('')}
                             />
 
                             {/* Submit */}
