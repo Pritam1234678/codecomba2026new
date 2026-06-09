@@ -697,7 +697,7 @@ const ProblemSolve = () => {
                 {/* Left: back + problem title */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                     <button
-                        onClick={() => navigate(-1)}
+                        onClick={() => navigate(problem?.contestId ? `/contests/${problem.contestId}` : '/problems')}
                         style={{ display: 'flex', alignItems: 'center', gap: '6px', color: C.outline, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', transition: 'color 0.2s' }}
                         onMouseEnter={e => e.currentTarget.style.color = C.secondary}
                         onMouseLeave={e => e.currentTarget.style.color = C.outline}
