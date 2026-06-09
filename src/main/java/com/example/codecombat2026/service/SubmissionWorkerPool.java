@@ -279,7 +279,7 @@ public class SubmissionWorkerPool {
             int memoryLimit  = job.getMemoryLimit() != null ? job.getMemoryLimit() : 256;
             ExecutionResult result = judgeService.execute(executableCode, lang, timeLimit, memoryLimit, null);
 
-            ParsedResult parsed = parseOutput(result);
+            ParsedResult parsed = parseOutput(result, job.isTestRun());
 
             finalizeAndNotify(job, submissionId, parsed.status, parsed.errorMessage,
                 parsed.passed, parsed.total, parsed.score, result.getTimeTaken(), parsed.details);
@@ -431,7 +431,9 @@ public class SubmissionWorkerPool {
             .replace("/* USER_CODE_PLACEHOLDER */", userCode);
     }
 
-    private ParsedResult parseOutput(ExecutionResult result) {
+    private static final int SAMPLE_TC_LIMIT = 2;
+
+    private ParsedResult parseOutput(ExecutionResult result, boolean isTestRun) {
         if (result.isCompilationError()) {
             return new ParsedResult(Submission.SubmissionStatus.CE, result.getStderr(), 0, 0, 0, "[]");
         }
@@ -443,7 +445,24 @@ public class SubmissionWorkerPool {
         }
 
         String stdout = result.getStdout() != null ? result.getStdout() : "";
-        List<TcLine> lines = parseTcLines(stdout);
+        List<TcLine> allLines = parseTcLines(stdout);
+
+        // Test runs: only evaluate the first SAMPLE_TC_LIMIT visible (non-hidden) TCs.
+        // Hidden TCs are never shown to the user during Run anyway; limiting here
+        // keeps the verdict honest — AC means both sample cases passed, not all.
+        List<TcLine> lines;
+        if (isTestRun) {
+            lines = new java.util.ArrayList<>();
+            for (TcLine tc : allLines) {
+                if (!tc.hidden) {
+                    lines.add(tc);
+                    if (lines.size() >= SAMPLE_TC_LIMIT) break;
+                }
+            }
+            if (lines.isEmpty()) lines = allLines; // fallback: no visible TCs in harness
+        } else {
+            lines = allLines;
+        }
 
         if (lines.isEmpty() && result.getExitCode() != 0) {
             return new ParsedResult(Submission.SubmissionStatus.RE, result.getStderr(), 0, 0, 0, "[]");
