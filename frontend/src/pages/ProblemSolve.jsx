@@ -337,10 +337,14 @@ const ProblemSolve = () => {
             .catch(() => {});
     }, [id]);
 
-    // ── Load all problems for prev/next navigation (client-side cache 60s) ──────
+    // ── Load problems for prev/next navigation ────────────────────────────────
+    // Contest problem → fetch only that contest's problems (ordered by contest).
+    // Standalone problem → fetch all problems.
     useEffect(() => {
-        const CACHE_KEY = 'problems_nav_cache';
-        const CACHE_TTL = 60000; // 60s
+        if (!problem) return; // wait until problem is loaded to know contestId
+        const contestId = problem.contestId;
+        const CACHE_KEY = contestId ? `problems_nav_contest_${contestId}` : 'problems_nav_cache';
+        const CACHE_TTL = 60000;
         try {
             const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
             if (cached && Date.now() - cached.ts < CACHE_TTL) {
@@ -350,7 +354,8 @@ const ProblemSolve = () => {
             }
         } catch (ignored) {}
 
-        api.get('/problems')
+        const url = contestId ? `/problems/contest/${contestId}` : '/problems';
+        api.get(url)
             .then(res => {
                 setAllProblems(res.data);
                 setCurrentIndex(res.data.findIndex(p => p.id === parseInt(id)));
@@ -359,7 +364,7 @@ const ProblemSolve = () => {
                 } catch (ignored) {}
             })
             .catch(() => {});
-    }, [id]);
+    }, [id, problem]);
 
     // ── Fetch run count (contest problems only) ───────────────────────────────
     useEffect(() => {
