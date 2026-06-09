@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import useResponsive from '../hooks/useResponsive';
+import TurnstileWidget from '../components/TurnstileWidget';
 
 const C = {
     bg:        '#131313',
@@ -19,23 +20,32 @@ const C = {
 
 const ForgotUsername = () => {
     const { isMobile } = useResponsive();
-    const [formData, setFormData] = useState({ email: '' });
-    const [loading, setLoading]   = useState(false);
-    const [message, setMessage]   = useState('');
-    const [success, setSuccess]   = useState(false);
+    const [formData, setFormData]       = useState({ email: '' });
+    const [loading, setLoading]         = useState(false);
+    const [message, setMessage]         = useState('');
+    const [success, setSuccess]         = useState(false);
+    const [turnstileToken, setTurnstileToken] = useState('');
+    const turnstileWidgetRef            = useRef(null);
+
+    const resetTurnstile = () => {
+        setTurnstileToken('');
+        try { window.turnstile?.reset(turnstileWidgetRef.current); } catch { /* ignore */ }
+    };
 
     const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!turnstileToken) { setMessage('Please complete the captcha.'); return; }
         setMessage(''); setLoading(true);
         try {
-            const res = await api.post('/auth/forgot-username', formData);
+            const res = await api.post('/auth/forgot-username', { ...formData, turnstileToken });
             setSuccess(true);
             setMessage(res.data.message);
         } catch (err) {
             setSuccess(false);
             setMessage(err.response?.data?.message || 'An error occurred. Please try again.');
+            resetTurnstile();
         } finally {
             setLoading(false);
         }
@@ -176,8 +186,14 @@ const ForgotUsername = () => {
                                 />
                             </div>
 
+                            {/* Captcha */}
+                            <TurnstileWidget
+                                widgetRef={turnstileWidgetRef}
+                                onVerify={setTurnstileToken}
+                            />
+
                             {/* Submit */}
-                            <SlideButton type="submit" disabled={loading}>
+                            <SlideButton type="submit" disabled={loading || !turnstileToken}>
                                 {loading ? (
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <svg style={{ animation: 'spin 1s linear infinite', width: '14px', height: '14px' }} viewBox="0 0 24 24">

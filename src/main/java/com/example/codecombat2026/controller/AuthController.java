@@ -346,6 +346,12 @@ public class AuthController {
         String email = request.get("email");
         String ip = getClientIp(httpRequest);
 
+        // Cloudflare Turnstile verification
+        if (!turnstileService.verify(request.get("turnstileToken"), ip)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new MessageResponse("Captcha verification failed. Please try again."));
+        }
+
         if (!authRateLimiter.allowForgotUsername(ip)) {
             long retry = authRateLimiter.forgotUsernameRetryAfter(ip);
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
