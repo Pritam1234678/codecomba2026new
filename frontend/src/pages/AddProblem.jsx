@@ -24,8 +24,47 @@ const LANGS = ['JAVA', 'CPP', 'PYTHON', 'JAVASCRIPT', 'C'];
 const LANG_LABELS = { JAVA: 'Java', CPP: 'C++', PYTHON: 'Python', JAVASCRIPT: 'JavaScript', C: 'C' };
 const LANG_MONACO = { JAVA: 'java', CPP: 'cpp', PYTHON: 'python', JAVASCRIPT: 'javascript', C: 'c' };
 
+const DEFAULT_SNIPPETS = {
+    JAVA: `import java.util.*;
+import java.io.*;
+
+public class Solution {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        // Write your code here
+    }
+}`,
+    CPP: `#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios_base::sync_with_stdio(false);
+    cin.tie(NULL);
+    // Write your code here
+    return 0;
+}`,
+    PYTHON: `import sys
+input = sys.stdin.readline
+
+# Write your code here`,
+    JAVASCRIPT: `const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+const lines = [];
+rl.on('line', line => lines.push(line.trim()));
+rl.on('close', () => {
+    // Write your code here
+});`,
+    C: `#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    // Write your code here
+    return 0;
+}`,
+};
+
 const emptySnippets = () =>
-    Object.fromEntries(LANGS.map(l => [l, { solutionTemplate: '' }]));
+    Object.fromEntries(LANGS.map(l => [l, { solutionTemplate: DEFAULT_SNIPPETS[l] }]));
 
 export default function AddProblem() {
     const { contestId } = useParams();
