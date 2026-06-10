@@ -77,3 +77,4 @@ test_duel.sh
 bench_routes.sh
 bench_proctoring.sh
 deploy_proctoring_smoke.sh
+frontend/images/
