@@ -31,37 +31,58 @@ const DEFAULT_SNIPPETS = {
     JAVA: `import java.util.*;
 import java.io.*;
 
-public class Solution {
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
+public class Main {
+
+    // USER_CODE_START
+    public static void solve() {
         // Write your code here
+    }
+    // USER_CODE_END
+
+    public static void main(String[] args) {
+        solve();
     }
 }`,
     CPP: `#include <bits/stdc++.h>
 using namespace std;
 
+// USER_CODE_START
+void solve() {
+    // Write your code here
+}
+// USER_CODE_END
+
 int main() {
     ios_base::sync_with_stdio(false);
     cin.tie(NULL);
-    // Write your code here
+    solve();
     return 0;
 }`,
-    PYTHON: `import sys
-input = sys.stdin.readline
+    PYTHON: `# USER_CODE_START
+def solve():
+    # Write your code here
+    pass
+# USER_CODE_END
 
-# Write your code here`,
-    JAVASCRIPT: `const readline = require('readline');
-const rl = readline.createInterface({ input: process.stdin });
-const lines = [];
-rl.on('line', line => lines.push(line.trim()));
-rl.on('close', () => {
+solve()`,
+    JAVASCRIPT: `// USER_CODE_START
+function solve() {
     // Write your code here
-});`,
+}
+// USER_CODE_END
+
+solve();`,
     C: `#include <stdio.h>
 #include <stdlib.h>
 
-int main() {
+// USER_CODE_START
+void solve() {
     // Write your code here
+}
+// USER_CODE_END
+
+int main() {
+    solve();
     return 0;
 }`,
 };

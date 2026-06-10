@@ -202,7 +202,17 @@ public class CodeSnippetService {
         int startIdx = harness.indexOf(startMarker);
         int endIdx   = harness.indexOf(endMarker);
 
-        if (startIdx == -1 || endIdx == -1 || endIdx <= startIdx) return "";
+        if (startIdx == -1 || endIdx == -1 || endIdx <= startIdx) {
+            // No markers found — return a language-appropriate blank starter so the
+            // user always sees a compilable skeleton instead of an empty editor.
+            return switch (language) {
+                case JAVA -> "import java.util.*;\nimport java.io.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        // Write your code here\n    }\n}";
+                case CPP  -> "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    // Write your code here\n    return 0;\n}";
+                case C    -> "#include <stdio.h>\n\nint main() {\n    // Write your code here\n    return 0;\n}";
+                case PYTHON -> "# Write your code here\n";
+                case JAVASCRIPT -> "// Write your code here\n";
+            };
+        }
 
         String between = harness.substring(startIdx + startMarker.length(), endIdx);
         return between.replaceAll("^\\r?\\n", "").replaceAll("\\r?\\n$", "");
