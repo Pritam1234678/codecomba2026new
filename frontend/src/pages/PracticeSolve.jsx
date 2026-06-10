@@ -246,15 +246,17 @@ const PracticeSolve = () => {
                 const map = {};
                 res.data.forEach(s => { map[s.language] = s.starterCode; });
                 setSnippets(map);
-                // Only seed with snippet if the user has no saved draft for this problem+lang.
+                // Only seed with snippet if the user has no REAL draft (ignore placeholder defaults).
+                const isPlaceholder = (s) => !s || s.trim() === '' || s.trim() === '// Write your code here' || s.trim() === '// Write your code here\n';
                 const savedLang = (() => { try { return localStorage.getItem(`lang_practice_${id}`); } catch { return null; } })();
                 const activeLang = savedLang || 'JAVA';
                 const savedCode = (() => { try { return localStorage.getItem(`code_practice_${id}_${activeLang}`); } catch { return null; } })();
-                if (!savedCode) {
+                if (isPlaceholder(savedCode)) {
+                    // No real draft — seed from snippet
                     if (map[activeLang]) { setCode(map[activeLang]); setLanguage(activeLang); }
                     else if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
                 }
-                // If savedCode exists, lazy initializer already loaded it — do nothing.
+                // If savedCode is a real draft, lazy initializer already loaded it — do nothing.
             })
             .catch(() => {});
     }, [id]);

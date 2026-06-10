@@ -357,12 +357,13 @@ const ProblemSolve = () => {
                             const savedLang = (() => { try { return localStorage.getItem(`lang_problem_${id}`); } catch { return null; } })();
                             const activeLang = savedLang || 'JAVA';
                             const savedCode = (() => { try { return localStorage.getItem(`code_problem_${id}_${activeLang}`); } catch { return null; } })();
-                            if (!savedCode) {
+                            const isPlaceholder = (s) => !s || s.trim() === '' || s.trim() === '// Write your code here' || s.trim() === '// Write your code here\n';
+                            if (isPlaceholder(savedCode)) {
                                 // No draft yet — seed editor with the starter snippet.
                                 if (map[activeLang]) { setCode(map[activeLang]); setLanguage(activeLang); }
                                 else if (map['JAVA'])  { setCode(map['JAVA']);  setLanguage('JAVA'); }
                             }
-                            // If savedCode exists, lazy initializer already loaded it — do nothing.
+                            // If savedCode is a real draft, lazy initializer already loaded it — do nothing.
                         }
                     })
                     .catch(err => {
@@ -371,7 +372,8 @@ const ProblemSolve = () => {
                         const savedLang = (() => { try { return localStorage.getItem(`lang_problem_${id}`); } catch { return null; } })();
                         const activeLang = savedLang || 'JAVA';
                         const savedCode = (() => { try { return localStorage.getItem(`code_problem_${id}_${activeLang}`); } catch { return null; } })();
-                        if (!savedCode) {
+                        const isPlaceholder = (s) => !s || s.trim() === '' || s.trim() === '// Write your code here' || s.trim() === '// Write your code here\n';
+                        if (isPlaceholder(savedCode)) {
                             if (map[activeLang]) { setCode(map[activeLang]); setLanguage(activeLang); }
                             else if (map['JAVA'])  { setCode(map['JAVA']);  setLanguage('JAVA'); }
                         }

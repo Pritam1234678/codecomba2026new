@@ -336,7 +336,8 @@ const ProblemSolveEmbed = ({ problemId, onSubmissionComplete, proctored = false 
                             const savedLang = (() => { try { return localStorage.getItem(`lang_proctor_${id}`); } catch { return null; } })();
                             const activeLang = savedLang || 'JAVA';
                             const savedCode = (() => { try { return localStorage.getItem(`code_proctor_${id}_${activeLang}`); } catch { return null; } })();
-                            if (!savedCode) {
+                            const isPlaceholder = (s) => !s || s.trim() === '' || s.trim() === '// Write your code here' || s.trim() === '// Write your code here\n';
+                            if (isPlaceholder(savedCode)) {
                                 if (map[activeLang]) { setCode(map[activeLang]); setLanguage(activeLang); }
                                 else if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
                             }
@@ -351,7 +352,8 @@ const ProblemSolveEmbed = ({ problemId, onSubmissionComplete, proctored = false 
                         const savedLang = (() => { try { return localStorage.getItem(`lang_proctor_${id}`); } catch { return null; } })();
                         const activeLang = savedLang || 'JAVA';
                         const savedCode = (() => { try { return localStorage.getItem(`code_proctor_${id}_${activeLang}`); } catch { return null; } })();
-                        if (!savedCode) {
+                        const isPlaceholder = (s) => !s || s.trim() === '' || s.trim() === '// Write your code here' || s.trim() === '// Write your code here\n';
+                        if (isPlaceholder(savedCode)) {
                             if (map[activeLang]) { setCode(map[activeLang]); setLanguage(activeLang); }
                             else if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
                         }
