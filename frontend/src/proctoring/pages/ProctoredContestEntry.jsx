@@ -30,6 +30,8 @@ const PHASE = {
   PREFLIGHT:      'preflight',
   CREATING:       'creating',
   READY:          'ready',
+  RESUME:         'resume',         // active session found — offer Resume button
+  RESUME_LIMIT:   'resume-limit',   // resume cap reached — show support message
   ERROR:          'error',
 };
 
@@ -235,6 +237,9 @@ export default function ProctoredContestEntry() {
   const [eligibility, setEligibility] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [sessionInfo, setSessionInfo] = useState(null);
+  // Holds { resumeCount, maxResumes } when an active session is detected so the
+  // Resume screen can show "you have N resumes left".
+  const [resumeInfo, setResumeInfo] = useState(null);
 
   // Initial load: eligibility + contest name.
   const loadEligibility = useCallback(async () => {
@@ -328,8 +333,58 @@ export default function ProctoredContestEntry() {
         setPhase(PHASE.LOCKED);
         return;
       }
+      // An active session already exists (candidate refreshed / closed the
+      // tab mid-contest). Offer Resume instead of a hard error — unless the
+      // resume cap has already been reached, in which case route to support.
+      if (data?.error === 'ALREADY_ACTIVE') {
+        setResumeInfo({
+          resumeCount: data.resumeCount ?? 0,
+          maxResumes: data.maxResumes ?? 2,
+        });
+        setPhase(data.resumeLimitReached ? PHASE.RESUME_LIMIT : PHASE.RESUME);
+        return;
+      }
       setError(data?.message || 'Could not start the proctored session. Try again.');
       setPhase(PHASE.ERROR);
+    }
+  };
+
+  // ── Resume an existing active session ───────────────────────────
+  const handleResume = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await proctoringApi.resumeSession(id);
+      setSessionInfo(res?.data ?? null);
+      setPhase(PHASE.READY);
+    } catch (err) {
+      const data = err?.response?.data;
+      if (data?.error === 'RESUME_LIMIT_REACHED') {
+        setResumeInfo((prev) => ({
+          resumeCount: data.maxResumes ?? prev?.resumeCount ?? 2,
+          maxResumes: data.maxResumes ?? prev?.maxResumes ?? 2,
+        }));
+        setPhase(PHASE.RESUME_LIMIT);
+        return;
+      }
+      if (data?.error === 'LOCKED_OUT') {
+        setEligibility((prev) => ({
+          ...(prev ?? {}),
+          locked: true,
+          lockReason: data.endReason || prev?.lockReason || null,
+        }));
+        setPhase(PHASE.LOCKED);
+        return;
+      }
+      if (data?.error === 'NO_ACTIVE_SESSION') {
+        // Session was closed between detection and resume — restart the flow.
+        loadEligibility();
+        return;
+      }
+      setError(data?.message || 'Could not resume your session. Try again.');
+      setPhase(PHASE.ERROR);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -461,6 +516,60 @@ export default function ProctoredContestEntry() {
           The time window for this contest has closed. No further
           entries or submissions are being accepted.
         </p>
+        <Link to="/contests" style={styles.ghostButton}>
+          ← All Contests
+        </Link>
+      </div>
+    );
+  } else if (phase === PHASE.RESUME) {
+    const used = resumeInfo?.resumeCount ?? 0;
+    const max = resumeInfo?.maxResumes ?? 2;
+    const left = Math.max(0, max - used);
+    body = (
+      <div style={styles.card}>
+        <p style={styles.cardEyebrow}>Session interrupted</p>
+        <h2 style={styles.cardHeading}>Resume your contest</h2>
+        <p style={styles.cardBody}>
+          We found your previous proctored session still running — looks
+          like the page was refreshed or closed. You can rejoin and pick
+          up where you left off.
+        </p>
+        <p style={{
+          margin: 0,
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '12px',
+          color: left > 1 ? C.muted : C.secondary,
+          letterSpacing: '0.05em',
+        }}>
+          {left} resume{left === 1 ? '' : 's'} remaining
+        </p>
+        <button
+          type="button"
+          onClick={handleResume}
+          disabled={submitting}
+          style={styles.primaryButton(submitting)}
+        >
+          {submitting ? 'Resuming…' : 'Resume Contest'}
+        </button>
+        <Link to={`/contests/${id}`} style={styles.ghostButton}>
+          ← Back to Contest
+        </Link>
+      </div>
+    );
+  } else if (phase === PHASE.RESUME_LIMIT) {
+    body = (
+      <div style={styles.card}>
+        <p style={styles.cardEyebrow}>Resume limit reached</p>
+        <h2 style={styles.cardHeading}>You can&apos;t resume this contest</h2>
+        <p style={styles.cardBody}>
+          You have already resumed this proctored contest the maximum
+          number of times allowed. For fairness, further re-entry is not
+          possible. Sorry for any inconvenience — if you believe this is a
+          mistake, please reach out through the support page.
+        </p>
+        <Link to="/support" style={styles.primaryButton(false)}>
+          Go to Support
+        </Link>
         <Link to="/contests" style={styles.ghostButton}>
           ← All Contests
         </Link>

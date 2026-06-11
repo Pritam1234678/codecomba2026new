@@ -82,4 +82,13 @@ public class ProctoringSession {
 
     @Column(name = "consent_version", nullable = false)
     private Integer consentVersion;
+
+    /**
+     * Number of times the candidate has resumed (rejoined) this still-active
+     * session after an accidental refresh / tab close. Starts at 0; the entry
+     * API allows at most {@code MAX_RESUMES} (2) resumes before refusing
+     * further re-entry (the candidate is directed to support).
+     */
+    @Column(name = "resume_count", nullable = false)
+    private Integer resumeCount = 0;
 }

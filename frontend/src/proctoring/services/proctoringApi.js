@@ -14,6 +14,10 @@ const consent = (cid, version) =>
 const createSession = (cid) =>
     api.post(`/proctoring/contests/${cid}/sessions`);
 
+// POST /api/proctoring/contests/{cid}/sessions/resume
+const resumeSession = (cid) =>
+    api.post(`/proctoring/contests/${cid}/sessions/resume`);
+
 // POST /api/proctoring/sessions/{sid}/ws-ticket
 const mintWsTicket = (sid) =>
     api.post(`/proctoring/sessions/${sid}/ws-ticket`);
@@ -98,6 +102,7 @@ const proctoringApi = {
     eligibility,
     consent,
     createSession,
+    resumeSession,
     mintWsTicket,
     finish,
     quit,

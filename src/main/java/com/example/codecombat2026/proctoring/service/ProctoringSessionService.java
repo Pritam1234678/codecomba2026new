@@ -72,6 +72,13 @@ public class ProctoringSessionService {
     private static final Set<EndReason> LOCKOUT_REASONS =
             Set.of(EndReason.SELF_QUIT, EndReason.ADMIN_FORCED, EndReason.HEARTBEAT_TIMEOUT);
 
+    /**
+     * Maximum number of times a candidate may resume (rejoin) an active session
+     * after an accidental refresh / tab close. After this many resumes the entry
+     * API refuses further re-entry and directs the candidate to support.
+     */
+    public static final int MAX_RESUMES = 2;
+
     private static final String CONTEST_ACTIVE_KEY_PREFIX = "proctoring:contest:";
     private static final String CONTEST_ACTIVE_KEY_SUFFIX = ":active";
     private static final String SESSION_KEY_PREFIX = "proctoring:session:";
@@ -135,12 +142,19 @@ public class ProctoringSessionService {
         }
 
         // Req 13.4 — at most one active session per (contest, user).
+        // Instead of a hard block, surface enough state for the UI to offer
+        // a Resume button (or the support message once the cap is hit).
         sessionRepo.findByContestIdAndUserIdAndEndedAtIsNull(contestId, userId)
                 .ifPresent(active -> {
                     throw new ProctoringStateConflictException(
                             "ALREADY_ACTIVE",
                             "An active proctoring session already exists",
-                            Map.of("sessionId", active.getId()));
+                            Map.of(
+                                "sessionId", active.getId(),
+                                "resumeCount", active.getResumeCount() == null ? 0 : active.getResumeCount(),
+                                "maxResumes", MAX_RESUMES,
+                                "resumeLimitReached",
+                                    (active.getResumeCount() == null ? 0 : active.getResumeCount()) >= MAX_RESUMES));
                 });
 
         ProctoringSession session = new ProctoringSession();
@@ -190,6 +204,60 @@ public class ProctoringSessionService {
             throw new ProctoringForbiddenException("FORBIDDEN", "Session does not belong to caller");
         }
         return session;
+    }
+
+    /**
+     * Resume (rejoin) the candidate's still-active session for
+     * {@code (contestId, userId)} after an accidental refresh / tab close.
+     *
+     * <p>Order of checks:
+     * <ol>
+     *   <li>{@link #isLocked(Long, Long)} — a previous terminal close locks the
+     *       candidate out entirely (409 {@code LOCKED_OUT}).</li>
+     *   <li>An active session must exist; if none, there is nothing to resume
+     *       (409 {@code NO_ACTIVE_SESSION}) and the caller should create a fresh
+     *       one through the normal flow.</li>
+     *   <li>{@link ProctoringSessionRepository#incrementResumeIfAllowed} — a
+     *       single conditional UPDATE that increments {@code resume_count} only
+     *       while it stays under {@link #MAX_RESUMES}. If it returns 0 the cap
+     *       has been hit, so we throw 409 {@code RESUME_LIMIT_REACHED} and the
+     *       candidate is directed to support.</li>
+     * </ol>
+     *
+     * @param contestId parent {@code contests.id}
+     * @param userId    candidate {@code users.id}
+     * @return the resumed {@link ProctoringSession} (with the incremented count)
+     */
+    @Transactional
+    public ProctoringSession resumeSession(Long contestId, Long userId) {
+        if (isLocked(contestId, userId)) {
+            EndReason lockedReason = sessionRepo.findByContestIdAndUserId(contestId, userId)
+                    .map(ProctoringSession::getEndReason)
+                    .orElse(null);
+            throw new ProctoringStateConflictException(
+                    "LOCKED_OUT",
+                    "Candidate is locked out of this proctored contest",
+                    Map.of("endReason", lockedReason == null ? "UNKNOWN" : lockedReason.name()));
+        }
+
+        ProctoringSession active = sessionRepo
+                .findByContestIdAndUserIdAndEndedAtIsNull(contestId, userId)
+                .orElseThrow(() -> new ProctoringStateConflictException(
+                        "NO_ACTIVE_SESSION",
+                        "There is no active session to resume"));
+
+        int updated = sessionRepo.incrementResumeIfAllowed(active.getId(), MAX_RESUMES);
+        if (updated == 0) {
+            // Cap already reached (resume_count == MAX_RESUMES). Refuse and
+            // surface the limit so the UI can show the support message.
+            throw new ProctoringStateConflictException(
+                    "RESUME_LIMIT_REACHED",
+                    "You have reached the maximum number of resumes for this contest",
+                    Map.of("maxResumes", MAX_RESUMES));
+        }
+
+        // Re-read so the caller (and the WS ticket mint) see the incremented row.
+        return sessionRepo.findById(active.getId()).orElse(active);
     }
 
     /**

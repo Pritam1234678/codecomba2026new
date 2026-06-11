@@ -191,4 +191,22 @@ public interface ProctoringSessionRepository extends JpaRepository<ProctoringSes
            "WHERE s.endedAt IS NULL")
     int closeAllOrphans(@Param("endedAt") LocalDateTime endedAt,
                         @Param("reason") EndReason reason);
+
+    /**
+     * Atomically increment {@code resume_count} for an active session, but only
+     * while it stays at or below the cap. Returns the affected row count: 1 when
+     * the resume was allowed (count incremented), 0 when the session is already
+     * ended or the cap has been reached. Doing the check + increment in a single
+     * conditional UPDATE prevents two racing refreshes from both being allowed
+     * past the cap.
+     *
+     * @param id     owning {@code proctoring_sessions.id}
+     * @param maxResumes the maximum allowed resume_count (e.g. 2)
+     * @return 1 if the resume was granted, 0 otherwise
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE ProctoringSession s SET s.resumeCount = s.resumeCount + 1 " +
+           "WHERE s.id = :id AND s.endedAt IS NULL AND s.resumeCount < :maxResumes")
+    int incrementResumeIfAllowed(@Param("id") Long id, @Param("maxResumes") int maxResumes);
 }

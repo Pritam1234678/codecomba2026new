@@ -312,6 +312,41 @@ public class ProctoringEntryController {
     }
 
     /**
+     * Resume (rejoin) the calling candidate's still-active session after an
+     * accidental refresh / tab close.
+     *
+     * <p>Delegates to {@link ProctoringSessionService#resumeSession} which:
+     * <ul>
+     *   <li>enforces lockout (409 {@code LOCKED_OUT}),</li>
+     *   <li>requires an active session to exist (409 {@code NO_ACTIVE_SESSION}),</li>
+     *   <li>caps the number of resumes at {@code MAX_RESUMES} and throws
+     *       409 {@code RESUME_LIMIT_REACHED} once the cap is reached.</li>
+     * </ul>
+     *
+     * <p>On success returns the same {@code { sessionId, wsTicket, startedAt }}
+     * shape as create-session so the frontend can hand it straight to the arena.
+     *
+     * @param cid         parent {@code contests.id}
+     * @param userDetails authenticated principal
+     * @return 200 with {@code { sessionId, wsTicket, startedAt, resumeCount }}
+     */
+    @PostMapping("/contests/{cid}/sessions/resume")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> resumeSession(@PathVariable Long cid,
+                                                            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        Long userId = userDetails.getId();
+
+        ProctoringSession session = sessionService.resumeSession(cid, userId);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("sessionId", session.getId());
+        response.put("wsTicket", wsTicketService.mint(userId));
+        response.put("startedAt", session.getStartedAt());
+        response.put("resumeCount", session.getResumeCount());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Mint a fresh WebSocket ticket for an existing active session — used
      * by the candidate UI on reconnect after a transient network blip
      * (Req 16.3).
