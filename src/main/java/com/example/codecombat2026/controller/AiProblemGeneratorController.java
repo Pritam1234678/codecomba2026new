@@ -392,15 +392,30 @@ public class AiProblemGeneratorController {
         the problem spec — and NOTHING else.
 
         REFRAMING (critical — read first):
-        The judge runs exactly ONE pure function: array/scalar inputs in, one concrete value
-        out. If the requested problem is interactive or class/API-based (e.g. "Robot Room
-        Cleaner", an iterator, a data-structure to implement, a design problem), or otherwise
-        has no direct input→output, you MUST REFRAME it into an equivalent pure function:
+        The judge runs exactly ONE method that the candidate implements — exactly like a
+        LeetCode `Solution` class with a single public method: inputs in, one concrete value out.
+        If the requested problem is interactive or design/API-based (e.g. "Robot Room
+        Cleaner", an iterator, "implement an LRU cache", a class to design), or otherwise
+        has no direct input→output, you MUST REFRAME it into an equivalent single method:
         pass the hidden state as explicit inputs (e.g. the grid as int[][], start as int row
-        and int col) and return a concrete value (e.g. the number of cells cleaned, or the
-        resulting grid). Never use a parameter whose type is a custom object — only the
-        allowed types below. Keep "description" concise (about 60-120 words) and matching the
-        reframed pure-function version. Do NOT ramble or repeat sentences.
+        and int col) and return a concrete value. `signature.name` is that method's name and
+        MUST be a clean camelCase verb phrase (e.g. twoSum, reverseList, maxDepth) — it becomes
+        the method inside the candidate's Solution class.
+
+        DATA STRUCTURES (LeetCode-style — IMPORTANT):
+        Two custom node types ARE allowed as parameter / return types, but ONLY when the
+        problem is genuinely about that structure (otherwise prefer plain arrays):
+          • ListNode  — singly-linked list. Serialized as the array of node values IN ORDER,
+                        e.g. the list 1→2→3 is [1,2,3]; the empty list is [].
+          • TreeNode  — binary tree. Serialized as a level-order (BFS) array with null for
+                        missing children, e.g. [1,null,2,3]; the empty tree is [].
+        In "tests", ALWAYS write a ListNode / TreeNode value as its serialized array exactly
+        as above (never as an object). A ListNode[] (e.g. "merge k lists") is an array of such
+        arrays. Choose ListNode / TreeNode types only for problems that are naturally about
+        linked lists or binary trees; everything else stays on the plain allowed types.
+
+        Keep "description" concise (about 60-120 words) and matching the pure-function version.
+        Do NOT ramble or repeat sentences.
 
         Shape:
         {
@@ -430,7 +445,7 @@ public class AiProblemGeneratorController {
         }
 
         Allowed <type> values ONLY: int, long, double, boolean, String, char,
-        int[], long[], double[], boolean[], String[], int[][].
+        int[], long[], double[], boolean[], String[], int[][], ListNode, TreeNode, ListNode[].
 
         THE REFERENCE SOLUTION IS THE MOST IMPORTANT FIELD:
         • "referenceSolutionPython" must be a CORRECT, complete Python function named EXACTLY
@@ -439,6 +454,12 @@ public class AiProblemGeneratorController {
         • It will be EXECUTED to compute the real expected values, so it must actually work.
           Standard library imports (collections, heapq, math, bisect, itertools) are allowed —
           put any import lines at the top of the string.
+        • IMPORTANT for ListNode / TreeNode: the reference receives each such argument as the
+          PLAIN serialized Python list (e.g. [1,2,3] or [1,null→None,2,3]) and must RETURN the
+          serialized list form of the answer. If it is easier to solve with real nodes, define
+          tiny build/serialize helpers AT THE TOP of the reference string and convert internally,
+          but the function's input and output must be the list encodings so the executed expected
+          value is itself a list. (e.g. `def sortList(head): vals=sorted(head); return vals`)
         • Use JSON-friendly return types: int, float, bool, str, or lists of those. For index
           answers return a list like [i, j].
 
@@ -470,14 +491,23 @@ public class AiProblemGeneratorController {
         ===HARNESS:C===
         No markdown fences, no prose — just the header lines and the code.
 
-        Harness contract (identical across languages):
+        Harness contract (identical scoring across languages):
         • One self-contained, runnable file. NO stdin (no Scanner/cin/scanf/input()/readFileSync).
           Hardcode the test data from the spec.
-        • Wrap ONLY the solution stub with the markers (// USER_CODE_START / // USER_CODE_END;
-          Python uses # ). The stub is the `signature` function with an empty body returning a
-          default — this is the part the user replaces.
+        • Wrap ONLY the user-facing solution with the markers (// USER_CODE_START / // USER_CODE_END;
+          Python uses # ). This is the EXACT region shown to the candidate and replaced on submit.
+        • USER-FACING SHAPE — make it look exactly like LeetCode:
+            JAVA, C++, PYTHON  → a `Solution` class containing ONE public method (the signature).
+                                 The class lives between the markers. Empty body returns a default.
+            JAVASCRIPT, C      → a single top-level function (the signature). No class.
+        • The test driver + main()/entry live OUTSIDE the markers and CALL into the user code:
+            Java:    `new Solution().method(args)`
+            C++:     `Solution sol; sol.method(args)`
+            Python:  `Solution().method(args)`
+            JS:      `method(args)`
+            C:       `method(args)`
         • A test(...) helper is called once per spec test, numbered 1..6 in spec order, receiving
-          the hidden flag. Each test prints EXACTLY one line:
+          the hidden flag. Each test prints EXACTLY one line (UNCHANGED — this is the score format):
              visible pass:  TC:<n>:PASS
              hidden  pass:  TC:<n>:PASS:hidden
              visible fail:  TC:<n>:FAIL:input=<args repr>:expected=<exp>:got=<got>
@@ -485,17 +515,46 @@ public class AiProblemGeneratorController {
         • Compare scalars with ==; compare arrays element-wise. Hidden tests must NEVER print
           input/expected/got. Keep the printed input/expected/got free of ':' characters.
 
-        Java class MUST be named Main. Match the structure of these worked examples (adapt names,
-        types and values to the spec):
+        JAVA STRUCTURE RULE (important): declare `class Solution` as a TOP-LEVEL package-private
+        class in the same file, ABOVE `public class Main`, and put it BETWEEN the markers. Java
+        permits multiple top-level classes in one file as long as only one (Main) is public. This
+        keeps the candidate's editable region a clean LeetCode-style `class Solution { ... }`.
+
+        DATA STRUCTURES (ListNode / TreeNode) — LeetCode style:
+        When the signature uses ListNode, ListNode[], or TreeNode:
+          1. Place the REAL (uncommented) node class/struct ABOVE the marker region so BOTH the
+             Solution code and the driver compile against it (Java/C++/C: class/struct; Py/JS: class).
+          2. INSIDE the markers — the candidate-visible region — put the LeetCode-style COMMENTED
+             definition banner just above the Solution method (Java/C++/Py) or function (JS/C),
+             e.g. for Java:
+               // USER_CODE_START
+               // Definition for singly-linked list.
+               // class ListNode { int val; ListNode next; ListNode(int x){ val=x; } }
+               class Solution {
+                   public ListNode reverseList(ListNode head) { return head; }
+               }
+               // USER_CODE_END
+          3. Inside test(...), BUILD the real structure from the hardcoded serialized array
+             (linked list: chain values in order; tree: level-order BFS with null children), call
+             the solution, then SERIALIZE the result back to an array before comparing/printing.
+             Provide tiny build/serialize helpers OUTSIDE the markers (candidate never sees them).
+             Serialized forms MUST match the spec encodings (list 1→2→3 == [1,2,3]; tree
+             level-order with nulls). Printed input/expected/got use the array form.
+        For plain array/scalar problems use the same Solution-class / function shape (no node types).
+
+        Java's public class MUST be named Main. Match the structure of these worked examples
+        (adapt names, types and values to the spec):
 
         ===HARNESS:JAVA===
         import java.util.*;
+        // USER_CODE_START
+        class Solution {
+            public int solve(int[] arr) { return 0; }
+        }
+        // USER_CODE_END
         public class Main {
-            // USER_CODE_START
-            public static int solve(int[] arr) { return 0; }
-            // USER_CODE_END
             static void test(int[] arr, int expected, int tc, boolean hidden) {
-                int got = solve(arr);
+                int got = new Solution().solve(arr);
                 if (got == expected) System.out.println("TC:" + tc + ":PASS" + (hidden ? ":hidden" : ""));
                 else if (hidden) System.out.println("TC:" + tc + ":FAIL:hidden");
                 else System.out.println("TC:" + tc + ":FAIL:input=" + Arrays.toString(arr) + ":expected=" + expected + ":got=" + got);
@@ -509,10 +568,13 @@ public class AiProblemGeneratorController {
         #include <bits/stdc++.h>
         using namespace std;
         // USER_CODE_START
-        int solve(vector<int>& arr) { return 0; }
+        class Solution {
+        public:
+            int solve(vector<int>& arr) { return 0; }
+        };
         // USER_CODE_END
         void test(vector<int> arr, int expected, int tc, bool hidden=false) {
-            int got = solve(arr);
+            Solution sol; int got = sol.solve(arr);
             if (got == expected) cout << "TC:" << tc << ":PASS" << (hidden ? ":hidden" : "") << "\\n";
             else if (hidden) cout << "TC:" << tc << ":FAIL:hidden\\n";
             else { cout << "TC:" << tc << ":FAIL:input=["; for (size_t i=0;i<arr.size();i++){ if(i) cout<<","; cout<<arr[i]; } cout << "]:expected=" << expected << ":got=" << got << "\\n"; }
@@ -520,11 +582,12 @@ public class AiProblemGeneratorController {
         int main(){ test({1,2,3},6,1); test({5},5,2); return 0; }
         ===HARNESS:PYTHON===
         # USER_CODE_START
-        def solve(arr):
-            return 0
+        class Solution:
+            def solve(self, arr):
+                return 0
         # USER_CODE_END
         def test(arr, expected, tc, hidden=False):
-            got = solve(arr)
+            got = Solution().solve(arr)
             if got == expected: print(f"TC:{tc}:PASS" + (":hidden" if hidden else ""))
             elif hidden: print(f"TC:{tc}:FAIL:hidden")
             else: print(f"TC:{tc}:FAIL:input={arr}:expected={expected}:got={got}")
@@ -554,5 +617,64 @@ public class AiProblemGeneratorController {
             else { printf("TC:%d:FAIL:input=[", tc); for (int i=0;i<n;i++){ if(i) printf(","); printf("%d", arr[i]); } printf("]:expected=%d:got=%d\\n", expected, got); }
         }
         int main(){ int t1[]={1,2,3}; test(t1,3,6,1,0); int t2[]={5}; test(t2,1,5,2,0); return 0; }
+
+        ─────────────────────────────────────────────────────────────────────────
+        WORKED EXAMPLE for a ListNode problem (signature: ListNode reverseList(ListNode head)).
+        Note the LeetCode-style Solution class / function, the commented banner, the real node
+        type ABOVE the markers, the build/serialize helpers OUTSIDE the markers, and the
+        array-encoded test data. Adapt the same pattern to TreeNode (level-order build/serialize)
+        and to C++ / JS / C.
+
+        ===HARNESS:JAVA===
+        import java.util.*;
+        class ListNode { int val; ListNode next; ListNode(int x){ val=x; } }
+        // USER_CODE_START
+        // Definition for singly-linked list.
+        // class ListNode { int val; ListNode next; ListNode(int x){ val=x; } }
+        class Solution {
+            public ListNode reverseList(ListNode head) { return head; }
+        }
+        // USER_CODE_END
+        public class Main {
+            static ListNode build(int[] a){ ListNode d=new ListNode(0), c=d; for(int v:a){ c.next=new ListNode(v); c=c.next; } return d.next; }
+            static int[] ser(ListNode h){ ArrayList<Integer> o=new ArrayList<>(); while(h!=null){ o.add(h.val); h=h.next; } int[] r=new int[o.size()]; for(int i=0;i<r.length;i++) r[i]=o.get(i); return r; }
+            static void test(int[] in, int[] expected, int tc, boolean hidden){
+                int[] got = ser(new Solution().reverseList(build(in)));
+                if (Arrays.equals(got, expected)) System.out.println("TC:" + tc + ":PASS" + (hidden ? ":hidden" : ""));
+                else if (hidden) System.out.println("TC:" + tc + ":FAIL:hidden");
+                else System.out.println("TC:" + tc + ":FAIL:input=" + Arrays.toString(in) + ":expected=" + Arrays.toString(expected) + ":got=" + Arrays.toString(got));
+            }
+            public static void main(String[] a){
+                test(new int[]{1,2,3}, new int[]{3,2,1}, 1, false);
+                test(new int[]{}, new int[]{}, 2, false);
+            }
+        }
+        ===HARNESS:PYTHON===
+        class ListNode:
+            def __init__(self, val=0, next=None): self.val, self.next = val, next
+        # USER_CODE_START
+        # Definition for singly-linked list.
+        # class ListNode:
+        #     def __init__(self, val=0, next=None): self.val, self.next = val, next
+        class Solution:
+            def reverseList(self, head):
+                return head
+        # USER_CODE_END
+        def _build(a):
+            d = ListNode(0); c = d
+            for v in a: c.next = ListNode(v); c = c.next
+            return d.next
+        def _ser(h):
+            o = []
+            while h: o.append(h.val); h = h.next
+            return o
+        def test(inp, expected, tc, hidden=False):
+            got = _ser(Solution().reverseList(_build(inp)))
+            if got == expected: print(f"TC:{tc}:PASS" + (":hidden" if hidden else ""))
+            elif hidden: print(f"TC:{tc}:FAIL:hidden")
+            else: print(f"TC:{tc}:FAIL:input={inp}:expected={expected}:got={got}")
+        test([1,2,3], [3,2,1], 1)
+        test([], [], 2)
+        ─────────────────────────────────────────────────────────────────────────
         """;
 }

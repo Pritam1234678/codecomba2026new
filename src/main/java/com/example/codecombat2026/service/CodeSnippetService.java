@@ -204,13 +204,13 @@ public class CodeSnippetService {
 
         if (startIdx == -1 || endIdx == -1 || endIdx <= startIdx) {
             // No markers found — return a language-appropriate blank starter so the
-            // user always sees a compilable skeleton instead of an empty editor.
+            // user always sees a compilable LeetCode-style skeleton instead of empty.
             return switch (language) {
-                case JAVA -> "import java.util.*;\nimport java.io.*;\n\npublic class Main {\n    public static void main(String[] args) {\n        // Write your code here\n    }\n}";
-                case CPP  -> "#include <bits/stdc++.h>\nusing namespace std;\n\nint main() {\n    // Write your code here\n    return 0;\n}";
-                case C    -> "#include <stdio.h>\n\nint main() {\n    // Write your code here\n    return 0;\n}";
-                case PYTHON -> "# Write your code here\n";
-                case JAVASCRIPT -> "// Write your code here\n";
+                case JAVA -> "class Solution {\n    public void solve() {\n        // Write your code here\n    }\n}";
+                case CPP  -> "class Solution {\npublic:\n    void solve() {\n        // Write your code here\n    }\n};";
+                case PYTHON -> "class Solution:\n    def solve(self):\n        # Write your code here\n        pass";
+                case JAVASCRIPT -> "function solve() {\n    // Write your code here\n}";
+                case C    -> "void solve() {\n    // Write your code here\n}";
             };
         }
 

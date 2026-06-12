@@ -117,7 +117,9 @@ VALUES (3, 'JAVA', '<full harness code>', NOW(), NOW());
 
 1. **Single complete runnable file** — no external dependencies, no stdin reading
 2. **Must contain markers**: `// USER_CODE_START` and `// USER_CODE_END` (or `# USER_CODE_START` / `# USER_CODE_END` for Python)
-3. **User's code replaces** the section between markers on submission
+3. **User's code replaces** the section between markers on submission. The marked region is
+   LeetCode-style: a `Solution` class (Java / C++ / Python) or a top-level function (JS / C).
+   The hidden driver below the markers calls into it (`new Solution().method(...)` etc).
 4. **Test cases hardcoded** inside the harness — NO stdin/cin/scanf/input()/readFileSync
 5. **Output format**: Each test prints exactly one line in format:
    - PASS: `TC:<number>:PASS` or `TC:<number>:PASS:hidden`
@@ -141,37 +143,44 @@ TC:10:FAIL:hidden                            ← hidden, failed (no debug info s
 
 ## Harness Templates (All 5 Languages)
 
+The harness is ONE self-contained runnable file. The candidate sees ONLY the region between
+`// USER_CODE_START` and `// USER_CODE_END` (LeetCode-style):
+- **Java, C++, Python** → the candidate edits a `Solution` class with one method. The hidden
+  driver below calls `new Solution().method(...)`.
+- **JavaScript, C** → the candidate edits a single top-level function (LeetCode style for these).
+
+The test cases, the `TC:N:...` output format, and the scoring stay EXACTLY the same regardless
+of shape.
+
 ### Template: JAVA
 
 ```java
 import java.util.*;
 
-public class Main {
-
-    // USER_CODE_START
-    public static int solveProblem(int[] input) {
+// USER_CODE_START
+class Solution {
+    public int solveProblem(int[] input) {
         // Write your solution here
         return 0;
     }
-    // USER_CODE_END
+}
+// USER_CODE_END
 
+public class Main {
     static void test(int[] input, int expected, int tc, boolean hidden) {
-        int result = solveProblem(input);
+        int result = new Solution().solveProblem(input);
         if (result == expected) {
             System.out.println("TC:" + tc + ":PASS" + (hidden ? ":hidden" : ""));
+        } else if (hidden) {
+            System.out.println("TC:" + tc + ":FAIL:hidden");
         } else {
-            if (hidden) {
-                System.out.println("TC:" + tc + ":FAIL:hidden");
-            } else {
-                System.out.println("TC:" + tc + ":FAIL:input=" + Arrays.toString(input) + ":expected=" + expected + ":got=" + result);
-            }
+            System.out.println("TC:" + tc + ":FAIL:input=" + Arrays.toString(input) + ":expected=" + expected + ":got=" + result);
         }
     }
 
     public static void main(String[] args) {
         // Visible test cases (user can see input/expected/got on failure)
         test(new int[]{...}, expectedValue, 1, false);
-        test(new int[]{...}, expectedValue, 2, false);
         // ... up to 8 visible
 
         // Hidden test cases (user only sees PASS/FAIL)
@@ -188,72 +197,34 @@ public class Main {
 using namespace std;
 
 // USER_CODE_START
-int solveProblem(vector<int>& input) {
-    // Write your solution here
-    return 0;
-}
+class Solution {
+public:
+    int solveProblem(vector<int>& input) {
+        // Write your solution here
+        return 0;
+    }
+};
 // USER_CODE_END
 
 void test(vector<int> input, int expected, int tc, bool hidden = false) {
-    int result = solveProblem(input);
+    Solution sol;
+    int result = sol.solveProblem(input);
     if (result == expected) {
         cout << "TC:" << tc << ":PASS" << (hidden ? ":hidden" : "") << "\n";
+    } else if (hidden) {
+        cout << "TC:" << tc << ":FAIL:hidden\n";
     } else {
-        if (hidden) {
-            cout << "TC:" << tc << ":FAIL:hidden\n";
-        } else {
-            cout << "TC:" << tc << ":FAIL:input=[";
-            for (int i = 0; i < (int)input.size(); i++) { if (i) cout << ","; cout << input[i]; }
-            cout << "]:expected=" << expected << ":got=" << result << "\n";
-        }
+        cout << "TC:" << tc << ":FAIL:input=[";
+        for (int i = 0; i < (int)input.size(); i++) { if (i) cout << ","; cout << input[i]; }
+        cout << "]:expected=" << expected << ":got=" << result << "\n";
     }
 }
 
 int main() {
     test({...}, expected, 1);
-    test({...}, expected, 2);
     // ... visible tests
-
     test({...}, expected, 9, true);
     test({...}, expected, 10, true);
-    return 0;
-}
-```
-
-### Template: C
-
-```c
-#include <stdio.h>
-
-// USER_CODE_START
-int solveProblem(int* arr, int n) {
-    // Write your solution here
-    return 0;
-}
-// USER_CODE_END
-
-void test(int* arr, int n, int expected, int tc, int hidden) {
-    int result = solveProblem(arr, n);
-    if (result == expected) {
-        if (hidden) printf("TC:%d:PASS:hidden\n", tc);
-        else printf("TC:%d:PASS\n", tc);
-    } else {
-        if (hidden) {
-            printf("TC:%d:FAIL:hidden\n", tc);
-        } else {
-            printf("TC:%d:FAIL:input=[", tc);
-            for (int i = 0; i < n; i++) { if (i) printf(","); printf("%d", arr[i]); }
-            printf("]:expected=%d:got=%d\n", expected, result);
-        }
-    }
-}
-
-int main() {
-    int h1[] = {...}; test(h1, sizeof(h1)/sizeof(int), expected, 1, 0);
-    // ... visible
-
-    int h9[] = {...}; test(h9, sizeof(h9)/sizeof(int), expected, 9, 1);
-    // ... hidden
     return 0;
 }
 ```
@@ -262,13 +233,14 @@ int main() {
 
 ```python
 # USER_CODE_START
-def solve_problem(arr):
-    # Write your solution here
-    return 0
+class Solution:
+    def solve_problem(self, arr):
+        # Write your solution here
+        return 0
 # USER_CODE_END
 
 def test(arr, expected, tc, hidden=False):
-    result = solve_problem(arr)
+    result = Solution().solve_problem(arr)
     if result == expected:
         suffix = ":hidden" if hidden else ""
         print(f"TC:{tc}:PASS{suffix}")
@@ -318,6 +290,95 @@ test([...], expected, 2);
 // Hidden
 test([...], expected, 9, true);
 test([...], expected, 10, true);
+```
+
+### Template: C
+
+```c
+#include <stdio.h>
+
+// USER_CODE_START
+int solveProblem(int* arr, int n) {
+    // Write your solution here
+    return 0;
+}
+// USER_CODE_END
+
+void test(int* arr, int n, int expected, int tc, int hidden) {
+    int result = solveProblem(arr, n);
+    if (result == expected) {
+        if (hidden) printf("TC:%d:PASS:hidden\n", tc);
+        else printf("TC:%d:PASS\n", tc);
+    } else {
+        if (hidden) {
+            printf("TC:%d:FAIL:hidden\n", tc);
+        } else {
+            printf("TC:%d:FAIL:input=[", tc);
+            for (int i = 0; i < n; i++) { if (i) printf(","); printf("%d", arr[i]); }
+            printf("]:expected=%d:got=%d\n", expected, result);
+        }
+    }
+}
+
+int main() {
+    int h1[] = {...}; test(h1, sizeof(h1)/sizeof(int), expected, 1, 0);
+    // ... visible
+
+    int h9[] = {...}; test(h9, sizeof(h9)/sizeof(int), expected, 9, 1);
+    // ... hidden
+    return 0;
+}
+```
+
+---
+
+## Data Structures (LinkedList / Tree) — LeetCode style
+
+When a problem is genuinely about a linked list or binary tree, present it like LeetCode
+instead of a flat array. The judge still receives/compares the SERIALIZED array form, so the
+`TC:N:...` output and scoring are unchanged.
+
+**Serialization (always use these encodings in test data):**
+- Linked list `1 -> 2 -> 3`  →  `[1,2,3]`; empty list → `[]`
+- Binary tree (level-order / BFS, `null` for missing children)  →  `[1,null,2,3]`; empty → `[]`
+
+**Rules:**
+1. The REAL node type (`ListNode` / `TreeNode`) goes ABOVE the `USER_CODE_START` marker so both
+   the `Solution` code and the driver compile against it.
+2. INSIDE the markers (candidate-visible) put the commented LeetCode definition banner, then the
+   `Solution` class (Java/C++/Python) or function (JS/C) using the node type directly.
+3. The driver's `test(...)` BUILDS the structure from the hardcoded serialized array, calls the
+   solution, then SERIALIZES the result back to an array before comparing/printing.
+
+### Example: JAVA `reverseList`
+
+```java
+import java.util.*;
+class ListNode { int val; ListNode next; ListNode(int x){ val=x; } }
+// USER_CODE_START
+// Definition for singly-linked list.
+// class ListNode { int val; ListNode next; ListNode(int x){ val=x; } }
+class Solution {
+    public ListNode reverseList(ListNode head) {
+        // Write your solution here
+        return head;
+    }
+}
+// USER_CODE_END
+public class Main {
+    static ListNode build(int[] a){ ListNode d=new ListNode(0), c=d; for(int v:a){ c.next=new ListNode(v); c=c.next; } return d.next; }
+    static int[] ser(ListNode h){ ArrayList<Integer> o=new ArrayList<>(); while(h!=null){ o.add(h.val); h=h.next; } int[] r=new int[o.size()]; for(int i=0;i<r.length;i++) r[i]=o.get(i); return r; }
+    static void test(int[] in, int[] expected, int tc, boolean hidden){
+        int[] got = ser(new Solution().reverseList(build(in)));
+        if (Arrays.equals(got, expected)) System.out.println("TC:" + tc + ":PASS" + (hidden ? ":hidden" : ""));
+        else if (hidden) System.out.println("TC:" + tc + ":FAIL:hidden");
+        else System.out.println("TC:" + tc + ":FAIL:input=" + Arrays.toString(in) + ":expected=" + Arrays.toString(expected) + ":got=" + Arrays.toString(got));
+    }
+    public static void main(String[] a){
+        test(new int[]{1,2,3}, new int[]{3,2,1}, 1, false);
+        test(new int[]{}, new int[]{}, 2, false);
+    }
+}
 ```
 
 ---
@@ -418,17 +479,24 @@ public class Main {
 
 ## Function Signature Patterns
 
+In Java / C++ / Python the candidate edits a `Solution` class; in JS / C a top-level function.
+The driver calls into it (`new Solution().method(...)` / `Solution().method(...)` / `method(...)`).
+
 ### For problems returning a single value (int, string):
 ```java
 // USER_CODE_START
-public static int solve(int[] arr) { return 0; }
+class Solution {
+    public int solve(int[] arr) { return 0; }
+}
 // USER_CODE_END
 ```
 
 ### For problems returning an array:
 ```java
 // USER_CODE_START
-public int[] twoSum(int[] nums, int target) { return new int[]{}; }
+class Solution {
+    public int[] twoSum(int[] nums, int target) { return new int[]{}; }
+}
 // USER_CODE_END
 ```
 For array returns, compare using `Arrays.equals()` (Java), `==` operator (Python/CPP), or element-wise comparison.
@@ -436,7 +504,16 @@ For array returns, compare using `Arrays.equals()` (Java), `==` operator (Python
 ### For problems with multiple parameters:
 ```java
 // USER_CODE_START
-public static int solve(int[] arr, int k) { return 0; }
+class Solution {
+    public int solve(int[] arr, int k) { return 0; }
+}
+// USER_CODE_END
+```
+
+### JavaScript / C (function style, no class):
+```javascript
+// USER_CODE_START
+function solve(arr) { return 0; }
 // USER_CODE_END
 ```
 

@@ -29,62 +29,94 @@ const LANG_MONACO = { JAVA: 'java', CPP: 'cpp', PYTHON: 'python', JAVASCRIPT: 'j
 
 const DEFAULT_SNIPPETS = {
     JAVA: `import java.util.*;
-import java.io.*;
+
+// USER_CODE_START
+class Solution {
+    public int solve(int[] arr) {
+        // Write your code here
+        return 0;
+    }
+}
+// USER_CODE_END
 
 public class Main {
-
-    // USER_CODE_START
-    public static void solve() {
-        // Write your code here
+    static void test(int[] arr, int expected, int tc, boolean hidden) {
+        int got = new Solution().solve(arr);
+        if (got == expected) System.out.println("TC:" + tc + ":PASS" + (hidden ? ":hidden" : ""));
+        else if (hidden) System.out.println("TC:" + tc + ":FAIL:hidden");
+        else System.out.println("TC:" + tc + ":FAIL:input=" + Arrays.toString(arr) + ":expected=" + expected + ":got=" + got);
     }
-    // USER_CODE_END
-
-    public static void main(String[] args) {
-        solve();
+    public static void main(String[] a) {
+        test(new int[]{1,2,3}, 6, 1, false);
+        test(new int[]{5}, 5, 2, false);
     }
 }`,
     CPP: `#include <bits/stdc++.h>
 using namespace std;
 
 // USER_CODE_START
-void solve() {
-    // Write your code here
-}
+class Solution {
+public:
+    int solve(vector<int>& arr) {
+        // Write your code here
+        return 0;
+    }
+};
 // USER_CODE_END
 
-int main() {
-    ios_base::sync_with_stdio(false);
-    cin.tie(NULL);
-    solve();
-    return 0;
-}`,
+void test(vector<int> arr, int expected, int tc, bool hidden=false) {
+    Solution sol; int got = sol.solve(arr);
+    if (got == expected) cout << "TC:" << tc << ":PASS" << (hidden ? ":hidden" : "") << "\\n";
+    else if (hidden) cout << "TC:" << tc << ":FAIL:hidden\\n";
+    else { cout << "TC:" << tc << ":FAIL:input=["; for (size_t i=0;i<arr.size();i++){ if(i) cout<<","; cout<<arr[i]; } cout << "]:expected=" << expected << ":got=" << got << "\\n"; }
+}
+int main(){ test({1,2,3},6,1); test({5},5,2); return 0; }`,
     PYTHON: `# USER_CODE_START
-def solve():
-    # Write your code here
-    pass
+class Solution:
+    def solve(self, arr):
+        # Write your code here
+        return 0
 # USER_CODE_END
 
-solve()`,
+def test(arr, expected, tc, hidden=False):
+    got = Solution().solve(arr)
+    if got == expected: print(f"TC:{tc}:PASS" + (":hidden" if hidden else ""))
+    elif hidden: print(f"TC:{tc}:FAIL:hidden")
+    else: print(f"TC:{tc}:FAIL:input={arr}:expected={expected}:got={got}")
+
+test([1,2,3], 6, 1)
+test([5], 5, 2)`,
     JAVASCRIPT: `// USER_CODE_START
-function solve() {
+function solve(arr) {
     // Write your code here
+    return 0;
 }
 // USER_CODE_END
 
-solve();`,
+function test(arr, expected, tc, hidden = false) {
+    const got = solve(arr);
+    if (got === expected) console.log(\`TC:\${tc}:PASS\` + (hidden ? ':hidden' : ''));
+    else if (hidden) console.log(\`TC:\${tc}:FAIL:hidden\`);
+    else console.log(\`TC:\${tc}:FAIL:input=[\${arr}]:expected=\${expected}:got=\${got}\`);
+}
+test([1,2,3], 6, 1);
+test([5], 5, 2);`,
     C: `#include <stdio.h>
-#include <stdlib.h>
 
 // USER_CODE_START
-void solve() {
+int solve(int* arr, int n) {
     // Write your code here
+    return 0;
 }
 // USER_CODE_END
 
-int main() {
-    solve();
-    return 0;
-}`,
+void test(int* arr, int n, int expected, int tc, int hidden) {
+    int got = solve(arr, n);
+    if (got == expected) { if (hidden) printf("TC:%d:PASS:hidden\\n", tc); else printf("TC:%d:PASS\\n", tc); }
+    else if (hidden) printf("TC:%d:FAIL:hidden\\n", tc);
+    else { printf("TC:%d:FAIL:input=[", tc); for (int i=0;i<n;i++){ if(i) printf(","); printf("%d", arr[i]); } printf("]:expected=%d:got=%d\\n", expected, got); }
+}
+int main(){ int t1[]={1,2,3}; test(t1,3,6,1,0); int t2[]={5}; test(t2,1,5,2,0); return 0; }`,
 };
 
 export default function EditProblem() {
