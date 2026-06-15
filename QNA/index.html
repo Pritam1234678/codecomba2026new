@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CodeCombat 2026 — Database Schema ERD</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#080b11;--surface:#0f1420;--surface-hi:#161c2d;--surface-hov:#1e2640;--border:#2a3354;--text:#e2e8f0;--text-dim:#718096;--text-muted:#4a5568;--accent:#63b3ed;--accent-glow:rgba(99,179,237,0.15);--gold:#f6c90e;--gold-glow:rgba(246,201,14,0.15);--green:#68d391;--green-glow:rgba(104,211,145,0.15);--red:#fc8181;--purple:#b794f4;--orange:#f6ad55;--font:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:var(--font);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+    ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+    header{flex-shrink:0;height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px;gap:16px;z-index:200;box-shadow:0 4px 24px rgba(0,0,0,0.5);}
+    .header-brand{display:flex;align-items:center;gap:10px;}
+    .header-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent),var(--purple));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+    .header-title{font-size:15px;font-weight:700;color:var(--text);}
+    .header-badge{font-family:var(--mono);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-dim);border:1px solid var(--border);padding:2px 7px;border-radius:4px;}
+    .header-center{flex:1;max-width:340px;position:relative;}
+    .header-search{width:100%;background:var(--surface-hi);border:1px solid var(--border);border-radius:8px;padding:7px 12px 7px 34px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;transition:border-color .2s,box-shadow .2s;}
+    .header-search:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
+    .header-search::placeholder{color:var(--text-muted);}
+    .search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:15px;pointer-events:none;}
+    .header-right{display:flex;align-items:center;gap:8px;}
+    .hdr-btn{height:34px;padding:0 12px;background:var(--surface-hi);border:1px solid var(--border);border-radius:7px;color:var(--text-dim);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap;}
+    .hdr-btn:hover{background:var(--surface-hov);color:var(--text);border-color:var(--accent);}
+    .workspace{flex:1;display:flex;overflow:hidden;position:relative;}
+    .sidebar{width:250px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;z-index:100;}
+    .sidebar-tabs{display:flex;flex-wrap:wrap;padding:8px;gap:4px;border-bottom:1px solid var(--border);}
+    .s-tab{flex:1;min-width:55px;background:transparent;border:1px solid transparent;border-radius:6px;color:var(--text-dim);font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:5px 4px;cursor:pointer;text-align:center;transition:all .15s;}
+    .s-tab:hover{color:var(--text);background:var(--surface-hi);}
+    .s-tab.active{color:var(--accent);background:var(--accent-glow);border-color:var(--accent);font-weight:600;}
+    .sidebar-hdr{padding:10px 14px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+    .count-chip{background:var(--accent-glow);border:1px solid var(--border);color:var(--accent);font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:99px;}
+    .table-list{flex:1;overflow-y:auto;padding:6px;}
+    .t-item{display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid transparent;border-radius:7px;cursor:pointer;transition:all .15s;margin-bottom:2px;}
+    .t-item:hover{background:var(--surface-hi);border-color:var(--border);}
+    .t-item.selected{background:var(--accent-glow);border-color:var(--accent);}
+    .t-item-check{width:15px;height:15px;border:1.5px solid var(--border);border-radius:4px;background:transparent;cursor:pointer;appearance:none;flex-shrink:0;transition:all .15s;position:relative;}
+    .t-item-check:checked{background:var(--accent);border-color:var(--accent);}
+    .t-item-check:checked::after{content:'';position:absolute;left:3px;top:1px;width:5px;height:8px;border:2px solid #fff;border-top:none;border-left:none;transform:rotate(45deg);}
+    .t-item-name{flex:1;font-family:var(--mono);font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .t-item.selected .t-item-name{color:var(--accent);}
+    .t-mod{font-size:8px;padding:1px 5px;border-radius:4px;font-family:var(--mono);letter-spacing:.05em;flex-shrink:0;}
+    .t-mod.auth{background:rgba(182,120,255,.15);color:var(--purple);}
+    .t-mod.problems{background:rgba(104,211,145,.15);color:var(--green);}
+    .t-mod.duels{background:rgba(246,173,85,.15);color:var(--orange);}
+    .t-mod.proctoring{background:rgba(252,129,129,.15);color:var(--red);}
+    .sidebar-clear{padding:8px;border-top:1px solid var(--border);}
+    .clear-btn{width:100%;padding:7px;background:transparent;border:1px solid var(--border);border-radius:7px;color:var(--text-dim);font-family:var(--font);font-size:11px;cursor:pointer;transition:all .15s;}
+    .clear-btn:hover{color:var(--red);border-color:var(--red);background:rgba(252,129,129,.05);}
+    .canvas-wrap{flex:1;position:relative;overflow:hidden;background:var(--bg);background-image:radial-gradient(circle at 1px 1px,rgba(255,255,255,.03) 1px,transparent 0);background-size:32px 32px;cursor:grab;}
+    .canvas-wrap:active{cursor:grabbing;}
+    #erd-svg{position:absolute;top:0;left:0;user-select:none;overflow:visible;}
+    .zoom-bar{position:absolute;bottom:20px;right:20px;display:flex;flex-direction:column;gap:6px;z-index:100;}
+    .z-btn{width:38px;height:38px;background:var(--surface);border:1px solid var(--border);border-radius:9px;color:var(--text-dim);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(8px);transition:all .15s;}
+    .z-btn:hover{background:var(--surface-hov);color:var(--text);border-color:var(--accent);}
+    .zoom-label{text-align:center;font-family:var(--mono);font-size:9px;color:var(--text-dim);padding:2px;}
+    .inspector{width:300px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;z-index:100;transition:transform .25s cubic-bezier(.4,0,.2,1);}
+    .inspector.hidden{transform:translateX(100%);}
+    .insp-hdr{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+    .insp-title{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--accent);}
+    .insp-close{background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer;padding:2px;display:flex;align-items:center;transition:color .15s;}
+    .insp-close:hover{color:var(--red);}
+    .insp-desc{padding:10px 16px;font-size:12px;line-height:1.5;color:var(--text-dim);border-bottom:1px solid var(--border);flex-shrink:0;background:rgba(0,0,0,.15);}
+    .insp-body{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px;}
+    .col-row{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;background:var(--surface-hi);border:1px solid var(--border);border-radius:8px;transition:border-color .15s;}
+    .col-row.pk-row{border-color:rgba(246,201,14,.4);background:rgba(246,201,14,.04);}
+    .col-row.fk-row{border-color:rgba(99,179,237,.3);background:rgba(99,179,237,.04);}
+    .col-left{flex:1;min-width:0;}
+    .col-name{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text);}
+    .col-type{font-family:var(--mono);font-size:10px;color:var(--text-muted);margin-top:1px;}
+    .col-desc{font-size:10px;color:var(--text-dim);margin-top:3px;line-height:1.4;}
+    .col-badges{display:flex;flex-direction:column;gap:3px;flex-shrink:0;}
+    .badge{font-family:var(--mono);font-size:8px;font-weight:700;padding:2px 5px;border-radius:4px;text-align:center;letter-spacing:.05em;}
+    .badge-pk{background:var(--gold-glow);border:1px solid rgba(246,201,14,.5);color:var(--gold);}
+    .badge-fk{background:var(--accent-glow);border:1px solid rgba(99,179,237,.4);color:var(--accent);}
+    .badge-uk{background:var(--green-glow);border:1px solid rgba(104,211,145,.4);color:var(--green);}
+    .insp-rels{border-top:1px solid var(--border);padding:10px 12px;flex-shrink:0;max-height:180px;overflow-y:auto;}
+    .rels-title{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;}
+    .rel-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-dim);padding:4px 0;border-bottom:1px solid rgba(255,255,255,.03);}
+    .rel-arrow{color:var(--accent);font-size:12px;flex-shrink:0;}
+    .rel-link{color:var(--accent);font-family:var(--mono);font-size:10px;cursor:pointer;text-decoration:none;}
+    .rel-link:hover{text-decoration:underline;}
+    .insp-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-muted);text-align:center;padding:24px;}
+    .insp-empty-icon{font-size:40px;opacity:.4;}
+    .insp-empty-text{font-size:12px;line-height:1.5;}
+    .legend{position:absolute;top:16px;right:16px;background:rgba(15,20,32,.92);border:1px solid var(--border);border-radius:10px;padding:12px 14px;backdrop-filter:blur(10px);z-index:90;display:flex;flex-direction:column;gap:7px;}
+    .legend-title{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);}
+    .leg-row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-dim);}
+    .leg-line{width:24px;height:2px;background:var(--border);position:relative;}
+    .leg-line::after{content:'▶';position:absolute;right:-6px;top:-5px;font-size:7px;color:var(--text-dim);}
+    .leg-line.fk{background:var(--accent);}
+    .leg-line.fk::after{color:var(--accent);}
+    .tooltip{position:fixed;background:var(--surface-hi);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;font-family:var(--mono);color:var(--text);pointer-events:none;z-index:999;opacity:0;transition:opacity .15s;max-width:220px;line-height:1.4;}
+    .tooltip.show{opacity:1;}
+    .edge-path{fill:none;stroke-width:1.5;transition:stroke-width .2s,opacity .3s;}
+    .edge-path.dimmed{opacity:0.04!important;}
+    .edge-path.highlighted{stroke-width:2.5!important;opacity:1!important;}
+    .node-group{transition:opacity .3s;}
+    .node-group.dimmed{opacity:0.06!important;}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <div class="header-icon">🗄️</div>
+    <span class="header-title">CodeCombat 2026</span>
+    <span class="header-badge">ERD Schema</span>
+  </div>
+  <div class="header-center">
+    <span class="search-icon">🔍</span>
+    <input id="search-input" class="header-search" type="text" placeholder="Search tables or columns…">
+  </div>
+  <div class="header-right">
+    <button class="hdr-btn" onclick="fitAll()">⊞ Fit All</button>
+    <button class="hdr-btn" onclick="clearSelection()">✕ Clear</button>
+  </div>
+</header>
+
+<div class="workspace">
+  <aside class="sidebar">
+    <div class="sidebar-tabs" id="module-tabs">
+      <button class="s-tab active" data-mod="all" onclick="setModule(this)">All</button>
+      <button class="s-tab" data-mod="auth" onclick="setModule(this)">Auth</button>
+      <button class="s-tab" data-mod="problems" onclick="setModule(this)">Core</button>
+      <button class="s-tab" data-mod="duels" onclick="setModule(this)">Duels</button>
+      <button class="s-tab" data-mod="proctoring" onclick="setModule(this)">Proctor</button>
+    </div>
+    <div class="sidebar-hdr">
+      <span>Tables</span>
+      <span class="count-chip" id="table-count">0</span>
+    </div>
+    <div class="table-list" id="table-list"></div>
+    <div class="sidebar-clear">
+      <button class="clear-btn" onclick="clearSelection()">Clear All Selection</button>
+    </div>
+  </aside>
+
+  <div class="canvas-wrap" id="canvas-wrap">
+    <svg id="erd-svg" width="6000" height="6000">
+      <defs>
+        <marker id="arr-def" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 Z" fill="#4a5568"/>
+        </marker>
+        <marker id="arr-hl" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L8,3 Z" fill="#63b3ed"/>
+        </marker>
+        <filter id="glow-gold" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <g id="edges-layer"></g>
+      <g id="nodes-layer"></g>
+    </svg>
+    <div class="legend">
+      <div class="legend-title">Legend</div>
+      <div class="leg-row"><div class="leg-line fk"></div>FK Relation</div>
+      <div class="leg-row"><span class="badge badge-pk">PK</span>Primary Key</div>
+      <div class="leg-row"><span class="badge badge-fk">FK</span>Foreign Key</div>
+      <div class="leg-row"><span class="badge badge-uk">UK</span>Unique</div>
+    </div>
+    <div class="zoom-bar">
+      <button class="z-btn" onclick="zoom(1.2)">+</button>
+      <div class="zoom-label" id="zoom-label">100%</div>
+      <button class="z-btn" onclick="zoom(0.8)">−</button>
+      <button class="z-btn" onclick="fitAll()" style="font-size:14px">⊞</button>
+    </div>
+  </div>
+
+  <div class="inspector hidden" id="inspector">
+    <div id="insp-empty" style="flex:1;display:flex;">
+      <div class="insp-empty">
+        <div class="insp-empty-icon">📋</div>
+        <div class="insp-empty-text">Click any table to inspect columns &amp; relationships.</div>
+      </div>
+    </div>
+    <div id="insp-content" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+      <div class="insp-hdr">
+        <span class="insp-title" id="insp-title">TABLE</span>
+        <button class="insp-close" onclick="closeInspector()">✕</button>
+      </div>
+      <div class="insp-desc" id="insp-desc"></div>
+      <div class="insp-body" id="insp-body"></div>
+      <div class="insp-rels" id="insp-rels">
+        <div class="rels-title">Foreign Key Relations</div>
+        <div id="insp-rels-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const SCHEMA={users:{mod:'auth',desc:'Core user accounts — credentials, profile, and total cumulative contest points.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Auto-generated primary key.'},{n:'username',t:'varchar',k:['UK'],d:'Unique display handle.'},{n:'email',t:'varchar',k:['UK'],d:'Unique email address.'},{n:'password',t:'varchar',k:[],d:'Bcrypt hashed password.'},{n:'full_name',t:'varchar',k:[],d:'Full display name.'},{n:'enabled',t:'boolean',k:[],d:'Account active/disabled flag.'},{n:'total_points',t:'integer',k:[],d:'Total accumulated contest points.'}]},roles:{mod:'auth',desc:'System permission roles — ROLE_USER, ROLE_ADMIN, etc.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'name',t:'varchar',k:['UK'],d:'Role identifier string.'}]},user_roles:{mod:'auth',desc:'Many-to-many junction linking users to their roles.',cols:[{n:'user_id',t:'bigint',k:['PK','FK'],d:'FK → users.id'},{n:'role_id',t:'bigint',k:['PK','FK'],d:'FK → roles.id'}]},password_reset_tokens:{mod:'auth',desc:'Single-use password reset tokens for secure recovery flow.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'token',t:'varchar',k:['UK'],d:'Unique token string.'},{n:'user_id',t:'bigint',k:['FK'],d:'FK → users.id'},{n:'expiry_date',t:'timestamp',k:[],d:'Token invalidation epoch.'},{n:'used',t:'boolean',k:[],d:'True if already consumed.'}]},user_photos:{mod:'auth',desc:'Profile photos uploaded by users.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'photo_url',t:'varchar',k:[],d:'Storage URL/path.'},{n:'uploaded_at',t:'timestamp',k:[],d:'Upload timestamp.'},{n:'user_id',t:'bigint',k:['FK','UK'],d:'FK → users.id (one photo per user).'}]},contests:{mod:'problems',desc:'Contest scheduling — timeline, status, and active flags.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'name',t:'varchar',k:[],d:'Contest display name.'},{n:'description',t:'text',k:[],d:'Rules / syllabus.'},{n:'start_time',t:'timestamp',k:[],d:'Contest start epoch.'},{n:'end_time',t:'timestamp',k:[],d:'Contest end epoch.'},{n:'status',t:'varchar',k:[],d:'UPCOMING / LIVE / ENDED.'},{n:'active',t:'boolean',k:[],d:'Visibility flag.'}]},problems:{mod:'problems',desc:'Programming tasks with constraints, examples, time/memory limits.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'title',t:'varchar',k:[],d:'Problem title.'},{n:'description',t:'text',k:[],d:'Full problem statement.'},{n:'input_format',t:'text',k:[],d:'Input spec.'},{n:'output_format',t:'text',k:[],d:'Output spec.'},{n:'constraints',t:'text',k:[],d:'Bounds text.'},{n:'time_limit',t:'double',k:[],d:'CPU limit in seconds.'},{n:'memory_limit',t:'integer',k:[],d:'RAM limit in MB.'},{n:'level',t:'varchar',k:[],d:'EASY / MEDIUM / HARD.'},{n:'example1',t:'text',k:[],d:'Sample I/O #1.'},{n:'example2',t:'text',k:[],d:'Sample I/O #2.'},{n:'example3',t:'text',k:[],d:'Sample I/O #3.'},{n:'images',t:'text',k:[],d:'Diagram image URLs.'},{n:'active',t:'boolean',k:[],d:'Active/hidden flag.'},{n:'contest_id',t:'bigint',k:['FK'],d:'FK → contests.id'}]},contest_problems:{mod:'problems',desc:'Junction table — problems belong to contests (many-to-many).',cols:[{n:'contest_id',t:'bigint',k:['PK','FK'],d:'FK → contests.id'},{n:'problem_id',t:'bigint',k:['PK','FK'],d:'FK → problems.id'},{n:'created_at',t:'timestamp',k:[],d:'Mapping creation timestamp.'}]},contest_registrations:{mod:'problems',desc:'Tracks which users registered to which contests.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'contest_id',t:'bigint',k:['FK'],d:'FK → contests.id'},{n:'user_id',t:'bigint',k:['FK'],d:'FK → users.id'},{n:'registered_at',t:'timestamp',k:[],d:'Registration timestamp.'}]},code_snippets:{mod:'problems',desc:'Starter code templates and evaluation harnesses per language.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'problem_id',t:'bigint',k:['FK','UK'],d:'FK → problems.id'},{n:'language',t:'varchar',k:[],d:'JAVA / PYTHON / C++ etc.'},{n:'solution_template',t:'text',k:[],d:'Code template.'},{n:'created_at',t:'timestamp',k:[],d:'Created timestamp.'},{n:'updated_at',t:'timestamp',k:[],d:'Updated timestamp.'}]},submissions:{mod:'problems',desc:'User code submissions — code, judge result, metrics.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'user_id',t:'bigint',k:['FK'],d:'FK → users.id'},{n:'problem_id',t:'bigint',k:['FK'],d:'FK → problems.id'},{n:'contest_id',t:'bigint',k:['FK'],d:'FK → contests.id (optional).'},{n:'code',t:'text',k:[],d:'Submitted source code.'},{n:'language',t:'varchar',k:[],d:'Compiler target.'},{n:'status',t:'varchar',k:[],d:'AC / WA / CE / RE / TLE.'},{n:'score',t:'integer',k:[],d:'Points awarded.'},{n:'test_cases_passed',t:'integer',k:[],d:'Pass count.'},{n:'total_test_cases',t:'integer',k:[],d:'Total test runs.'},{n:'test_case_details',t:'text',k:[],d:'JSON per-test results.'},{n:'time_consumed',t:'double',k:[],d:'Runtime in ms.'},{n:'error_message',t:'text',k:[],d:'Compiler/runtime stderr.'},{n:'submitted_at',t:'timestamp',k:[],d:'Queue arrival timestamp.'},{n:'is_test_run',t:'boolean',k:[],d:'True if sandbox run.'}]},user_problem_solved:{mod:'problems',desc:'Cached solved problem records for user profile metrics.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'user_id',t:'bigint',k:['FK','UK'],d:'FK → users.id'},{n:'problem_id',t:'bigint',k:['FK','UK'],d:'FK → problems.id'},{n:'solved_at',t:'timestamp',k:[],d:'Completion timestamp.'},{n:'points_earned',t:'integer',k:[],d:'Score cached here.'}]},duel_matches:{mod:'duels',desc:'Live 1v1 coding matches — players, problem, result, status.',cols:[{n:'match_id',t:'uuid',k:['PK'],d:'UUID primary key.'},{n:'user_a_id',t:'bigint',k:['FK'],d:'FK → users.id (Seat A).'},{n:'user_b_id',t:'bigint',k:['FK'],d:'FK → users.id (Seat B).'},{n:'problem_id',t:'bigint',k:['FK'],d:'FK → problems.id'},{n:'status',t:'varchar',k:[],d:'WAITING / IN_PROGRESS / FINISHED.'},{n:'outcome',t:'varchar',k:[],d:'WIN / DRAW / ABANDONED.'},{n:'winner_user_id',t:'bigint',k:['FK'],d:'FK → users.id (winner).'},{n:'started_at',t:'timestamp',k:[],d:'Arena start time.'},{n:'ended_at',t:'timestamp',k:[],d:'Arena close time.'},{n:'created_at',t:'timestamp',k:[],d:'Record creation stamp.'}]},duel_submissions:{mod:'duels',desc:'Links submissions to duel matches for adjudication.',cols:[{n:'submission_id',t:'bigint',k:['PK','FK'],d:'FK → submissions.id'},{n:'match_id',t:'uuid',k:['FK'],d:'FK → duel_matches.match_id'},{n:'is_first_ac',t:'boolean',k:[],d:'True if this won the speed point.'}]},duel_eligible_problems:{mod:'duels',desc:'Subset of problems approved for duel matchmaking.',cols:[{n:'problem_id',t:'bigint',k:['PK','FK'],d:'FK → problems.id'},{n:'added_at',t:'timestamp',k:[],d:'When certified.'},{n:'added_by',t:'bigint',k:['FK'],d:'FK → users.id (admin).'}]},proctored_contests:{mod:'proctoring',desc:'Flags contests that require webcam + screen proctoring.',cols:[{n:'contest_id',t:'bigint',k:['PK','FK'],d:'FK → contests.id'},{n:'created_at',t:'timestamp',k:[],d:'Setup timestamp.'}]},proctoring_sessions:{mod:'proctoring',desc:'Candidate proctoring sessions with risk scores and flags.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'contest_id',t:'bigint',k:['FK'],d:'FK → contests.id'},{n:'user_id',t:'bigint',k:['FK'],d:'FK → users.id'},{n:'started_at',t:'timestamp',k:[],d:'Session open epoch.'},{n:'ended_at',t:'timestamp',k:[],d:'Session close epoch.'},{n:'end_reason',t:'varchar',k:[],d:'FINISHED / QUIT / TIMEOUT.'},{n:'risk_score',t:'integer',k:[],d:'Computed risk total.'},{n:'risk_band',t:'varchar',k:[],d:'LOW / MEDIUM / HIGH.'},{n:'flagged',t:'boolean',k:[],d:'Needs manual review.'}]},proctoring_events:{mod:'proctoring',desc:'Anomaly telemetry (tab switch, no face, focus change) during session.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'session_id',t:'bigint',k:['FK'],d:'FK → proctoring_sessions.id'},{n:'event_type',t:'varchar',k:[],d:'TAB_SWITCH / NO_FACE / etc.'},{n:'client_timestamp',t:'timestamp',k:[],d:'Occurrence time (browser).'},{n:'server_timestamp',t:'timestamp',k:[],d:'Arrival time (server).'},{n:'payload_json',t:'jsonb',k:[],d:'Event metadata blob.'},{n:'replayed',t:'boolean',k:[],d:'Replayed from IndexedDB.'},{n:'score_delta',t:'integer',k:[],d:'Risk points added.'},{n:'client_correlation_id',t:'varchar',k:['UK'],d:'De-duplication ID.'}]},proctoring_screenshots:{mod:'proctoring',desc:'Webcam/screen snapshots as visual evidence of events.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'session_id',t:'bigint',k:['FK'],d:'FK → proctoring_sessions.id'},{n:'event_id',t:'bigint',k:['FK'],d:'FK → proctoring_events.id'},{n:'file_path',t:'varchar',k:[],d:'Asset storage path.'},{n:'captured_at',t:'timestamp',k:[],d:'Capture time.'},{n:'uploaded_at',t:'timestamp',k:[],d:'File write time.'}]},proctoring_consent_acks:{mod:'proctoring',desc:'Candidate consent before entering proctored exams.',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'contest_id',t:'bigint',k:['FK'],d:'FK → contests.id'},{n:'user_id',t:'bigint',k:['FK'],d:'FK → users.id'},{n:'consent_version',t:'integer',k:[],d:'Version acknowledged.'},{n:'acked_at',t:'timestamp',k:[],d:'Acceptance timestamp.'},{n:'client_ip',t:'varchar',k:[],d:'IP at time of consent.'}]},proctoring_admin_audit:{mod:'proctoring',desc:'Admin manual interventions (force-close, dismiss, etc.).',cols:[{n:'id',t:'bigint',k:['PK'],d:'Primary key.'},{n:'session_id',t:'bigint',k:['FK'],d:'FK → proctoring_sessions.id'},{n:'admin_id',t:'bigint',k:['FK'],d:'FK → users.id (admin).'},{n:'action_type',t:'varchar',k:[],d:'FORCE_END / DISMISS / etc.'},{n:'reason',t:'varchar',k:[],d:'Audit notes.'},{n:'audited_at',t:'timestamp',k:[],d:'Intervention timestamp.'}]}};
+
+const RELATIONS=[
+  {from:'users',to:'user_roles',fk:'user_id',label:'has roles'},
+  {from:'roles',to:'user_roles',fk:'role_id',label:'grants'},
+  {from:'users',to:'password_reset_tokens',fk:'user_id',label:'requests reset'},
+  {from:'users',to:'user_photos',fk:'user_id',label:'uploads photo'},
+  {from:'contests',to:'contest_problems',fk:'contest_id',label:'includes problem'},
+  {from:'problems',to:'contest_problems',fk:'problem_id',label:'listed in'},
+  {from:'contests',to:'contest_registrations',fk:'contest_id',label:'receives registration'},
+  {from:'users',to:'contest_registrations',fk:'user_id',label:'registers for'},
+  {from:'problems',to:'code_snippets',fk:'problem_id',label:'has snippet'},
+  {from:'users',to:'submissions',fk:'user_id',label:'submits code'},
+  {from:'problems',to:'submissions',fk:'problem_id',label:'evaluated by'},
+  {from:'contests',to:'submissions',fk:'contest_id',label:'groups submission'},
+  {from:'users',to:'user_problem_solved',fk:'user_id',label:'solved problem'},
+  {from:'problems',to:'user_problem_solved',fk:'problem_id',label:'marked solved'},
+  {from:'users',to:'duel_matches',fk:'user_a_id',label:'seat A'},
+  {from:'users',to:'duel_matches',fk:'user_b_id',label:'seat B'},
+  {from:'users',to:'duel_matches',fk:'winner_user_id',label:'wins duel'},
+  {from:'problems',to:'duel_matches',fk:'problem_id',label:'used in duel'},
+  {from:'duel_matches',to:'duel_submissions',fk:'match_id',label:'gathers'},
+  {from:'submissions',to:'duel_submissions',fk:'submission_id',label:'tagged as duel'},
+  {from:'problems',to:'duel_eligible_problems',fk:'problem_id',label:'eligible for duel'},
+  {from:'users',to:'duel_eligible_problems',fk:'added_by',label:'approved by admin'},
+  {from:'contests',to:'proctored_contests',fk:'contest_id',label:'proctored'},
+  {from:'contests',to:'proctoring_sessions',fk:'contest_id',label:'session for'},
+  {from:'users',to:'proctoring_sessions',fk:'user_id',label:'monitored'},
+  {from:'proctoring_sessions',to:'proctoring_events',fk:'session_id',label:'logs event'},
+  {from:'proctoring_sessions',to:'proctoring_screenshots',fk:'session_id',label:'captures screenshot'},
+  {from:'proctoring_events',to:'proctoring_screenshots',fk:'event_id',label:'evidenced by'},
+  {from:'contests',to:'proctoring_consent_acks',fk:'contest_id',label:'requires consent'},
+  {from:'users',to:'proctoring_consent_acks',fk:'user_id',label:'acknowledges'},
+  {from:'proctoring_sessions',to:'proctoring_admin_audit',fk:'session_id',label:'audited'},
+  {from:'users',to:'proctoring_admin_audit',fk:'admin_id',label:'audited by admin'},
+];
+
+const MC={auth:{hdr:'#4c1d95',hdrText:'#c4b5fd',border:'#6d28d9'},problems:{hdr:'#14532d',hdrText:'#86efac',border:'#15803d'},duels:{hdr:'#7c2d12',hdrText:'#fdba74',border:'#c2410c'},proctoring:{hdr:'#7f1d1d',hdrText:'#fca5a5',border:'#b91c1c'}};
+
+const COL_W=210,ROW_H=26,HDR_H=36,PAD=10,GAP_Y=50;
+
+function computeLayout(){
+  const tops={auth:0,problems:0,duels:0,proctoring:0};
+  const sx={auth:80,problems:380,duels:680,proctoring:980};
+  const pos={};
+  for(const[id,tbl]of Object.entries(SCHEMA)){
+    const mod=tbl.mod;
+    const vis=Math.min(tbl.cols.length,14);
+    const h=HDR_H+vis*ROW_H+PAD;
+    pos[id]={x:sx[mod],y:80+tops[mod],w:COL_W,h,vis};
+    tops[mod]+=h+GAP_Y;
+  }
+  return pos;
+}
+
+let POS=computeLayout();
+let tx=0,ty=0,sc=1,pan=false,sx2=0,sy2=0,stx=0,sty=0;
+let actMod='all',selTable=null,searchTerm='';
+const checked=new Set(),nodeEls={},edgeEls=[];
+
+function ns(tag){return document.createElementNS('http://www.w3.org/2000/svg',tag);}
+
+function buildSVG(){
+  const NL=document.getElementById('nodes-layer');
+  const EL=document.getElementById('edges-layer');
+  NL.innerHTML='';EL.innerHTML='';edgeEls.length=0;
+
+  RELATIONS.forEach((rel,ri)=>{
+    const pF=POS[rel.from],pT=POS[rel.to];
+    if(!pF||!pT)return;
+    const el=ns('path');
+    el.classList.add('edge-path');
+    el.setAttribute('stroke','#3d4f6e');
+    el.setAttribute('marker-end','url(#arr-def)');
+    EL.appendChild(el);
+    edgeEls.push({el,from:rel.from,to:rel.to,rel});
+    drawEdge(el,pF,pT);
+  });
+
+  for(const[id,tbl]of Object.entries(SCHEMA)){
+    const p=POS[id];if(!p)continue;
+    const mc=MC[tbl.mod];
+    const g=ns('g');g.classList.add('node-group');g.setAttribute('data-id',id);
+
+    // drop shadow
+    const sh=ns('rect');sh.setAttribute('x',p.x+4);sh.setAttribute('y',p.y+4);sh.setAttribute('width',p.w);sh.setAttribute('height',p.h);sh.setAttribute('rx',10);sh.setAttribute('fill','rgba(0,0,0,0.5)');g.appendChild(sh);
+
+    // body
+    const r=ns('rect');r.setAttribute('x',p.x);r.setAttribute('y',p.y);r.setAttribute('width',p.w);r.setAttribute('height',p.h);r.setAttribute('rx',10);r.setAttribute('fill','#0d1526');r.setAttribute('stroke',mc.border);r.setAttribute('stroke-width','1.5');g.appendChild(r);
+
+    // header fill
+    const hr=ns('rect');hr.setAttribute('x',p.x);hr.setAttribute('y',p.y);hr.setAttribute('width',p.w);hr.setAttribute('height',HDR_H);hr.setAttribute('rx',10);hr.setAttribute('fill',mc.hdr);g.appendChild(hr);
+    // square off bottom of header
+    const hrsq=ns('rect');hrsq.setAttribute('x',p.x);hrsq.setAttribute('y',p.y+HDR_H/2);hrsq.setAttribute('width',p.w);hrsq.setAttribute('height',HDR_H/2);hrsq.setAttribute('fill',mc.hdr);g.appendChild(hrsq);
+
+    // header text
+    const ht=ns('text');ht.setAttribute('x',p.x+p.w/2);ht.setAttribute('y',p.y+HDR_H/2+1);ht.setAttribute('text-anchor','middle');ht.setAttribute('dominant-baseline','middle');ht.setAttribute('fill',mc.hdrText);ht.setAttribute('font-family','JetBrains Mono,monospace');ht.setAttribute('font-size','11');ht.setAttribute('font-weight','700');ht.textContent=id;g.appendChild(ht);
+
+    // columns
+    tbl.cols.slice(0,p.vis).forEach((col,ci)=>{
+      const ry=p.y+HDR_H+ci*ROW_H;
+      if(ci>0){const d=ns('line');d.setAttribute('x1',p.x+6);d.setAttribute('y1',ry);d.setAttribute('x2',p.x+p.w-6);d.setAttribute('y2',ry);d.setAttribute('stroke','#1e2a45');d.setAttribute('stroke-width','0.5');g.appendChild(d);}
+      const isPK=col.k.includes('PK'),isFK=col.k.includes('FK');
+      const nc=isPK?'#f6c90e':isFK?'#63b3ed':'#d1d9e6';
+      const cn=ns('text');cn.setAttribute('x',p.x+8);cn.setAttribute('y',ry+ROW_H/2+1);cn.setAttribute('dominant-baseline','middle');cn.setAttribute('fill',nc);cn.setAttribute('font-family','JetBrains Mono,monospace');cn.setAttribute('font-size','9');cn.setAttribute('font-weight',isPK?'700':'400');cn.textContent=col.n;g.appendChild(cn);
+
+      // badges from right
+      let bx=p.x+p.w-4;
+      col.k.forEach(k=>{
+        const bw=k.length*5+8;bx-=bw+2;
+        const br=ns('rect');br.setAttribute('x',bx);br.setAttribute('y',ry+5);br.setAttribute('width',bw);br.setAttribute('height',12);br.setAttribute('rx',2);
+        br.setAttribute('fill',k==='PK'?'rgba(246,201,14,.13)':k==='FK'?'rgba(99,179,237,.12)':'rgba(104,211,145,.12)');
+        br.setAttribute('stroke',k==='PK'?'rgba(246,201,14,.4)':k==='FK'?'rgba(99,179,237,.3)':'rgba(104,211,145,.3)');g.appendChild(br);
+        const bt=ns('text');bt.setAttribute('x',bx+bw/2);bt.setAttribute('y',ry+11);bt.setAttribute('text-anchor','middle');bt.setAttribute('dominant-baseline','middle');bt.setAttribute('fill',k==='PK'?'#f6c90e':k==='FK'?'#63b3ed':'#68d391');bt.setAttribute('font-family','JetBrains Mono,monospace');bt.setAttribute('font-size','7');bt.setAttribute('font-weight','700');bt.textContent=k;g.appendChild(bt);
+      });
+      // type label (before badges)
+      const ct=ns('text');ct.setAttribute('x',bx-4);ct.setAttribute('y',ry+ROW_H/2+1);ct.setAttribute('text-anchor','end');ct.setAttribute('dominant-baseline','middle');ct.setAttribute('fill','#3d4f6e');ct.setAttribute('font-family','JetBrains Mono,monospace');ct.setAttribute('font-size','8');ct.textContent=col.t;g.appendChild(ct);
+    });
+
+    if(tbl.cols.length>p.vis){
+      const mt=ns('text');mt.setAttribute('x',p.x+p.w/2);mt.setAttribute('y',p.y+p.h-PAD/2);mt.setAttribute('text-anchor','middle');mt.setAttribute('fill','#3d4f6e');mt.setAttribute('font-family','Inter,sans-serif');mt.setAttribute('font-size','8');mt.textContent=`+${tbl.cols.length-p.vis} more`;g.appendChild(mt);
+    }
+
+    // hit rect
+    const hit=ns('rect');hit.setAttribute('x',p.x);hit.setAttribute('y',p.y);hit.setAttribute('width',p.w);hit.setAttribute('height',p.h);hit.setAttribute('rx',10);hit.setAttribute('fill','transparent');
+    hit.addEventListener('click',e=>{e.stopPropagation();selectTable(id);});
+    hit.addEventListener('mouseenter',e=>showTip(e,id));
+    hit.addEventListener('mouseleave',hideTip);
+    g.appendChild(hit);
+    NL.appendChild(g);
+    nodeEls[id]=g;
+  }
+  applyTransform();
+}
+
+function drawEdge(el,pF,pT){
+  const fx=pF.x+pF.w,fy=pF.y+pF.h/2;
+  const tx2=pT.x,ty2=pT.y+pT.h/2;
+  const dx=tx2-fx;
+  if(dx>20){
+    const cx=fx+dx*0.5;
+    el.setAttribute('d',`M${fx},${fy} C${cx},${fy} ${cx},${ty2} ${tx2},${ty2}`);
+  } else {
+    const off=Math.max(40,Math.abs(fy-ty2)*0.3+30);
+    el.setAttribute('d',`M${fx},${fy} Q${fx+off},${fy} ${fx+off},${(fy+ty2)/2} Q${fx+off},${ty2} ${tx2},${ty2}`);
+  }
+}
+
+function applyHighlight(){
+  const hasSel=selTable!==null,hasChk=checked.size>0;
+  if(!hasSel&&!hasChk){
+    Object.values(nodeEls).forEach(g=>g.classList.remove('dimmed'));
+    edgeEls.forEach(({el})=>{el.classList.remove('dimmed','highlighted');el.setAttribute('stroke','#3d4f6e');el.setAttribute('marker-end','url(#arr-def)');});
+    return;
+  }
+  if(hasChk){
+    for(const[id,g]of Object.entries(nodeEls)) checked.has(id)?g.classList.remove('dimmed'):g.classList.add('dimmed');
+    edgeEls.forEach(({el,from,to})=>{
+      if(checked.has(from)&&checked.has(to)){el.classList.remove('dimmed');el.classList.add('highlighted');el.setAttribute('stroke','#63b3ed');el.setAttribute('marker-end','url(#arr-hl)');}
+      else{el.classList.add('dimmed');el.classList.remove('highlighted');}
+    });
+    return;
+  }
+  const rels=RELATIONS.filter(r=>r.from===selTable||r.to===selTable);
+  const relSet=new Set([selTable]);rels.forEach(r=>{relSet.add(r.from);relSet.add(r.to);});
+  for(const[id,g]of Object.entries(nodeEls)) relSet.has(id)?g.classList.remove('dimmed'):g.classList.add('dimmed');
+  edgeEls.forEach(({el,from,to})=>{
+    if((from===selTable||to===selTable)&&relSet.has(from)&&relSet.has(to)){el.classList.remove('dimmed');el.classList.add('highlighted');el.setAttribute('stroke','#63b3ed');el.setAttribute('marker-end','url(#arr-hl)');}
+    else{el.classList.add('dimmed');el.classList.remove('highlighted');el.setAttribute('stroke','#3d4f6e');el.setAttribute('marker-end','url(#arr-def)');}
+  });
+  // gold border on selected
+  for(const[id,g]of Object.entries(nodeEls)){
+    const rects=g.querySelectorAll('rect');const mr=rects[1];if(!mr)continue;
+    if(id===selTable){mr.setAttribute('stroke','#f6c90e');mr.setAttribute('stroke-width','2.5');mr.setAttribute('filter','url(#glow-gold)');}
+    else{const mc=MC[SCHEMA[id].mod];mr.setAttribute('stroke',mc.border);mr.setAttribute('stroke-width','1.5');mr.removeAttribute('filter');}
+  }
+}
+
+function clearSelection(){
+  selTable=null;checked.clear();
+  for(const[id,g]of Object.entries(nodeEls)){const rects=g.querySelectorAll('rect');const mr=rects[1];if(!mr)continue;const mc=MC[SCHEMA[id].mod];mr.setAttribute('stroke',mc.border);mr.setAttribute('stroke-width','1.5');mr.removeAttribute('filter');}
+  applyHighlight();renderSidebar();closeInspector();
+}
+
+function selectTable(id){if(!SCHEMA[id])return;checked.clear();selTable=id;applyHighlight();renderSidebar();openInspector(id);}
+function toggleCheck(id,v){v?checked.add(id):checked.delete(id);selTable=null;applyHighlight();renderSidebar();if(checked.size>0)closeInspector();}
+
+function openInspector(id){
+  const tbl=SCHEMA[id];
+  document.getElementById('inspector').classList.remove('hidden');
+  document.getElementById('insp-empty').style.display='none';
+  const c=document.getElementById('insp-content');c.style.display='flex';
+  document.getElementById('insp-title').textContent=id.toUpperCase();
+  document.getElementById('insp-desc').textContent=tbl.desc;
+  const body=document.getElementById('insp-body');body.innerHTML='';
+  tbl.cols.forEach(col=>{
+    const isPK=col.k.includes('PK'),isFK=col.k.includes('FK');
+    const div=document.createElement('div');div.className='col-row'+(isPK?' pk-row':isFK?' fk-row':'');
+    div.innerHTML=`<div class="col-left"><div class="col-name">${col.n}</div><div class="col-type">${col.t}</div><div class="col-desc">${col.d}</div></div><div class="col-badges">${col.k.map(k=>`<span class="badge badge-${k.toLowerCase()}">${k}</span>`).join('')}</div>`;
+    body.appendChild(div);
+  });
+  const rl=document.getElementById('insp-rels-list');rl.innerHTML='';
+  const rels=RELATIONS.filter(r=>r.from===id||r.to===id);
+  if(!rels.length){rl.innerHTML='<div style="color:#4a5568;font-size:11px;font-style:italic">No relations.</div>';}
+  else rels.forEach(r=>{
+    const d=document.createElement('div');d.className='rel-row';
+    if(r.from===id) d.innerHTML=`<span class="rel-arrow">→</span><span style="color:#4a5568;font-size:10px">[${r.fk}]</span><a class="rel-link" onclick="selectTable('${r.to}')">${r.to}</a><span style="color:#4a5568;font-size:10px">${r.label}</span>`;
+    else d.innerHTML=`<span class="rel-arrow">←</span><a class="rel-link" onclick="selectTable('${r.from}')">${r.from}</a><span style="color:#4a5568;font-size:10px;margin-left:4px">${r.label}</span>`;
+    rl.appendChild(d);
+  });
+}
+function closeInspector(){document.getElementById('inspector').classList.add('hidden');document.getElementById('insp-empty').style.display='flex';document.getElementById('insp-content').style.display='none';}
+
+function renderSidebar(){
+  const list=document.getElementById('table-list');list.innerHTML='';let cnt=0;
+  for(const[id,tbl]of Object.entries(SCHEMA)){
+    if(actMod!=='all'&&tbl.mod!==actMod)continue;
+    if(searchTerm&&!id.includes(searchTerm)&&!tbl.cols.some(c=>c.n.includes(searchTerm)))continue;
+    cnt++;
+    const item=document.createElement('div');item.className='t-item'+(selTable===id?' selected':'');
+    item.innerHTML=`<input type="checkbox" class="t-item-check" id="chk-${id}" ${checked.has(id)?'checked':''} onclick="event.stopPropagation();toggleCheck('${id}',this.checked)"><span class="t-item-name">${id}</span><span class="t-mod ${tbl.mod}">${tbl.mod==='problems'?'core':tbl.mod}</span>`;
+    item.addEventListener('click',()=>selectTable(id));
+    list.appendChild(item);
+  }
+  document.getElementById('table-count').textContent=cnt;
+}
+function setModule(btn){document.querySelectorAll('.s-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');actMod=btn.dataset.mod;renderSidebar();}
+
+function applyTransform(){const svg=document.getElementById('erd-svg');svg.style.transform=`translate(${tx}px,${ty}px) scale(${sc})`;svg.style.transformOrigin='0 0';document.getElementById('zoom-label').textContent=Math.round(sc*100)+'%';}
+function zoom(f,cx,cy){const wrap=document.getElementById('canvas-wrap');if(cx===undefined){cx=wrap.clientWidth/2;cy=wrap.clientHeight/2;}const ns2=Math.min(3,Math.max(0.08,sc*f)),k=ns2/sc;tx=cx-k*(cx-tx);ty=cy-k*(cy-ty);sc=ns2;applyTransform();}
+function fitAll(){
+  const wrap=document.getElementById('canvas-wrap');const ww=wrap.clientWidth,wh=wrap.clientHeight;
+  let mnx=1e9,mny=1e9,mxx=-1e9,mxy=-1e9;
+  for(const p of Object.values(POS)){mnx=Math.min(mnx,p.x);mny=Math.min(mny,p.y);mxx=Math.max(mxx,p.x+p.w);mxy=Math.max(mxy,p.y+p.h);}
+  const dw=mxx-mnx,dh=mxy-mny,pad=60;
+  sc=Math.min((ww-pad*2)/dw,(wh-pad*2)/dh,1.5);
+  tx=(ww-dw*sc)/2-mnx*sc;ty=(wh-dh*sc)/2-mny*sc;applyTransform();
+}
+
+const wrap=document.getElementById('canvas-wrap');
+wrap.addEventListener('mousedown',e=>{if(e.button!==0)return;pan=true;sx2=e.clientX;sy2=e.clientY;stx=tx;sty=ty;});
+window.addEventListener('mousemove',e=>{if(!pan)return;tx=stx+e.clientX-sx2;ty=sty+e.clientY-sy2;applyTransform();moveTip(e);});
+window.addEventListener('mouseup',()=>pan=false);
+wrap.addEventListener('wheel',e=>{e.preventDefault();const r=wrap.getBoundingClientRect();zoom(e.deltaY<0?1.1:.9,e.clientX-r.left,e.clientY-r.top);},{passive:false});
+wrap.addEventListener('click',e=>{if(e.target===wrap||e.target===document.getElementById('erd-svg'))clearSelection();});
+document.getElementById('search-input').addEventListener('input',e=>{searchTerm=e.target.value.toLowerCase().trim();renderSidebar();});
+
+function showTip(e,id){const tbl=SCHEMA[id];const r=RELATIONS.filter(x=>x.from===id||x.to===id);const tip=document.getElementById('tooltip');tip.innerHTML=`<strong>${id}</strong><br><span style="color:#718096">${r.length} relations · ${tbl.cols.length} columns</span>`;tip.classList.add('show');moveTip(e);}
+function moveTip(e){const t=document.getElementById('tooltip');t.style.left=(e.clientX+14)+'px';t.style.top=(e.clientY-10)+'px';}
+function hideTip(){document.getElementById('tooltip').classList.remove('show');}
+
+buildSVG();
+renderSidebar();
+setTimeout(fitAll,80);
+</script>
+</body>
+</html>
