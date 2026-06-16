@@ -79,6 +79,9 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     @Query("SELECT COUNT(s) FROM Submission s WHERE s.user.id = :userId AND s.problem.id = :problemId AND s.testRun = true AND s.contest.id IS NOT NULL")
     long countContestRunsByUserAndProblem(@Param("userId") Long userId, @Param("problemId") Long problemId);
 
+    @Query("SELECT COUNT(s) FROM Submission s WHERE s.user.id = :userId AND s.problem.id = :problemId AND s.testRun = false AND s.contest.id IS NOT NULL")
+    long countContestSubmitsByUserAndProblem(@Param("userId") Long userId, @Param("problemId") Long problemId);
+
     @Query("SELECT s.contest.id, COUNT(DISTINCT s.user.id) FROM Submission s WHERE s.contest.id IN :contestIds AND s.testRun = false GROUP BY s.contest.id")
     List<Object[]> countParticipantsByContestIds(@Param("contestIds") List<Long> contestIds);
 

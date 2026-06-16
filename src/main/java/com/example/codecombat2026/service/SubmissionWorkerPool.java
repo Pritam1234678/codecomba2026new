@@ -353,10 +353,29 @@ public class SubmissionWorkerPool {
         // the explicit guard so any future leaderboard side-effect added by
         // another feature is automatically excluded for duel submissions.
         if (job.getDuelId() == null) {
-            // 2a. Leaderboard — only for real successful submissions
-            if (!job.isTestRun() && status == Submission.SubmissionStatus.AC && job.getContestId() != null) {
+            // 2a. Leaderboard — every real submission (not test-run) updates score.
+            //     Per-problem score is tracked in Valkey so re-submissions
+            //     REPLACE the old score (delta approach) instead of stacking.
+            //     Example: WA 50 → AC 100 → leaderboard delta = +50 (not +100).
+            if (!job.isTestRun() && job.getContestId() != null) {
+                String problemScoreKey = "contest:score:" + job.getContestId()
+                    + ":" + job.getUserId() + ":" + job.getProblemId();
                 try {
-                    leaderboard.updateScore(job.getContestId(), job.getUserId(), score);
+                    // Read previous score for this (contest, user, problem)
+                    String prevStr = redis.opsForValue().get(problemScoreKey);
+                    int prevScore = (prevStr != null) ? Integer.parseInt(prevStr) : 0;
+                    int delta = score - prevScore;
+
+                    // Store the new per-problem score (26h TTL = contest + buffer)
+                    redis.opsForValue().set(problemScoreKey, String.valueOf(score),
+                        java.time.Duration.ofHours(26));
+
+                    // Apply delta to leaderboard ZSET (can be negative if score dropped)
+                    if (delta != 0) {
+                        leaderboard.updateScore(job.getContestId(), job.getUserId(), delta);
+                        log.debug("Leaderboard delta={} (was={}, now={}) user={} problem={} contest={}",
+                            delta, prevScore, score, job.getUserId(), job.getProblemId(), job.getContestId());
+                    }
                 } catch (Exception e) {
                     log.warn("Leaderboard update failed: {}", e.getMessage());
                 }

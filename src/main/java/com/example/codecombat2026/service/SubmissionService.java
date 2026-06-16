@@ -225,4 +225,8 @@ public class SubmissionService {
     public long countContestRuns(Long userId, Long problemId) {
         return submissionRepository.countContestRunsByUserAndProblem(userId, problemId);
     }
+
+    public long countContestSubmits(Long userId, Long problemId) {
+        return submissionRepository.countContestSubmitsByUserAndProblem(userId, problemId);
+    }
 }

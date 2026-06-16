@@ -57,6 +57,13 @@ public class SubmissionController {
                 .body(new MessageResponse("Too many submissions. Try again in " + retryAfter + "s"));
         }
 
+        // Hard cap: 5 submits per problem in a contest (no reset)
+        long submitCount = submissionService.countContestSubmits(userDetails.getId(), request.getProblemId());
+        if (submitCount >= 5) {
+            return ResponseEntity.status(429)
+                .body(new MessageResponse("Submit limit reached (5/5). No more submissions allowed for this problem."));
+        }
+
         Submission submission = submissionService.submitCodeAsync(
             userDetails.getId(),
             request.getProblemId(),
@@ -175,6 +182,14 @@ public class SubmissionController {
                                                           @AuthenticationPrincipal UserDetailsImpl userDetails) {
         long count = submissionService.countContestRuns(userDetails.getId(), problemId);
         return ResponseEntity.ok(Map.of("runCount", count));
+    }
+
+    @GetMapping("/submit-count/{problemId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Long>> getSubmitCount(@PathVariable Long problemId,
+                                                             @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        long count = submissionService.countContestSubmits(userDetails.getId(), problemId);
+        return ResponseEntity.ok(Map.of("submitCount", count, "maxSubmits", 5L));
     }
 
     @GetMapping("/user/{problemId}")

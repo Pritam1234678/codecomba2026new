@@ -8,33 +8,33 @@ import AuthService from '../services/auth.service';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
-    bg:         '#131313',
+    bg: '#131313',
     surfaceCon: '#201f1f',
     surfaceLow: '#1c1b1b',
-    surfaceHi:  '#2a2a2a',
+    surfaceHi: '#2a2a2a',
     surfaceMin: '#0e0e0e',
-    border:     '#50453b',
-    primary:    '#f1bc8b',
-    secondary:  '#e9c176',
-    muted:      '#d4c4b7',
-    outline:    '#9d8e83',
-    onBg:       '#e5e2e1',
-    error:      '#ffb4ab',
-    success:    '#4ade80',
+    border: '#50453b',
+    primary: '#f1bc8b',
+    secondary: '#e9c176',
+    muted: '#d4c4b7',
+    outline: '#9d8e83',
+    onBg: '#e5e2e1',
+    error: '#ffb4ab',
+    success: '#4ade80',
 };
 
 const LANG_MAP = {
-    JAVA:       { label: 'Java 21',       monaco: 'java' },
-    CPP:        { label: 'C++ 20',        monaco: 'cpp' },
-    C:          { label: 'C',             monaco: 'c' },
-    PYTHON:     { label: 'Python 3.11',   monaco: 'python' },
-    JAVASCRIPT: { label: 'JavaScript',    monaco: 'javascript' },
+    JAVA: { label: 'Java 21', monaco: 'java' },
+    CPP: { label: 'C++ 20', monaco: 'cpp' },
+    C: { label: 'C', monaco: 'c' },
+    PYTHON: { label: 'Python 3.11', monaco: 'python' },
+    JAVASCRIPT: { label: 'JavaScript', monaco: 'javascript' },
 };
 
 const DIFF_CFG = {
-    EASY:   { color: C.success,   label: 'Easy' },
+    EASY: { color: C.success, label: 'Easy' },
     MEDIUM: { color: C.secondary, label: 'Medium' },
-    HARD:   { color: C.error,     label: 'Hard' },
+    HARD: { color: C.error, label: 'Hard' },
 };
 
 // ── Verdict renderer (pure function → returns JSX) ────────────────────────────
@@ -77,12 +77,12 @@ function buildVerdictUI(sub, isTestRun) {
     }
 
     const testCaseDetails = sub.testCaseDetails ? JSON.parse(sub.testCaseDetails) : [];
-    const visibleTCs   = testCaseDetails.filter(tc => !tc.hidden);
-    const hiddenTCs    = testCaseDetails.filter(tc => tc.hidden);
+    const visibleTCs = testCaseDetails.filter(tc => !tc.hidden);
+    const hiddenTCs = testCaseDetails.filter(tc => tc.hidden);
     const hiddenPassed = hiddenTCs.filter(tc => tc.status === 'PASS').length;
-    const total  = sub.totalTestCases || 0;
+    const total = sub.totalTestCases || 0;
     const passed = sub.testCasesPassed || 0;
-    const isAC   = sub.status === 'AC';
+    const isAC = sub.status === 'AC';
     const statusColor = isAC ? C.success : C.error;
 
     return (
@@ -162,67 +162,68 @@ function buildVerdictUI(sub, isTestRun) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 const ProblemSolve = () => {
-    const { id }     = useParams();
-    const navigate   = useNavigate();
+    const { id } = useParams();
+    const navigate = useNavigate();
 
     // ── Core state ────────────────────────────────────────────────────────────
-    const [problem,    setProblem]    = useState(null);
-    const [language,   setLanguage]   = useState(() => {
+    const [problem, setProblem] = useState(null);
+    const [language, setLanguage] = useState(() => {
         try { return localStorage.getItem(`lang_problem_${id}`) || 'JAVA'; } catch { return 'JAVA'; }
     });
-    const [code,       setCode]       = useState(() => {
+    const [code, setCode] = useState(() => {
         const lang = (() => { try { return localStorage.getItem(`lang_problem_${id}`) || 'JAVA'; } catch { return 'JAVA'; } })();
         try { return localStorage.getItem(`code_problem_${id}_${lang}`) || '// Write your code here\n'; } catch { return '// Write your code here\n'; }
     });
-    const [output,     setOutput]     = useState(null);
-    const [loading,    setLoading]    = useState(true);
+    const [output, setOutput] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [running,    setRunning]    = useState(false);
+    const [running, setRunning] = useState(false);
     const [hasExistingSubmission, setHasExistingSubmission] = useState(false);
-    const [snippets,   setSnippets]   = useState({});
+    const [snippets, setSnippets] = useState({});
 
     // ── Navigation state ──────────────────────────────────────────────────────
-    const [allProblems,   setAllProblems]   = useState([]);
-    const [currentIndex,  setCurrentIndex]  = useState(-1);
+    const [allProblems, setAllProblems] = useState([]);
+    const [currentIndex, setCurrentIndex] = useState(-1);
 
     // ── Contest status ────────────────────────────────────────────────────────
     const [contestStatus, setContestStatus] = useState({ active: true, exists: true, contestName: '', endTime: null });
     const [showStatusBanner, setShowStatusBanner] = useState(false);
-    const [timeRemaining,    setTimeRemaining]    = useState('');
+    const [timeRemaining, setTimeRemaining] = useState('');
 
-    // ── Contest stats (run count + execution time) ────────────────────────────
-    const [runCount,     setRunCount]     = useState(0);
-    const [lastExecMs,   setLastExecMs]   = useState(null);
+    // ── Contest stats (run count + submit count + execution time) ────────────
+    const [runCount, setRunCount] = useState(0);
+    const [submitCount, setSubmitCount] = useState(0);
+    const [lastExecMs, setLastExecMs] = useState(null);
 
     // ── UI state ──────────────────────────────────────────────────────────────
-    const [consoleTab,    setConsoleTab]    = useState('output'); // 'output'
-    const [leftWidth,     setLeftWidth]     = useState(42);       // % of total width
-    const [isDragging,    setIsDragging]    = useState(false);
+    const [consoleTab, setConsoleTab] = useState('output'); // 'output'
+    const [leftWidth, setLeftWidth] = useState(42);       // % of total width
+    const [isDragging, setIsDragging] = useState(false);
     const [consoleHeight, setConsoleHeight] = useState(220);      // px
-    const [isDraggingH,   setIsDraggingH]   = useState(false);
+    const [isDraggingH, setIsDraggingH] = useState(false);
 
     // ── Persist code + language to localStorage (debounced) ─────────────────
     const saveTimer = useRef(null);
     useEffect(() => {
-        try { localStorage.setItem(`lang_problem_${id}`, language); } catch {}
+        try { localStorage.setItem(`lang_problem_${id}`, language); } catch { }
         clearTimeout(saveTimer.current);
         saveTimer.current = setTimeout(() => {
-            try { localStorage.setItem(`code_problem_${id}_${language}`, code); } catch {}
+            try { localStorage.setItem(`code_problem_${id}_${language}`, code); } catch { }
         }, 500);
         return () => clearTimeout(saveTimer.current);
     }, [code, language, id]);
 
-    const sseRef       = useRef(null);
+    const sseRef = useRef(null);
     // The submission the user is actively waiting on. The SSE stream delivers
     // EVERY verdict for this user (including stale/previous ones), so we only
     // render a verdict that matches the in-flight submission — otherwise a Run
     // could show an old Submit's "Submission saved" footer, and vice-versa.
     const activeSubRef = useRef(null);
-    const dragStartX   = useRef(0);
-    const dragStartW   = useRef(0);
-    const dragStartY   = useRef(0);
-    const dragStartH   = useRef(0);
-    const runningRef   = useRef(false);
+    const dragStartX = useRef(0);
+    const dragStartW = useRef(0);
+    const dragStartY = useRef(0);
+    const dragStartH = useRef(0);
+    const runningRef = useRef(false);
 
     // Keep runningRef in sync
     useEffect(() => { runningRef.current = running; }, [running]);
@@ -288,7 +289,7 @@ const ProblemSolve = () => {
 
         return () => {
             cancelled = true;
-            if (es) { try { es.close(); } catch {} }
+            if (es) { try { es.close(); } catch { } }
             sseRef.current = null;
         };
     }, []);
@@ -361,7 +362,7 @@ const ProblemSolve = () => {
                             if (isPlaceholder(savedCode)) {
                                 // No draft yet — seed editor with the starter snippet.
                                 if (map[activeLang]) { setCode(map[activeLang]); setLanguage(activeLang); }
-                                else if (map['JAVA'])  { setCode(map['JAVA']);  setLanguage('JAVA'); }
+                                else if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
                             }
                             // If savedCode is a real draft, lazy initializer already loaded it — do nothing.
                         }
@@ -375,11 +376,11 @@ const ProblemSolve = () => {
                         const isPlaceholder = (s) => !s || s.trim() === '' || s.trim() === '// Write your code here' || s.trim() === '// Write your code here\n';
                         if (isPlaceholder(savedCode)) {
                             if (map[activeLang]) { setCode(map[activeLang]); setLanguage(activeLang); }
-                            else if (map['JAVA'])  { setCode(map['JAVA']);  setLanguage('JAVA'); }
+                            else if (map['JAVA']) { setCode(map['JAVA']); setLanguage('JAVA'); }
                         }
                     });
             })
-            .catch(() => {});
+            .catch(() => { });
     }, [id]);
 
     // ── Load problems for prev/next navigation ────────────────────────────────
@@ -397,7 +398,7 @@ const ProblemSolve = () => {
                 setCurrentIndex(cached.data.findIndex(p => p.id === parseInt(id)));
                 return;
             }
-        } catch (ignored) {}
+        } catch (ignored) { }
 
         const url = contestId ? `/problems/contest/${contestId}` : '/problems';
         api.get(url)
@@ -406,9 +407,9 @@ const ProblemSolve = () => {
                 setCurrentIndex(res.data.findIndex(p => p.id === parseInt(id)));
                 try {
                     sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: res.data, ts: Date.now() }));
-                } catch (ignored) {}
+                } catch (ignored) { }
             })
-            .catch(() => {});
+            .catch(() => { });
     }, [id, problem]);
 
     // ── Fetch run count (contest problems only) ───────────────────────────────
@@ -416,7 +417,14 @@ const ProblemSolve = () => {
         if (!contestStatus.exists) return;
         api.get(`/submissions/run-count/${id}`)
             .then(res => setRunCount(res.data?.runCount ?? 0))
-            .catch(() => {});
+            .catch(() => { });
+    }, [id, contestStatus.exists]);
+
+    useEffect(() => {
+        if (!contestStatus.exists) return;
+        api.get(`/submissions/submit-count/${id}`)
+            .then(res => setSubmitCount(res.data?.submitCount ?? 0))
+            .catch(() => { });
     }, [id, contestStatus.exists]);
 
     // ── Contest status polling ────────────────────────────────────────────────
@@ -435,7 +443,7 @@ const ProblemSolve = () => {
                         if (cached.data.problemActive === false) setShowStatusBanner(true);
                         return;
                     }
-                } catch (ignored) {}
+                } catch (ignored) { }
             }
             try {
                 const res = await api.get(`/problems/${id}/contest-status`);
@@ -445,7 +453,7 @@ const ProblemSolve = () => {
                 if (res.data.problemActive === false) setShowStatusBanner(true);
                 try {
                     sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data: res.data, ts: Date.now() }));
-                } catch (ignored) {}
+                } catch (ignored) { }
             } catch (err) {
                 if (err.response?.status === 404) setProblem(null);
             }
@@ -485,7 +493,7 @@ const ProblemSolve = () => {
             const container = document.getElementById('ps-workspace');
             if (!container) return;
             const totalW = container.getBoundingClientRect().width;
-            const delta  = e.clientX - dragStartX.current;
+            const delta = e.clientX - dragStartX.current;
             const newPct = Math.min(65, Math.max(25, dragStartW.current + (delta / totalW) * 100));
             setLeftWidth(newPct);
         };
@@ -521,7 +529,7 @@ const ProblemSolve = () => {
         try {
             const saved = localStorage.getItem(`code_problem_${id}_${lang}`);
             if (saved) { setCode(saved); return; }
-        } catch {}
+        } catch { }
         if (snippets[lang]) setCode(snippets[lang]);
         else setCode('');
     };
@@ -581,6 +589,7 @@ const ProblemSolve = () => {
                 const submissionId = res.data?.id;
                 if (submissionId) {
                     activeSubRef.current = submissionId;
+                    setSubmitCount(prev => prev + 1);
                     pollVerdict(submissionId, false);
                 } else {
                     setSubmitting(false);
@@ -726,8 +735,8 @@ const ProblemSolve = () => {
                             {!contestStatus.exists
                                 ? 'This contest has been removed. Submissions are no longer accepted.'
                                 : contestStatus.problemActive === false
-                                ? 'This problem has been disabled by the administrator. You cannot submit solutions.'
-                                : `"${contestStatus.contestName}" has been deactivated. Submissions are no longer allowed.`}
+                                    ? 'This problem has been disabled by the administrator. You cannot submit solutions.'
+                                    : `"${contestStatus.contestName}" has been deactivated. Submissions are no longer allowed.`}
                         </p>
                         <div style={{ display: 'flex', gap: '12px' }}>
                             <button onClick={() => navigate('/contests')} style={{ padding: '10px 24px', border: `1px solid ${C.secondary}`, color: C.secondary, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
@@ -1059,13 +1068,14 @@ const ProblemSolve = () => {
 
                             <button
                                 onClick={handleSubmit}
-                                disabled={submitting || running}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 24px', border: `1px solid ${C.secondary}`, color: submitting || running ? C.outline : C.secondary, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: submitting || running ? 'not-allowed' : 'pointer', opacity: submitting || running ? 0.5 : 1, transition: 'all 0.2s' }}
-                                onMouseEnter={e => { if (!submitting && !running) { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; } }}
-                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = submitting || running ? C.outline : C.secondary; }}
+                                disabled={submitting || running || (contestStatus.exists && submitCount >= 5)}
+                                title={contestStatus.exists && submitCount >= 5 ? 'Submit limit reached (5/5)' : ''}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 24px', border: `1px solid ${C.secondary}`, color: (submitting || running || (contestStatus.exists && submitCount >= 5)) ? C.outline : C.secondary, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: (submitting || running || (contestStatus.exists && submitCount >= 5)) ? 'not-allowed' : 'pointer', opacity: (submitting || running || (contestStatus.exists && submitCount >= 5)) ? 0.5 : 1, transition: 'all 0.2s' }}
+                                onMouseEnter={e => { if (!submitting && !running && !(contestStatus.exists && submitCount >= 5)) { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; } }}
+                                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = (submitting || running || (contestStatus.exists && submitCount >= 5)) ? C.outline : C.secondary; }}
                             >
                                 <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>upload</span>
-                                {submitting ? 'Submitting...' : 'Submit'}
+                                {submitting ? 'Submitting...' : contestStatus.exists ? `Submit (${submitCount}/5)` : 'Submit'}
                             </button>
                         </div>
                     </div>
