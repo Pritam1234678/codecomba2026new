@@ -15,14 +15,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
+import java.lang.management.ManagementFactory;
 import java.nio.file.*;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -32,9 +35,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Background worker pool for web contest jobs.
  *
- * Drains from "web-contest:queue" — each job copies a template project,
- * overwrites editable files with user code, runs `mvn test` inside a bwrap
- * sandbox, and parses TC:N:PASS/FAIL output (same format as the main judge).
+ * Durability model (same as SubmissionWorkerPool):
+ *   - Producer (WebContestService) LPUSHes a job onto {@code web-contest:queue}.
+ *   - Worker uses {@code LMOVE web-contest:queue web-contest:processing:<hostPid>:<idx>}
+ *     to atomically claim a job. If the worker crashes mid-processing, the
+ *     job stays on the processing list and is requeued by the janitor.
+ *   - On finalize, the worker LREMs the job from its processing list.
+ *
+ * Tune via WEB_CONTEST_WORKERS env var (default 4).
  */
 @Component
 public class WebContestWorkerPool {
@@ -42,22 +50,24 @@ public class WebContestWorkerPool {
     private static final Logger log = LoggerFactory.getLogger(WebContestWorkerPool.class);
 
     public static final String QUEUE_KEY = "web-contest:queue";
-    private static final String TEMP_BASE = System.getProperty("java.io.tmpdir") + "/web-exec";
+    public static final String PROCESSING_KEY_PREFIX = "web-contest:processing:";
+    public static final String PROCESSING_REGISTRY = "web-contest:processing:registry";
 
-    /**
-     * RLIMIT_AS padding for Java — the JVM needs ~4 GB of virtual address space
-     * just to start (compressed class space, code cache, GC reserves, thread stacks).
-     */
+    private static final String TEMP_BASE = System.getProperty("java.io.tmpdir") + "/web-exec";
     private static final int JAVA_AS_PADDING_MB = 4096;
 
     @Value("${WEB_CONTEST_WORKERS:4}")
     private int workerCount;
+
+    @Value("${WEB_CONTEST_STUCK_JOB_TIMEOUT_MINUTES:5}")
+    private int stuckJobTimeoutMinutes;
 
     private final AtomicInteger activeJobs = new AtomicInteger(0);
     private final AtomicInteger totalProcessed = new AtomicInteger(0);
 
     private ThreadPoolExecutor pool;
     private volatile boolean shuttingDown = false;
+    private String instanceId;
 
     private static final java.util.concurrent.atomic.AtomicLong THREAD_SEQ = new java.util.concurrent.atomic.AtomicLong();
 
@@ -71,6 +81,7 @@ public class WebContestWorkerPool {
 
     @PostConstruct
     public void startWorkers() {
+        instanceId = ManagementFactory.getRuntimeMXBean().getName();
         pool = new ThreadPoolExecutor(
             workerCount, workerCount,
             0L, TimeUnit.MILLISECONDS,
@@ -84,9 +95,11 @@ public class WebContestWorkerPool {
         );
 
         for (int i = 0; i < workerCount; i++) {
-            pool.submit(this::workerLoop);
+            final int idx = i;
+            pool.submit(() -> workerLoop(idx));
         }
-        log.info("✅ Started {} web contest workers (queue={})", workerCount, QUEUE_KEY);
+        log.info("✅ Started {} web contest workers (instance={}, queue={})",
+            workerCount, instanceId, QUEUE_KEY);
     }
 
     @jakarta.annotation.PreDestroy
@@ -105,11 +118,26 @@ public class WebContestWorkerPool {
         }
     }
 
-    private void workerLoop() {
+    private String processingKey(int workerIdx) {
+        return PROCESSING_KEY_PREFIX + instanceId + ":" + workerIdx;
+    }
+
+    private void workerLoop(int workerIdx) {
+        String procKey = processingKey(workerIdx);
+        // Register this processing list so the janitor can scan it
+        try { redis.opsForSet().add(PROCESSING_REGISTRY, procKey); }
+        catch (Exception ignored) {}
+
         while (!Thread.currentThread().isInterrupted() && !shuttingDown) {
             try {
-                // Blocking pop from the queue (3s timeout to check shutdown flag)
-                String jobJson = workerRedis.opsForList().rightPop(QUEUE_KEY, Duration.ofSeconds(3));
+                // Atomic claim: LMOVE from queue RIGHT → processing list LEFT
+                String jobJson = workerRedis.opsForList()
+                    .move(QUEUE_KEY,
+                          org.springframework.data.redis.connection.RedisListCommands.Direction.RIGHT,
+                          procKey,
+                          org.springframework.data.redis.connection.RedisListCommands.Direction.LEFT,
+                          java.time.Duration.ofSeconds(3));
+
                 if (jobJson == null) continue;
 
                 WebContestJob job = objectMapper.readValue(jobJson, WebContestJob.class);
@@ -120,6 +148,12 @@ public class WebContestWorkerPool {
                 } finally {
                     activeJobs.decrementAndGet();
                     totalProcessed.incrementAndGet();
+                    // ACK: remove job from processing list
+                    try {
+                        redis.opsForList().remove(procKey, 0, jobJson);
+                    } catch (Exception e) {
+                        log.warn("Failed to LREM web-contest job from {}: {}", procKey, e.getMessage());
+                    }
                 }
 
             } catch (Exception e) {
@@ -133,18 +167,74 @@ public class WebContestWorkerPool {
         }
     }
 
+    /**
+     * Janitor — scans all known processing lists for stuck jobs.
+     * Same pattern as SubmissionWorkerPool.reclaimStuckJobs().
+     * Runs every 60 seconds.
+     */
+    @Scheduled(fixedDelayString = "${WEB_CONTEST_RECLAIM_INTERVAL_MS:60000}")
+    public void reclaimStuckJobs() {
+        try {
+            Set<String> keys = redis.opsForSet().members(PROCESSING_REGISTRY);
+            if (keys == null || keys.isEmpty()) return;
+
+            long maxAgeMs = stuckJobTimeoutMinutes * 60_000L;
+            long now = System.currentTimeMillis();
+            int reclaimed = 0;
+
+            for (String procKey : keys) {
+                List<String> jobs = redis.opsForList().range(procKey, 0, -1);
+                if (jobs == null || jobs.isEmpty()) continue;
+
+                for (String jobJson : new ArrayList<>(jobs)) {
+                    try {
+                        WebContestJob job = objectMapper.readValue(jobJson, WebContestJob.class);
+                        Submission sub = submissionRepository.findById(job.getSubmissionId()).orElse(null);
+                        if (sub == null) {
+                            redis.opsForList().remove(procKey, 0, jobJson);
+                            continue;
+                        }
+                        long submittedMs = sub.getSubmittedAt() != null
+                            ? java.sql.Timestamp.valueOf(sub.getSubmittedAt()).getTime() : now;
+                        long age = now - submittedMs;
+
+                        // Already has final verdict → safe to drop
+                        Submission.SubmissionStatus s = sub.getStatus();
+                        if (s != Submission.SubmissionStatus.PENDING && s != Submission.SubmissionStatus.JUDGING) {
+                            redis.opsForList().remove(procKey, 0, jobJson);
+                            continue;
+                        }
+
+                        if (age > maxAgeMs) {
+                            redis.opsForList().remove(procKey, 0, jobJson);
+                            redis.opsForList().leftPush(QUEUE_KEY, jobJson);
+                            reclaimed++;
+                            log.warn("Web contest janitor reclaimed stuck job {} (age {}ms) from {}",
+                                job.getSubmissionId(), age, procKey);
+                        }
+                    } catch (Exception ex) {
+                        log.warn("Web contest janitor: bad job in {}: {}", procKey, ex.getMessage());
+                    }
+                }
+            }
+            if (reclaimed > 0) log.info("Web contest janitor reclaimed {} stuck job(s)", reclaimed);
+        } catch (Exception e) {
+            log.warn("Web contest janitor failed: {}", e.getMessage());
+        }
+    }
+
+    // ─── Job Processing ───────────────────────────────────────────────────────
+
     private void processJob(WebContestJob job) {
         Long submissionId = job.getSubmissionId();
         long startMs = System.currentTimeMillis();
         Path workDir = null;
 
         try {
-            // Mark as JUDGING
             if (submissionId != null && submissionId > 0) {
                 submissionRepository.updateStatus(submissionId, Submission.SubmissionStatus.JUDGING);
             }
 
-            // 1. Copy template to temp dir
             String uuid = UUID.randomUUID().toString().substring(0, 12);
             workDir = Paths.get(TEMP_BASE, uuid);
             Path templateDir = Paths.get(job.getTemplatePath());
@@ -158,7 +248,7 @@ public class WebContestWorkerPool {
 
             copyDirectory(templateDir, workDir);
 
-            // 2. Overwrite editable files with user's code
+            // Overwrite editable files with user's code
             if (job.getEditableFiles() != null) {
                 for (Map.Entry<String, String> entry : job.getEditableFiles().entrySet()) {
                     Path targetFile = workDir.resolve(entry.getKey());
@@ -167,13 +257,9 @@ public class WebContestWorkerPool {
                 }
             }
 
-            // 3. Execute: mvn test inside bwrap sandbox
             ExecutionResult result = executeMvnTest(workDir, job);
-
-            // 4. Parse TC:N:PASS/FAIL output
             ParsedResult parsed = parseOutput(result, job.isTestRun());
 
-            // 5. Finalize
             finalizeAndNotify(job, parsed.status, parsed.errorMessage,
                 parsed.passed, parsed.total, parsed.score,
                 System.currentTimeMillis() - startMs, parsed.details);
@@ -193,20 +279,15 @@ public class WebContestWorkerPool {
                 log.error("Catastrophic failure for web contest job {}: {}", submissionId, inner.getMessage());
             }
         } finally {
-            // 8. Cleanup temp dir
-            if (workDir != null) {
-                cleanup(workDir);
-            }
+            if (workDir != null) cleanup(workDir);
         }
     }
 
     private ExecutionResult executeMvnTest(Path workDir, WebContestJob job) throws Exception {
         double timeLimit = job.getTimeLimit() != null ? job.getTimeLimit() : 60.0;
         int memoryMb = job.getMemoryLimit() != null ? job.getMemoryLimit() : 512;
-
-        // Total RLIMIT_AS: user memory + JVM runtime overhead
         int totalAsMb = memoryMb + JAVA_AS_PADDING_MB;
-        int cpuSeconds = (int) Math.ceil(timeLimit) + 5; // extra buffer for Maven startup
+        int cpuSeconds = (int) Math.ceil(timeLimit) + 5;
 
         List<String> command = List.of(
             "mvn", "test", "-o", "-q",
@@ -214,9 +295,7 @@ public class WebContestWorkerPool {
             "-Dspring.main.banner-mode=off"
         );
 
-        // Use sandbox with network disabled, generous limits for Maven
         SandboxRunner.SandboxLimits limits = SandboxRunner.SandboxLimits.forRun(totalAsMb, cpuSeconds);
-
         List<String> wrapped = sandbox.wrap(command, workDir, limits);
         ProcessBuilder pb = new ProcessBuilder(wrapped);
         pb.directory(workDir.toFile());
@@ -224,11 +303,8 @@ public class WebContestWorkerPool {
 
         long startMs = System.currentTimeMillis();
         Process process = pb.start();
-
-        // Close stdin immediately
         try { process.getOutputStream().close(); } catch (IOException ignored) {}
 
-        // Read stdout/stderr concurrently
         StringBuilder stdout = new StringBuilder();
         StringBuilder stderr = new StringBuilder();
 
@@ -239,7 +315,7 @@ public class WebContestWorkerPool {
                     synchronized (stdout) { stdout.append(line).append("\n"); }
                 }
             } catch (IOException ignored) {}
-        }, "web-contest-stdout");
+        }, "wc-stdout");
         stdoutReader.setDaemon(true);
 
         Thread stderrReader = new Thread(() -> {
@@ -249,13 +325,13 @@ public class WebContestWorkerPool {
                     synchronized (stderr) { stderr.append(line).append("\n"); }
                 }
             } catch (IOException ignored) {}
-        }, "web-contest-stderr");
+        }, "wc-stderr");
         stderrReader.setDaemon(true);
 
         stdoutReader.start();
         stderrReader.start();
 
-        int timeoutSec = (int) timeLimit + 10; // wall clock buffer
+        int timeoutSec = (int) timeLimit + 10;
         boolean finished = process.waitFor(timeoutSec, TimeUnit.SECONDS);
         long elapsed = System.currentTimeMillis() - startMs;
 
@@ -270,19 +346,16 @@ public class WebContestWorkerPool {
 
         stdoutReader.join(1000);
         stderrReader.join(1000);
-
         int exitCode = process.exitValue();
 
-        // Check for OOM kill
         if (exitCode == 137) {
             return new ExecutionResult(stdout.toString(), "Memory Limit Exceeded",
                 elapsed, 0, exitCode, false, true, false);
         }
 
-        // Compilation error detection: Maven exits with 1 on compile failure
         String stderrStr = stderr.toString();
         if (exitCode != 0 && (stderrStr.contains("COMPILATION ERROR") ||
-                              stderrStr.contains("[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin"))) {
+                stderrStr.contains("maven-compiler-plugin"))) {
             return new ExecutionResult(stdout.toString(), stderrStr,
                 elapsed, 0, exitCode, false, false, true);
         }
@@ -291,15 +364,14 @@ public class WebContestWorkerPool {
             elapsed, 0, exitCode, false, false, false);
     }
 
-    /**
-     * Finalize: update DB, leaderboard delta, push SSE verdict.
-     */
+    // ─── Finalize + Notify ────────────────────────────────────────────────────
+
     private void finalizeAndNotify(WebContestJob job, Submission.SubmissionStatus status,
                                    String errorMessage, int passed, int total, int score,
                                    long timeMs, String details) {
         Long submissionId = job.getSubmissionId();
 
-        // 1. Update DB
+        // 1. DB update
         if (submissionId != null && submissionId > 0) {
             try {
                 submissionRepository.updateResult(
@@ -311,7 +383,7 @@ public class WebContestWorkerPool {
             }
         }
 
-        // 2. Leaderboard update (only for real submits with a contest)
+        // 2. Leaderboard delta (only for real submits with contest)
         if (!job.isTestRun() && job.getContestId() != null) {
             String problemScoreKey = "contest:score:" + job.getContestId()
                 + ":" + job.getUserId() + ":" + job.getProblemId();
@@ -319,28 +391,24 @@ public class WebContestWorkerPool {
                 String prevStr = redis.opsForValue().get(problemScoreKey);
                 int prevScore = (prevStr != null) ? Integer.parseInt(prevStr) : 0;
                 int delta = score - prevScore;
-
                 redis.opsForValue().set(problemScoreKey, String.valueOf(score),
                     Duration.ofHours(26));
-
                 if (delta != 0) {
                     leaderboard.updateScore(job.getContestId(), job.getUserId(), delta);
-                    log.debug("Web contest leaderboard delta={} user={} problem={} contest={}",
-                        delta, job.getUserId(), job.getProblemId(), job.getContestId());
                 }
             } catch (Exception e) {
                 log.warn("Web contest leaderboard update failed: {}", e.getMessage());
             }
         }
 
-        // 3. Invalidate caches
+        // 3. Cache invalidation
         try {
             redis.delete("submissions:user:" + job.getUserId());
             redis.delete("submission:status:" + submissionId);
             redis.delete("submission:user:problem:" + job.getUserId() + ":" + job.getProblemId());
         } catch (Exception ignored) {}
 
-        // 4. Push SSE verdict
+        // 4. SSE push
         try {
             sseRegistry.sendVerdict(job.getUserId(), new VerdictEvent(
                 submissionId, status.name(), passed, total, score, timeMs, errorMessage, details,
@@ -351,7 +419,7 @@ public class WebContestWorkerPool {
         }
     }
 
-    // ─── Output parsing (same TC:N:PASS/FAIL format as SubmissionWorkerPool) ──
+    // ─── Output Parsing ───────────────────────────────────────────────────────
 
     private ParsedResult parseOutput(ExecutionResult result, boolean isTestRun) {
         if (result.isCompilationError()) {
@@ -394,9 +462,7 @@ public class WebContestWorkerPool {
         details.append("]");
 
         Submission.SubmissionStatus status = passed == total
-            ? Submission.SubmissionStatus.AC
-            : Submission.SubmissionStatus.WA;
-
+            ? Submission.SubmissionStatus.AC : Submission.SubmissionStatus.WA;
         return new ParsedResult(status, null, passed, total, score, details.toString());
     }
 
@@ -460,9 +526,7 @@ public class WebContestWorkerPool {
     // ─── Inner classes ────────────────────────────────────────────────────────
 
     private static class TcLine {
-        final int number;
-        final boolean passed;
-        final boolean hidden;
+        final int number; final boolean passed; final boolean hidden;
         TcLine(int n, boolean p, boolean h) { number = n; passed = p; hidden = h; }
     }
 
