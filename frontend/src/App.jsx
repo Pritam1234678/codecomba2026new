@@ -16,43 +16,44 @@ import Home from './pages/Home';
 // ── Lazy-loaded routes (code-split per page) ─────────────────────────────────
 // Even Login/Register are split out — keeps the App shell tiny so the
 // initial bundle is just routing + auth wrappers + sidebar.
-const Login          = lazy(() => import('./pages/Login'));
-const Register       = lazy(() => import('./pages/Register'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
-const ResetPassword  = lazy(() => import('./pages/ResetPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const ForgotUsername = lazy(() => import('./pages/ForgotUsername'));
-const Support        = lazy(() => import('./pages/Support'));
-const CoderCompiler  = lazy(() => import('./pages/CoderCompiler'));
+const Support = lazy(() => import('./pages/Support'));
+const CoderCompiler = lazy(() => import('./pages/CoderCompiler'));
 
 // User pages
-const ContestList    = lazy(() => import('./pages/ContestList'));
-const ContestDetail  = lazy(() => import('./pages/ContestDetail'));
-const ProblemSolve   = lazy(() => import('./pages/ProblemSolve'));
-const UserDashboard  = lazy(() => import('./pages/UserDashboard'));
-const EditProfile    = lazy(() => import('./pages/EditProfile'));
-const Practice       = lazy(() => import('./pages/Practice'));
-const PracticeSolve  = lazy(() => import('./pages/PracticeSolve'));
+const ContestList = lazy(() => import('./pages/ContestList'));
+const ContestDetail = lazy(() => import('./pages/ContestDetail'));
+const ProblemSolve = lazy(() => import('./pages/ProblemSolve'));
+const UserDashboard = lazy(() => import('./pages/UserDashboard'));
+const EditProfile = lazy(() => import('./pages/EditProfile'));
+const Practice = lazy(() => import('./pages/Practice'));
+const PracticeSolve = lazy(() => import('./pages/PracticeSolve'));
+const WebContest = lazy(() => import('./pages/WebContest'));
 const PlatformDetails = lazy(() => import('./pages/PlatformDetails'));
-const Leaderboard    = lazy(() => import('./pages/Leaderboard'));
+const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const ContestLeaderboard = lazy(() => import('./pages/ContestLeaderboard'));
-const UserSearch     = lazy(() => import('./pages/UserSearch'));
-const PlayerProfile  = lazy(() => import('./pages/PlayerProfile'));
+const UserSearch = lazy(() => import('./pages/UserSearch'));
+const PlayerProfile = lazy(() => import('./pages/PlayerProfile'));
 
 // Admin pages — heaviest, load only when admin navigates there
-const AdminDashboard       = lazy(() => import('./pages/AdminDashboard'));
-const AdminUserManagement  = lazy(() => import('./pages/AdminUserManagement'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminUserManagement = lazy(() => import('./pages/AdminUserManagement'));
 const AdminContestManagement = lazy(() => import('./pages/AdminContestManagement'));
 const AdminProblemManagement = lazy(() => import('./pages/AdminProblemManagement'));
-const AdminDuelMonitor     = lazy(() => import('./pages/AdminDuelMonitor'));
-const CreateContest        = lazy(() => import('./pages/CreateContest'));
-const EditContest          = lazy(() => import('./pages/EditContest'));
+const AdminDuelMonitor = lazy(() => import('./pages/AdminDuelMonitor'));
+const CreateContest = lazy(() => import('./pages/CreateContest'));
+const EditContest = lazy(() => import('./pages/EditContest'));
 const ManageContestProblems = lazy(() => import('./pages/ManageContestProblems'));
-const EditProblem          = lazy(() => import('./pages/EditProblem'));
-const AddProblem           = lazy(() => import('./pages/AddProblem'));
-const ManageTestCases      = lazy(() => import('./pages/ManageTestCases'));
+const EditProblem = lazy(() => import('./pages/EditProblem'));
+const AddProblem = lazy(() => import('./pages/AddProblem'));
+const ManageTestCases = lazy(() => import('./pages/ManageTestCases'));
 
-const NotFound  = lazy(() => import('./pages/NotFound'));
-const Duel      = lazy(() => import('./pages/Duel'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+const Duel = lazy(() => import('./pages/Duel'));
 const DuelArena = lazy(() => import('./pages/DuelArena'));
 
 // Proctored contest mode — entry shell, arena placeholder, and terminal
@@ -62,11 +63,11 @@ const DuelArena = lazy(() => import('./pages/DuelArena'));
 // candidate or admin actually navigates into the proctoring surface.
 // Terminator screen is the landing for the WebSocket SESSION_TERMINATED
 // flow (task 12.3) and the LOCKED_OUT (423) redirect.
-const ProctoredContestEntry      = lazy(() => import('./proctoring/pages/ProctoredContestEntry'));
-const ProctoredContestArena      = lazy(() => import('./proctoring/pages/ProctoredContestArena'));
+const ProctoredContestEntry = lazy(() => import('./proctoring/pages/ProctoredContestEntry'));
+const ProctoredContestArena = lazy(() => import('./proctoring/pages/ProctoredContestArena'));
 const ProctoredContestTerminated = lazy(() => import('./proctoring/pages/ProctoredContestTerminated'));
-const AdminProctoringDashboard   = lazy(() => import('./proctoring/pages/AdminProctoringDashboard'));
-const AdminProctoringSession     = lazy(() => import('./proctoring/pages/AdminProctoringSession'));
+const AdminProctoringDashboard = lazy(() => import('./proctoring/pages/AdminProctoringDashboard'));
+const AdminProctoringSession = lazy(() => import('./proctoring/pages/AdminProctoringSession'));
 
 // Skeleton fallback — shown briefly while a lazy chunk loads
 const SKEL = {
@@ -80,7 +81,7 @@ const PageFallback = () => (
     <style>{`@keyframes cc-shimmer{0%{background-position:-600px 0}100%{background-position:600px 0}}`}</style>
     <div style={{ ...SKEL, height: 26, width: '36%' }} />
     <div style={{ ...SKEL, height: 13, width: '52%' }} />
-    {[0,1,2].map(i => (
+    {[0, 1, 2].map(i => (
       <div key={i} style={{ display: 'flex', gap: '1rem' }}>
         <div style={{ ...SKEL, height: 44, flex: 1 }} />
         <div style={{ ...SKEL, height: 44, width: 88 }} />
@@ -110,21 +111,21 @@ function App() {
       try {
         await api.get('/user/profile');
         sessionStorage.setItem('lastAccountCheck', String(now));
-      } catch {}
+      } catch { }
     };
     checkAccountStatus();
   }, [location.pathname]);
 
-  const currentUser   = AuthService.getCurrentUser();
-  const isLoggedIn    = !!currentUser;
+  const currentUser = AuthService.getCurrentUser();
+  const isLoggedIn = !!currentUser;
   const isPublicRoute = PUBLIC_PATHS.includes(location.pathname);
   const isPublicLoggedOutRoute = PUBLIC_LOGGED_OUT_PATHS.includes(location.pathname);
 
   // Show sidebar for all logged-in routes (replaces navbar)
   // Show navbar only for public routes (home, login, register, etc.)
   const showSidebar = isLoggedIn && !isPublicRoute;
-  const showNavbar  = !isLoggedIn || (isPublicRoute && !isPublicLoggedOutRoute);
-  const showFooter  = !showSidebar; // no footer when sidebar is shown
+  const showNavbar = !isLoggedIn || (isPublicRoute && !isPublicLoggedOutRoute);
+  const showFooter = !showSidebar; // no footer when sidebar is shown
 
   const routes = (
     <Routes>
@@ -164,6 +165,7 @@ function App() {
       <Route path="/problems/:id" element={<div className="flex-1 px-14 py-8">{lazyWrap(<UserRoute><ProblemSolve /></UserRoute>)}</div>} />
       <Route path="/practice" element={lazyWrap(<UserRoute><Practice /></UserRoute>)} />
       <Route path="/practice/:id" element={lazyWrap(<UserRoute><PracticeSolve /></UserRoute>)} />
+      <Route path="/web-contest/:problemId" element={lazyWrap(<UserRoute><WebContest /></UserRoute>)} />
       <Route path="/duel" element={lazyWrap(<UserRoute><Duel /></UserRoute>)} />
       <Route path="/duel/:matchId" element={lazyWrap(<UserRoute><DuelArena /></UserRoute>)} />
 
@@ -207,7 +209,7 @@ function App() {
 
   // ── Public layout (navbar + footer) ───────────────────────────────────────
   const isCompilerPage = location.pathname === '/compiler';
-  const isHomePage     = location.pathname === '/';
+  const isHomePage = location.pathname === '/';
   return (
     <div className="text-on-surface font-sans" style={{ backgroundColor: 'var(--color-background)', color: 'var(--color-on-surface)' }}>
       {showNavbar && <Navbar />}
