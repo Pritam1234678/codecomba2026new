@@ -33,6 +33,8 @@ const EditProfile = lazy(() => import('./pages/EditProfile'));
 const Practice = lazy(() => import('./pages/Practice'));
 const PracticeSolve = lazy(() => import('./pages/PracticeSolve'));
 const WebContest = lazy(() => import('./pages/WebContest'));
+const WebContestList = lazy(() => import('./pages/WebContestList'));
+const AdminWebContest = lazy(() => import('./pages/AdminWebContest'));
 const PlatformDetails = lazy(() => import('./pages/PlatformDetails'));
 const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const ContestLeaderboard = lazy(() => import('./pages/ContestLeaderboard'));
@@ -152,6 +154,7 @@ function App() {
       <Route path="/admin/problems/:id/edit" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><EditProblem /></AdminRoute>)}</div>} />
       <Route path="/admin/problems/:id/testcases" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><ManageTestCases /></AdminRoute>)}</div>} />
       <Route path="/admin/duels" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><AdminDuelMonitor /></AdminRoute>)}</div>} />
+      <Route path="/admin/web-contest" element={lazyWrap(<AdminRoute><AdminWebContest /></AdminRoute>)} />
       <Route path="/admin/proctoring" element={lazyWrap(<AdminRoute><AdminProctoringDashboard /></AdminRoute>)} />
       <Route path="/admin/leaderboard" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><Leaderboard /></AdminRoute>)}</div>} />
       <Route path="/admin/leaderboard/:contestId" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><ContestLeaderboard /></AdminRoute>)}</div>} />
@@ -165,6 +168,7 @@ function App() {
       <Route path="/problems/:id" element={<div className="flex-1 px-14 py-8">{lazyWrap(<UserRoute><ProblemSolve /></UserRoute>)}</div>} />
       <Route path="/practice" element={lazyWrap(<UserRoute><Practice /></UserRoute>)} />
       <Route path="/practice/:id" element={lazyWrap(<UserRoute><PracticeSolve /></UserRoute>)} />
+      <Route path="/web-contest" element={lazyWrap(<UserRoute><WebContestList /></UserRoute>)} />
       <Route path="/web-contest/:problemId" element={lazyWrap(<UserRoute><WebContest /></UserRoute>)} />
       <Route path="/duel" element={lazyWrap(<UserRoute><Duel /></UserRoute>)} />
       <Route path="/duel/:matchId" element={lazyWrap(<UserRoute><DuelArena /></UserRoute>)} />

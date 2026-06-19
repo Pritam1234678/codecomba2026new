@@ -3,54 +3,56 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AuthService from '../services/auth.service';
 
 const C = {
-    bg:         '#0e0e0e',
-    border:     '#50453b',
-    primary:    '#f1bc8b',
-    secondary:  '#e9c176',
-    muted:      '#d4c4b7',
-    outline:    '#9d8e83',
-    onBg:       '#e5e2e1',
+    bg: '#0e0e0e',
+    border: '#50453b',
+    primary: '#f1bc8b',
+    secondary: '#e9c176',
+    muted: '#d4c4b7',
+    outline: '#9d8e83',
+    onBg: '#e5e2e1',
     surfaceLow: '#1c1b1b',
-    surfaceHi:  '#2a2a2a',
-    error:      '#ffb4ab',
+    surfaceHi: '#2a2a2a',
+    error: '#ffb4ab',
 };
 
 // ── Admin nav links ───────────────────────────────────────────────────────────
 const ADMIN_NAV = [
-    { label: 'Dashboard',  icon: 'admin_panel_settings', to: '/admin/dashboard' },
-    { label: 'Contests',   icon: 'military_tech',        to: '/admin/contests' },
-    { label: 'Problems',   icon: 'code',                 to: '/admin/problems' },
-    { label: 'Duel',       icon: 'swords',               to: '/admin/duels' },
-    { label: 'Proctoring', icon: 'shield',               to: '/admin/proctoring' },
-    { label: 'Users',      icon: 'group',                to: '/admin/users' },
-    { label: 'Rankings',   icon: 'leaderboard',          to: '/admin/leaderboard' },
-    { label: 'Compiler',   icon: 'terminal',             to: '/compiler' },
-    { label: 'Platform',   icon: 'tune',                 to: '/admin/platform-details' },
-    { label: 'Support',    icon: 'help_outline',         to: '/support' },
-    { label: 'Mail',       icon: 'mail',                 to: 'https://mail.codecoder.in', external: true },
+    { label: 'Dashboard', icon: 'admin_panel_settings', to: '/admin/dashboard' },
+    { label: 'Contests', icon: 'military_tech', to: '/admin/contests' },
+    { label: 'Problems', icon: 'code', to: '/admin/problems' },
+    { label: 'Duel', icon: 'swords', to: '/admin/duels' },
+    { label: 'Into the Web', icon: 'public', to: '/admin/web-contest' },
+    { label: 'Proctoring', icon: 'shield', to: '/admin/proctoring' },
+    { label: 'Users', icon: 'group', to: '/admin/users' },
+    { label: 'Rankings', icon: 'leaderboard', to: '/admin/leaderboard' },
+    { label: 'Compiler', icon: 'terminal', to: '/compiler' },
+    { label: 'Platform', icon: 'tune', to: '/admin/platform-details' },
+    { label: 'Support', icon: 'help_outline', to: '/support' },
+    { label: 'Mail', icon: 'mail', to: 'https://mail.codecoder.in', external: true },
 ];
 
 // ── User nav links (mirrors Navbar user links) ────────────────────────────────
 const USER_NAV = [
-    { label: 'Dashboard',        icon: 'dashboard',       to: '/dashboard' },
-    { label: 'Contests',         icon: 'emoji_events',    to: '/contests' },
-    { label: 'Practice',         icon: 'fitness_center',  to: '/practice' },
-    { label: 'Duel',             icon: 'swords',          to: '/duel' },
-    { label: 'Players',          icon: 'group',           to: '/players' },
-    { label: 'Compiler',         icon: 'terminal',        to: '/compiler' },
-    { label: 'Platform Details', icon: 'settings',        to: '/platform-details' },
-    { label: 'Support',          icon: 'help_outline',    to: '/support' },
-    { label: 'Edit Profile',     icon: 'account_circle',  to: '/profile/edit' },
+    { label: 'Dashboard', icon: 'dashboard', to: '/dashboard' },
+    { label: 'Contests', icon: 'emoji_events', to: '/contests' },
+    { label: 'Practice', icon: 'fitness_center', to: '/practice' },
+    { label: 'Duel', icon: 'swords', to: '/duel' },
+    { label: 'Into the Web', icon: 'public', to: '/web-contest' },
+    { label: 'Players', icon: 'group', to: '/players' },
+    { label: 'Compiler', icon: 'terminal', to: '/compiler' },
+    { label: 'Platform Details', icon: 'settings', to: '/platform-details' },
+    { label: 'Support', icon: 'help_outline', to: '/support' },
+    { label: 'Edit Profile', icon: 'account_circle', to: '/profile/edit' },
 ];
 
 const AppSidebar = () => {
-    const location  = useLocation();
-    const navigate  = useNavigate();
+    const location = useLocation();
+    const navigate = useNavigate();
     const [open, setOpen] = useState(false);
 
     const currentUser = AuthService.getCurrentUser();
-    const isAdmin     = currentUser?.roles?.includes('ROLE_ADMIN');
-    const navItems    = isAdmin ? ADMIN_NAV : USER_NAV;
+    const isAdmin = currentUser?.roles?.includes('ROLE_ADMIN');
+    const navItems = isAdmin ? ADMIN_NAV : USER_NAV;
 
     const handleLogout = () => {
         AuthService.logout();

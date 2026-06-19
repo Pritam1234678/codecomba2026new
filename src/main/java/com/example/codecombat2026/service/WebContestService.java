@@ -23,9 +23,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 @Service
 public class WebContestService {
@@ -161,6 +164,161 @@ public class WebContestService {
         }
 
         return submission;
+    }
+
+    // ── New methods for list + admin ─────────────────────────────────────────
+
+    /**
+     * Returns all challenge entries (templates joined with problems) for the user list page.
+     */
+    public List<Map<String, Object>> listChallenges() {
+        List<WebContestTemplate> templates = templateRepository.findAll();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (WebContestTemplate t : templates) {
+            Problem p = problemRepository.findById(t.getProblemId()).orElse(null);
+            if (p == null) continue;
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("templateId",   t.getId());
+            item.put("problemId",    t.getProblemId());
+            item.put("title",        p.getTitle());
+            item.put("description",  p.getDescription());
+            item.put("language",     t.getLanguage());
+            item.put("difficulty",   p.getLevel() != null ? p.getLevel().toUpperCase() : "EASY");
+            item.put("testCount",    t.getTestCount());
+            result.add(item);
+        }
+        return result;
+    }
+
+    /**
+     * Admin: same as listChallenges but used by admin endpoints.
+     */
+    public List<Map<String, Object>> adminListTemplates() {
+        return listChallenges();
+    }
+
+    /**
+     * Admin: create a new template entry and scaffold the directory.
+     */
+    @Transactional
+    public WebContestTemplate adminCreateTemplate(Long problemId, String language, String templatePath) throws IOException {
+        Path dir = Paths.get(templatePath);
+        if (!Files.exists(dir)) {
+            Files.createDirectories(dir);
+            log.info("Created template directory: {}", dir);
+        }
+
+        // Write a minimal default manifest
+        String defaultManifest = "{\"editableFiles\":[],\"readonlyFiles\":[],\"hiddenFiles\":[]}";
+
+        WebContestTemplate t = new WebContestTemplate();
+        t.setProblemId(problemId);
+        t.setLanguage(language.toUpperCase());
+        t.setTemplatePath(templatePath);
+        t.setManifestJson(defaultManifest);
+        t.setTestCount(6);
+        t.setTimeoutSeconds(60);
+        t.setMemoryMb(512);
+        return templateRepository.save(t);
+    }
+
+    /**
+     * Admin: get ALL files in a template directory, including hidden ones.
+     * Returns a map of relative path → file content.
+     * Excludes .class files and build artifact directories.
+     */
+    public Map<String, String> adminGetAllFiles(Long templateId) throws IOException {
+        WebContestTemplate template = templateRepository.findById(templateId)
+            .orElseThrow(() -> new ResourceNotFoundException("Template not found: " + templateId));
+
+        Path rootDir = Paths.get(template.getTemplatePath());
+        Map<String, String> files = new LinkedHashMap<>();
+
+        if (!Files.exists(rootDir)) {
+            return files;
+        }
+
+        try (Stream<Path> stream = Files.walk(rootDir)) {
+            stream
+                .filter(Files::isRegularFile)
+                .filter(p -> !isExcludedPath(rootDir.relativize(p).toString()))
+                .sorted()
+                .forEach(p -> {
+                    String relative = rootDir.relativize(p).toString().replace("\\", "/");
+                    try {
+                        String content = Files.readString(p);
+                        files.put(relative, content);
+                    } catch (IOException e) {
+                        log.warn("Failed to read template file {}: {}", p, e.getMessage());
+                        files.put(relative, "// Error reading file");
+                    }
+                });
+        }
+        return files;
+    }
+
+    /**
+     * Admin: save (create or overwrite) a file in a template directory.
+     */
+    public void adminSaveFile(Long templateId, String relativePath, String content) throws IOException {
+        WebContestTemplate template = templateRepository.findById(templateId)
+            .orElseThrow(() -> new ResourceNotFoundException("Template not found: " + templateId));
+
+        Path filePath = Paths.get(template.getTemplatePath(), relativePath);
+        Files.createDirectories(filePath.getParent());
+        Files.writeString(filePath, content);
+        log.info("Admin saved template file: {}/{}", templateId, relativePath);
+    }
+
+    /**
+     * Admin: delete a file from a template directory.
+     */
+    public void adminDeleteFile(Long templateId, String relativePath) throws IOException {
+        WebContestTemplate template = templateRepository.findById(templateId)
+            .orElseThrow(() -> new ResourceNotFoundException("Template not found: " + templateId));
+
+        Path filePath = Paths.get(template.getTemplatePath(), relativePath);
+        if (Files.exists(filePath)) {
+            Files.delete(filePath);
+            log.info("Admin deleted template file: {}/{}", templateId, relativePath);
+        }
+    }
+
+    /**
+     * Admin: get manifest JSON for a template.
+     */
+    public Map<String, Object> adminGetManifest(Long templateId) {
+        WebContestTemplate template = templateRepository.findById(templateId)
+            .orElseThrow(() -> new ResourceNotFoundException("Template not found: " + templateId));
+        return parseManifest(template.getManifestJson());
+    }
+
+    /**
+     * Admin: update manifest JSON for a template.
+     */
+    @Transactional
+    public void adminUpdateManifest(Long templateId, Map<String, Object> manifest) {
+        WebContestTemplate template = templateRepository.findById(templateId)
+            .orElseThrow(() -> new ResourceNotFoundException("Template not found: " + templateId));
+        try {
+            String manifestJson = objectMapper.writeValueAsString(manifest);
+            template.setManifestJson(manifestJson);
+            templateRepository.save(template);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize manifest", e);
+        }
+    }
+
+    private boolean isExcludedPath(String relativePath) {
+        String[] excludedDirs = { "target/", ".git/", "node_modules/", "build/", "__pycache__/" };
+        String[] excludedExts = { ".class", ".pyc", ".jar" };
+        for (String dir : excludedDirs) {
+            if (relativePath.startsWith(dir) || relativePath.contains("/" + dir)) return true;
+        }
+        for (String ext : excludedExts) {
+            if (relativePath.endsWith(ext)) return true;
+        }
+        return false;
     }
 
     private String readFileFromTemplate(String templatePath, String relativePath) {
