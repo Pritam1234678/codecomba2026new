@@ -1,783 +1,452 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import Editor from '@monaco-editor/react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
-// ── VS Code-style color tokens ────────────────────────────────────────────────
+// ── Design tokens (VS Code dark) ─────────────────────────────────────────────
 const C = {
-    bg: '#1e1e1e',
-    sidebar: '#252526',
-    tabBar: '#2d2d2d',
-    activeTab: '#1e1e1e',
-    inactiveTab: '#2d2d2d',
-    border: '#444',
-    text: '#cccccc',
-    textMuted: '#888',
-    accent: '#007acc',
-    success: '#4ec9b0',
-    warning: '#ce9178',
-    error: '#f48771',
-    highlight: '#37373d',
-    hoverBg: '#2a2d2e',
-    inputBg: '#3c3c3c',
+    bg: '#1e1e1e', surface: '#252526', surfaceAlt: '#2d2d2d',
+    onBg: '#cccccc', primary: '#007acc', secondary: '#4ec9b0',
+    error: '#f48771', success: '#4ec9b0', warning: '#ce9178',
+    outline: '#444', muted: '#888',
+    accent: '#0e639c',
 };
 
-// ── File icon by extension ────────────────────────────────────────────────────
-const fileIcon = (name) => {
-    if (!name) return '📄';
-    const ext = name.split('.').pop().toLowerCase();
-    const icons = {
-        java: '☕', py: '🐍', js: '🟨', ts: '🔷',
-        json: '📦', xml: '🔧', yml: '⚙️', yaml: '⚙️',
-        md: '📝', txt: '📄', sh: '🔩', properties: '⚙️',
-        html: '🌐', css: '🎨', sql: '🗄️',
-    };
-    return icons[ext] || '📄';
-};
+const Spinner = () => (
+    <div style={{
+        width: 28, height: 28, border: `3px solid ${C.outline}`,
+        borderTop: `3px solid ${C.primary}`, borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+    }} />
+);
 
-// ── Monaco language by extension ─────────────────────────────────────────────
-const monacoLang = (name) => {
-    if (!name) return 'plaintext';
-    const ext = name.split('.').pop().toLowerCase();
-    const langs = {
-        java: 'java', py: 'python', js: 'javascript', ts: 'typescript',
-        json: 'json', xml: 'xml', yml: 'yaml', yaml: 'yaml',
-        md: 'markdown', sh: 'shell', properties: 'ini', html: 'html',
-        css: 'css', sql: 'sql',
-    };
-    return langs[ext] || 'plaintext';
-};
-
-// ── Build file tree from flat path list ──────────────────────────────────────
-const buildTree = (paths) => {
-    const root = {};
-    for (const p of paths) {
-        const parts = p.split('/');
-        let node = root;
-        for (let i = 0; i < parts.length - 1; i++) {
-            if (!node[parts[i]]) node[parts[i]] = {};
-            node = node[parts[i]];
-        }
-        const file = parts[parts.length - 1];
-        node[file] = null; // null means it's a file
-    }
-    return root;
-};
-
-// ── AdminWebContest main component ────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────────────
 const AdminWebContest = () => {
-    const [templates, setTemplates] = useState([]);
-    const [selectedTemplateId, setSelectedTemplateId] = useState(null);
-    const [files, setFiles] = useState({}); // path → content
-    const [openTabs, setOpenTabs] = useState([]); // list of paths
-    const [activeTab, setActiveTab] = useState(null);
-    const [modified, setModified] = useState({}); // path → bool
-    const [expandedDirs, setExpandedDirs] = useState({});
-    const [statusMsg, setStatusMsg] = useState('Ready');
-    const [cursorInfo, setCursorInfo] = useState({ line: 1, col: 1 });
-    const [showNewTemplate, setShowNewTemplate] = useState(false);
-    const [showManifest, setShowManifest] = useState(false);
-    const [manifest, setManifest] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [contextMenu, setContextMenu] = useState(null); // { x, y, path }
-    const [showNewFile, setShowNewFile] = useState(false);
-    const [newFilePath, setNewFilePath] = useState('');
-    const [newFileParent, setNewFileParent] = useState('');
-    const editorRef = useRef(null);
+    const navigate = useNavigate();
 
-    // Load template list on mount
-    useEffect(() => {
-        api.get('/web-contest/admin/templates')
-            .then(r => {
-                setTemplates(r.data);
-                if (r.data.length > 0) setSelectedTemplateId(r.data[0].templateId);
-            })
-            .catch(err => setStatusMsg('Failed to load templates: ' + (err.response?.data?.message || err.message)));
+    // Challenge list
+    const [challenges, setChallenges] = useState([]);
+    const [loadingList, setLoadingList] = useState(true);
+
+    // Active editor session
+    const [sessionId, setSessionId] = useState(null);
+    const [iframeUrl, setIframeUrl] = useState(null);
+    const [activeChallenge, setActiveChallenge] = useState(null); // { templateId, problemId, title, language }
+    const [sessionLoading, setSessionLoading] = useState(false);
+    const [sessionError, setSessionError] = useState(null);
+
+    // Test results
+    const [testing, setTesting] = useState(false);
+    const [testResults, setTestResults] = useState(null);
+
+    // New challenge modal
+    const [showNewModal, setShowNewModal] = useState(false);
+    const [newForm, setNewForm] = useState({ title: '', description: '', level: 'EASY', language: 'JAVA', templatePath: '' });
+    const [creating, setCreating] = useState(false);
+
+    // Status bar message
+    const [status, setStatus] = useState('Select a challenge to open its IDE, or create a new one.');
+
+    const heartbeatRef = useRef(null);
+    const sessionIdRef = useRef(null);
+    useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+
+    // ── Load challenge list ───────────────────────────────────────────────────
+    const loadChallenges = useCallback(async () => {
+        try {
+            const res = await api.get('/web-contest/list');
+            setChallenges(res.data);
+        } catch {
+            setStatus('Failed to load challenges.');
+        } finally {
+            setLoadingList(false);
+        }
     }, []);
 
-    // Load files when template changes
+    useEffect(() => { loadChallenges(); }, [loadChallenges]);
+
+    // ── Heartbeat ─────────────────────────────────────────────────────────────
     useEffect(() => {
-        if (!selectedTemplateId) return;
-        setLoading(true);
-        setFiles({});
-        setOpenTabs([]);
-        setActiveTab(null);
-        setModified({});
-        setStatusMsg('Loading files...');
+        if (!sessionId || !activeChallenge) return;
+        heartbeatRef.current = setInterval(async () => {
+            try {
+                await api.post('/web-ide/session/heartbeat', {
+                    sessionId: sessionIdRef.current,
+                    language: activeChallenge.language,
+                });
+            } catch { /* reaper handles it */ }
+        }, 60_000);
+        return () => clearInterval(heartbeatRef.current);
+    }, [sessionId, activeChallenge]);
 
-        api.get(`/web-contest/admin/templates/${selectedTemplateId}/files`)
-            .then(r => {
-                setFiles(r.data);
-                setStatusMsg('Files loaded');
-            })
-            .catch(err => setStatusMsg('Error loading files: ' + (err.response?.data?.message || err.message)))
-            .finally(() => setLoading(false));
-
-        api.get(`/web-contest/admin/templates/${selectedTemplateId}/manifest`)
-            .then(r => setManifest(r.data))
-            .catch(() => setManifest(null));
-    }, [selectedTemplateId]);
-
-    const openFile = useCallback((path) => {
-        if (!openTabs.includes(path)) {
-            setOpenTabs(t => [...t, path]);
+    // ── Open challenge in IDE ─────────────────────────────────────────────────
+    const openChallenge = useCallback(async (challenge) => {
+        // Stop previous session first
+        if (sessionId && activeChallenge) {
+            try {
+                await api.post('/web-ide/session/stop', {
+                    sessionId,
+                    language: activeChallenge.language,
+                });
+            } catch { /* ignore */ }
         }
-        setActiveTab(path);
-    }, [openTabs]);
+        setIframeUrl(null);
+        setSessionId(null);
+        setTestResults(null);
+        setSessionError(null);
+        setActiveChallenge(challenge);
+        setSessionLoading(true);
+        setStatus(`Starting VS Code for "${challenge.title}"...`);
 
-    const closeTab = useCallback((path, e) => {
-        e.stopPropagation();
-        setOpenTabs(tabs => {
-            const idx = tabs.indexOf(path);
-            const next = tabs.filter(t => t !== path);
-            if (activeTab === path) {
-                setActiveTab(next[Math.min(idx, next.length - 1)] || null);
-            }
-            return next;
-        });
-        setModified(m => { const n = { ...m }; delete n[path]; return n; });
-    }, [activeTab]);
-
-    const handleEditorChange = useCallback((value) => {
-        if (!activeTab) return;
-        setFiles(f => ({ ...f, [activeTab]: value }));
-        setModified(m => ({ ...m, [activeTab]: true }));
-    }, [activeTab]);
-
-    const saveFile = useCallback(async (path) => {
-        if (!selectedTemplateId || !path) return;
-        setStatusMsg('Saving...');
         try {
-            await api.post(`/web-contest/admin/templates/${selectedTemplateId}/files`, {
-                path,
-                content: files[path] || '',
+            const res = await api.post('/web-ide/session/start', {
+                problemId: challenge.problemId,
+                language: challenge.language,
             });
-            setModified(m => ({ ...m, [path]: false }));
-            setStatusMsg(`Saved: ${path}`);
+            setSessionId(res.data.sessionId);
+            setIframeUrl(res.data.url);
+            setStatus(`VS Code ready — ${challenge.title} (${challenge.language})`);
         } catch (err) {
-            setStatusMsg('Save failed: ' + (err.response?.data?.message || err.message));
+            const msg = err.response?.status === 503
+                ? 'All execution VMs are busy. Try again in a minute.'
+                : err.response?.data?.message || 'Failed to start IDE session.';
+            setSessionError(msg);
+            setStatus('Error: ' + msg);
+        } finally {
+            setSessionLoading(false);
         }
-    }, [selectedTemplateId, files]);
+    }, [sessionId, activeChallenge]);
 
-    const saveAll = useCallback(async () => {
-        const unsaved = Object.keys(modified).filter(p => modified[p]);
-        if (!unsaved.length) { setStatusMsg('Nothing to save'); return; }
-        setStatusMsg(`Saving ${unsaved.length} files...`);
-        for (const p of unsaved) {
-            await saveFile(p);
-        }
-        setStatusMsg('All saved');
-    }, [modified, saveFile]);
-
-    // Ctrl+S handler
-    useEffect(() => {
-        const handler = (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-                e.preventDefault();
-                if (activeTab) saveFile(activeTab);
-            }
-        };
-        window.addEventListener('keydown', handler);
-        return () => window.removeEventListener('keydown', handler);
-    }, [activeTab, saveFile]);
-
-    const deleteFile = useCallback(async (path) => {
-        if (!selectedTemplateId || !path) return;
-        if (!window.confirm(`Delete ${path}?`)) return;
+    // ── Close/exit current session ────────────────────────────────────────────
+    const closeSession = useCallback(async () => {
+        if (!sessionId || !activeChallenge) return;
+        if (!window.confirm('Close this IDE session? The workspace will be deleted.')) return;
         try {
-            await api.delete(`/web-contest/admin/templates/${selectedTemplateId}/files`, { params: { path } });
-            setFiles(f => { const n = { ...f }; delete n[path]; return n; });
-            setOpenTabs(t => t.filter(x => x !== path));
-            if (activeTab === path) setActiveTab(null);
-            setStatusMsg(`Deleted: ${path}`);
-        } catch (err) {
-            setStatusMsg('Delete failed: ' + (err.response?.data?.message || err.message));
-        }
-    }, [selectedTemplateId, activeTab]);
+            await api.post('/web-ide/session/stop', {
+                sessionId,
+                language: activeChallenge.language,
+            });
+        } catch { /* ignore */ }
+        setIframeUrl(null);
+        setSessionId(null);
+        setActiveChallenge(null);
+        setTestResults(null);
+        setStatus('Session closed.');
+    }, [sessionId, activeChallenge]);
 
-    const createNewFile = useCallback(async () => {
-        const fullPath = newFileParent ? `${newFileParent}/${newFilePath}` : newFilePath;
-        if (!fullPath.trim()) return;
-        setFiles(f => ({ ...f, [fullPath]: '' }));
-        setModified(m => ({ ...m, [fullPath]: true }));
-        openFile(fullPath);
-        setShowNewFile(false);
-        setNewFilePath('');
-        setNewFileParent('');
-    }, [newFilePath, newFileParent, openFile]);
-
-    const saveManifest = useCallback(async () => {
-        if (!selectedTemplateId || !manifest) return;
+    // ── Run JUnit tests ───────────────────────────────────────────────────────
+    const runTests = useCallback(async () => {
+        if (!sessionId || testing) return;
+        setTesting(true);
+        setTestResults(null);
+        setStatus('Running tests...');
         try {
-            await api.put(`/web-contest/admin/templates/${selectedTemplateId}/manifest`, manifest);
-            setStatusMsg('Manifest saved');
-            setShowManifest(false);
+            const res = await api.post('/web-ide/session/test', {
+                sessionId,
+                language: activeChallenge.language,
+                submit: false,
+            });
+            setTestResults(res.data);
+            setStatus(`Tests done — ${res.data.passed ?? 0}/${res.data.total ?? 0} passed`);
         } catch (err) {
-            setStatusMsg('Manifest save failed: ' + (err.response?.data?.message || err.message));
+            setTestResults({ status: 'ERROR', message: err.response?.data?.message || 'Test failed' });
+            setStatus('Test execution error.');
+        } finally {
+            setTesting(false);
         }
-    }, [selectedTemplateId, manifest]);
+    }, [sessionId, testing, activeChallenge]);
 
-    const toggleDir = (path) => {
-        setExpandedDirs(e => ({ ...e, [path]: !e[path] }));
+    // ── Create new challenge ──────────────────────────────────────────────────
+    const createChallenge = useCallback(async () => {
+        if (!newForm.title || !newForm.templatePath) {
+            alert('Title and template path are required.');
+            return;
+        }
+        setCreating(true);
+        try {
+            // 1. Create problem in DB
+            const probRes = await api.post('/admin/problems', {
+                title: newForm.title,
+                description: newForm.description || 'Web coding challenge.',
+                level: newForm.level,
+                active: true,
+                timeLimit: 60.0,
+                memoryLimit: 512,
+            });
+            const problemId = probRes.data.id;
+
+            // 2. Create template entry
+            await api.post('/web-contest/admin/templates', {
+                problemId,
+                language: newForm.language,
+                templatePath: newForm.templatePath,
+            });
+
+            setShowNewModal(false);
+            setNewForm({ title: '', description: '', level: 'EASY', language: 'JAVA', templatePath: '' });
+            setStatus(`Challenge "${newForm.title}" created! Click it to open IDE.`);
+            await loadChallenges();
+        } catch (err) {
+            alert('Failed to create challenge: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setCreating(false);
+        }
+    }, [newForm, loadChallenges]);
+
+    // ── Render results ────────────────────────────────────────────────────────
+    const renderResults = () => {
+        if (!testResults) return null;
+        if (testResults.status === 'CE') return (
+            <div style={{ padding: '4px 16px' }}>
+                <span style={{ color: C.error, fontWeight: 600 }}>Compilation Error</span>
+                <pre style={styles.preBlock}>{testResults.message || testResults.rawOutput}</pre>
+            </div>
+        );
+        if (testResults.status === 'ERROR') return (
+            <div style={{ padding: '4px 16px', color: C.error }}>{testResults.message}</div>
+        );
+        const cases = testResults.details || [];
+        const p = testResults.passed ?? 0;
+        const t = testResults.total ?? 0;
+        return (
+            <div style={{ padding: '4px 16px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ color: C.muted }}>Tests:</span>
+                {cases.map((tc, i) => (
+                    <span key={i} style={{ color: tc.status === 'PASS' ? C.success : C.error, fontSize: 13 }}>
+                        {tc.status === 'PASS' ? '✅' : '❌'} TC{i + 1}
+                    </span>
+                ))}
+                <span style={{ color: C.muted, marginLeft: 8 }}>{p}/{t} passed</span>
+                {testResults.score != null && (
+                    <span style={{ color: C.secondary, fontWeight: 600 }}>Score: {testResults.score}</span>
+                )}
+            </div>
+        );
     };
-
-    const handleContextMenu = (e, path) => {
-        e.preventDefault();
-        setContextMenu({ x: e.clientX, y: e.clientY, path });
-    };
-
-    const closeContextMenu = () => setContextMenu(null);
-
-    const currentTemplate = templates.find(t => t.templateId === selectedTemplateId);
-    const tree = buildTree(Object.keys(files));
 
     return (
-        <div
-            style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: C.bg, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', overflow: 'hidden' }}
-            onClick={closeContextMenu}
-        >
+        <div style={styles.page}>
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+
             {/* ── Top bar ── */}
-            <TopBar
-                templates={templates}
-                selectedTemplateId={selectedTemplateId}
-                onSelectTemplate={setSelectedTemplateId}
-                onNewTemplate={() => setShowNewTemplate(true)}
-                onSaveAll={saveAll}
-                onManifest={() => setShowManifest(true)}
-            />
+            <div style={styles.topBar}>
+                <span style={{ color: C.primary, fontWeight: 700, fontSize: 14, marginRight: 12 }}>⚡ Web IDE Admin</span>
+                <select
+                    value={activeChallenge?.templateId ?? ''}
+                    onChange={e => {
+                        const c = challenges.find(x => String(x.templateId) === e.target.value);
+                        if (c) openChallenge(c);
+                    }}
+                    style={styles.select}
+                >
+                    <option value="">— Select Challenge to Edit —</option>
+                    {challenges.map(c => (
+                        <option key={c.templateId} value={c.templateId}>
+                            {c.title} — {c.language} ({c.difficulty})
+                        </option>
+                    ))}
+                </select>
+                <button onClick={() => setShowNewModal(true)} style={styles.btnOutline}>+ New Challenge</button>
+                <div style={{ flex: 1 }} />
+                {sessionId && activeChallenge && (
+                    <>
+                        <button
+                            onClick={runTests}
+                            disabled={testing}
+                            style={{ ...styles.btnBlue, opacity: testing ? 0.5 : 1 }}
+                        >
+                            {testing ? 'Running...' : '▶ Run Tests (JUnit)'}
+                        </button>
+                        <button onClick={closeSession} style={styles.btnRed}>✕ Close IDE</button>
+                    </>
+                )}
+            </div>
 
             {/* ── Main area ── */}
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                {/* ── File explorer sidebar ── */}
-                <div style={{ width: '250px', flexShrink: 0, backgroundColor: C.sidebar, borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <div style={{ padding: '8px 12px', fontSize: '11px', letterSpacing: '0.1em', color: C.textMuted, textTransform: 'uppercase', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>EXPLORER</span>
-                        <button
-                            onClick={() => { setNewFileParent(''); setNewFilePath(''); setShowNewFile(true); }}
-                            title="New File"
-                            style={{ background: 'none', border: 'none', color: C.textMuted, cursor: 'pointer', fontSize: '16px', padding: '0 2px', lineHeight: 1 }}
-                        >
-                            +
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+                {/* No session active */}
+                {!sessionId && !sessionLoading && !sessionError && (
+                    <div style={styles.emptyState}>
+                        <span style={{ fontSize: 48 }}>🖥️</span>
+                        <p style={{ color: C.muted, fontSize: 14 }}>
+                            Select a challenge from the dropdown above, or create a new one.<br />
+                            Full VS Code (code-server) will open here with Java extension pack.
+                        </p>
+                        <button onClick={() => setShowNewModal(true)} style={styles.btnBlue}>
+                            + Create First Challenge
                         </button>
                     </div>
+                )}
 
-                    <div style={{ overflowY: 'auto', flex: 1 }}>
-                        {loading ? (
-                            <div style={{ padding: '16px', color: C.textMuted }}>Loading...</div>
-                        ) : Object.keys(tree).length === 0 ? (
-                            <div style={{ padding: '16px', color: C.textMuted }}>No files yet</div>
-                        ) : (
-                            <FileTree
-                                node={tree}
-                                prefix=""
-                                depth={0}
-                                expandedDirs={expandedDirs}
-                                toggleDir={toggleDir}
-                                activeFile={activeTab}
-                                onOpenFile={openFile}
-                                onContextMenu={handleContextMenu}
-                            />
-                        )}
+                {/* Loading */}
+                {sessionLoading && (
+                    <div style={styles.emptyState}>
+                        <Spinner />
+                        <p style={{ color: C.onBg, marginTop: 16 }}>Starting VS Code for "{activeChallenge?.title}"...</p>
+                        <p style={{ color: C.muted, fontSize: 12 }}>Cloning template, launching code-server...</p>
                     </div>
-                </div>
+                )}
 
-                {/* ── Editor panel ── */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    {/* Tab bar */}
-                    <div style={{ backgroundColor: C.tabBar, display: 'flex', overflowX: 'auto', borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
-                        {openTabs.map(tab => (
-                            <EditorTab
-                                key={tab}
-                                path={tab}
-                                active={tab === activeTab}
-                                modified={!!modified[tab]}
-                                onClick={() => setActiveTab(tab)}
-                                onClose={(e) => closeTab(tab, e)}
-                            />
-                        ))}
+                {/* Error */}
+                {sessionError && (
+                    <div style={styles.emptyState}>
+                        <p style={{ color: C.error }}>{sessionError}</p>
+                        <button onClick={() => setSessionError(null)} style={styles.btnOutline}>Retry</button>
                     </div>
+                )}
 
-                    {/* Monaco editor */}
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                        {activeTab ? (
-                            <Editor
-                                height="100%"
-                                language={monacoLang(activeTab)}
-                                value={files[activeTab] || ''}
-                                theme="vs-dark"
-                                onChange={handleEditorChange}
-                                onMount={(editor) => {
-                                    editorRef.current = editor;
-                                    editor.onDidChangeCursorPosition(e => {
-                                        setCursorInfo({ line: e.position.lineNumber, col: e.position.column });
-                                    });
-                                }}
-                                options={{
-                                    fontSize: 13,
-                                    fontFamily: "'JetBrains Mono', monospace",
-                                    minimap: { enabled: false },
-                                    scrollBeyondLastLine: false,
-                                    wordWrap: 'off',
-                                    automaticLayout: true,
-                                    tabSize: 4,
-                                    insertSpaces: true,
-                                    lineNumbers: 'on',
-                                    renderLineHighlight: 'line',
-                                    smoothScrolling: true,
-                                }}
-                            />
-                        ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: C.textMuted, flexDirection: 'column', gap: '12px' }}>
-                                <span style={{ fontSize: '48px' }}>📁</span>
-                                <span>Select a file to edit</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
+                {/* VS Code iframe */}
+                {iframeUrl && !sessionLoading && (
+                    <iframe
+                        src={iframeUrl}
+                        title="Admin VS Code IDE"
+                        style={{ flex: 1, width: '100%', border: 'none' }}
+                        allow="clipboard-read; clipboard-write"
+                    />
+                )}
             </div>
 
-            {/* ── Status bar ── */}
-            <StatusBar
-                filePath={activeTab}
-                lang={activeTab ? monacoLang(activeTab) : ''}
-                cursor={cursorInfo}
-                message={statusMsg}
-            />
-
-            {/* ── Context menu ── */}
-            {contextMenu && (
-                <ContextMenu
-                    x={contextMenu.x}
-                    y={contextMenu.y}
-                    path={contextMenu.path}
-                    onDelete={() => { deleteFile(contextMenu.path); closeContextMenu(); }}
-                    onNewFile={() => {
-                        const dir = contextMenu.path.includes('/') ? contextMenu.path.split('/').slice(0, -1).join('/') : '';
-                        setNewFileParent(dir);
-                        setNewFilePath('');
-                        setShowNewFile(true);
-                        closeContextMenu();
-                    }}
-                    onClose={closeContextMenu}
-                />
+            {/* ── Bottom: test results + status bar ── */}
+            {testResults && (
+                <div style={{ background: C.surface, borderTop: `1px solid ${C.outline}` }}>
+                    {renderResults()}
+                </div>
             )}
+            <div style={styles.statusBar}>
+                <span>{status}</span>
+                {activeChallenge && (
+                    <span style={{ marginLeft: 'auto', opacity: 0.7 }}>
+                        {activeChallenge.language} · {activeChallenge.title}
+                    </span>
+                )}
+            </div>
 
-            {/* ── New file modal ── */}
-            {showNewFile && (
-                <Modal title="New File" onClose={() => setShowNewFile(false)}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {newFileParent && <div style={{ color: C.textMuted, fontSize: '12px' }}>Parent: {newFileParent}/</div>}
-                        <input
-                            autoFocus
-                            value={newFilePath}
-                            onChange={e => setNewFilePath(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && createNewFile()}
-                            placeholder="filename.java"
-                            style={{ padding: '8px', backgroundColor: C.inputBg, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', outline: 'none' }}
-                        />
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                            <ModalBtn label="Cancel" onClick={() => setShowNewFile(false)} />
-                            <ModalBtn label="Create" accent onClick={createNewFile} />
+            {/* ── New challenge modal ── */}
+            {showNewModal && (
+                <div style={styles.overlay}>
+                    <div style={styles.modal}>
+                        <div style={styles.modalHeader}>
+                            <span>New Web Challenge</span>
+                            <button onClick={() => setShowNewModal(false)} style={styles.closeBtn}>✕</button>
+                        </div>
+                        <div style={styles.modalBody}>
+                            <label style={styles.label}>Challenge Title *</label>
+                            <input value={newForm.title} onChange={e => setNewForm(f => ({ ...f, title: e.target.value }))}
+                                placeholder="e.g. Build a User CRUD API" style={styles.input} />
+
+                            <label style={styles.label}>Description</label>
+                            <textarea value={newForm.description} onChange={e => setNewForm(f => ({ ...f, description: e.target.value }))}
+                                placeholder="What should users implement?" rows={3} style={{ ...styles.input, resize: 'vertical' }} />
+
+                            <div style={{ display: 'flex', gap: 12 }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={styles.label}>Difficulty</label>
+                                    <select value={newForm.level} onChange={e => setNewForm(f => ({ ...f, level: e.target.value }))} style={styles.input}>
+                                        <option>EASY</option><option>MEDIUM</option><option>HARD</option>
+                                    </select>
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={styles.label}>Language</label>
+                                    <select value={newForm.language} onChange={e => setNewForm(f => ({ ...f, language: e.target.value }))} style={styles.input}>
+                                        <option>JAVA</option><option>PYTHON</option><option>NODEJS</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <label style={styles.label}>Template Directory Path (on execution VM) *</label>
+                            <input value={newForm.templatePath} onChange={e => setNewForm(f => ({ ...f, templatePath: e.target.value }))}
+                                placeholder="/home/ubuntu/templates/my-spring-challenge" style={styles.input} />
+                            <p style={{ color: C.muted, fontSize: 11, margin: '4px 0 0' }}>
+                                Absolute path on VM3 (Java) or VM4 (Python) where the project files will live.
+                                Leave empty for a blank project at the default location.
+                            </p>
+
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+                                <button onClick={() => setShowNewModal(false)} style={styles.btnOutline} disabled={creating}>Cancel</button>
+                                <button onClick={createChallenge} style={styles.btnBlue} disabled={creating}>
+                                    {creating ? 'Creating...' : 'Create & Open IDE'}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </Modal>
-            )}
-
-            {/* ── New template modal ── */}
-            {showNewTemplate && (
-                <NewTemplateModal
-                    onClose={() => setShowNewTemplate(false)}
-                    onCreate={async (data) => {
-                        try {
-                            await api.post('/web-contest/admin/templates', data);
-                            const r = await api.get('/web-contest/admin/templates');
-                            setTemplates(r.data);
-                            setShowNewTemplate(false);
-                            setStatusMsg('Template created');
-                        } catch (err) {
-                            setStatusMsg('Create failed: ' + (err.response?.data?.message || err.message));
-                        }
-                    }}
-                />
-            )}
-
-            {/* ── Manifest editor modal ── */}
-            {showManifest && manifest && (
-                <ManifestModal
-                    manifest={manifest}
-                    files={Object.keys(files)}
-                    onChange={setManifest}
-                    onSave={saveManifest}
-                    onClose={() => setShowManifest(false)}
-                />
+                </div>
             )}
         </div>
     );
 };
 
-// ── Top bar ───────────────────────────────────────────────────────────────────
-const TopBar = ({ templates, selectedTemplateId, onSelectTemplate, onNewTemplate, onSaveAll, onManifest }) => (
-    <div style={{ backgroundColor: C.tabBar, borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: '12px', padding: '6px 12px', flexShrink: 0 }}>
-        <span style={{ color: C.accent, fontWeight: 700, fontSize: '14px', marginRight: '8px' }}>⚡ Web IDE</span>
-
-        {/* Template selector */}
-        <select
-            value={selectedTemplateId || ''}
-            onChange={e => onSelectTemplate(Number(e.target.value))}
-            style={{ backgroundColor: C.inputBg, border: `1px solid ${C.border}`, color: C.text, padding: '4px 8px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', outline: 'none', cursor: 'pointer' }}
-        >
-            {templates.length === 0 && <option value="">No templates</option>}
-            {templates.map(t => (
-                <option key={t.templateId} value={t.templateId}>
-                    {t.title} — {t.language}
-                </option>
-            ))}
-        </select>
-
-        <TopBtn label="+ New Template" onClick={onNewTemplate} />
-        <div style={{ flex: 1 }} />
-        <TopBtn label="📋 Manifest" onClick={onManifest} />
-        <TopBtn label="💾 Save All" onClick={onSaveAll} accent />
-    </div>
-);
-
-const TopBtn = ({ label, onClick, accent }) => {
-    const [hov, setHov] = useState(false);
-    return (
-        <button
-            onClick={onClick}
-            onMouseEnter={() => setHov(true)}
-            onMouseLeave={() => setHov(false)}
-            style={{
-                padding: '4px 12px', border: `1px solid ${accent ? C.accent : C.border}`,
-                backgroundColor: hov ? (accent ? C.accent : C.highlight) : 'transparent',
-                color: accent ? (hov ? '#fff' : C.accent) : C.text,
-                fontFamily: "'JetBrains Mono', monospace", fontSize: '12px',
-                cursor: 'pointer', transition: 'all 0.15s',
-            }}
-        >
-            {label}
-        </button>
-    );
-};
-
-// ── Editor tab ────────────────────────────────────────────────────────────────
-const EditorTab = ({ path, active, modified, onClick, onClose }) => {
-    const name = path.split('/').pop();
-    const [hov, setHov] = useState(false);
-    return (
-        <div
-            onClick={onClick}
-            onMouseEnter={() => setHov(true)}
-            onMouseLeave={() => setHov(false)}
-            style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '6px 14px 6px 10px',
-                backgroundColor: active ? C.activeTab : C.inactiveTab,
-                borderRight: `1px solid ${C.border}`,
-                borderTop: active ? `1px solid ${C.accent}` : '1px solid transparent',
-                cursor: 'pointer', flexShrink: 0,
-                color: active ? C.text : C.textMuted,
-                fontSize: '12px', whiteSpace: 'nowrap',
-                transition: 'color 0.1s',
-            }}
-        >
-            <span>{fileIcon(name)}</span>
-            <span>{name}</span>
-            {modified && <span style={{ color: C.warning, fontSize: '10px' }}>●</span>}
-            <button
-                onClick={onClose}
-                style={{
-                    background: 'none', border: 'none', color: hov ? C.text : 'transparent',
-                    cursor: 'pointer', fontSize: '14px', padding: '0 2px', lineHeight: 1,
-                    transition: 'color 0.1s',
-                }}
-            >
-                ×
-            </button>
-        </div>
-    );
-};
-
-// ── Recursive file tree ───────────────────────────────────────────────────────
-const FileTree = ({ node, prefix, depth, expandedDirs, toggleDir, activeFile, onOpenFile, onContextMenu }) => {
-    const entries = Object.entries(node).sort(([aName, aVal], [bName, bVal]) => {
-        // Directories first
-        const aIsDir = aVal !== null;
-        const bIsDir = bVal !== null;
-        if (aIsDir && !bIsDir) return -1;
-        if (!aIsDir && bIsDir) return 1;
-        return aName.localeCompare(bName);
-    });
-
-    return (
-        <div>
-            {entries.map(([name, val]) => {
-                const fullPath = prefix ? `${prefix}/${name}` : name;
-                const isDir = val !== null && typeof val === 'object';
-                const isExpanded = expandedDirs[fullPath];
-                const isActive = fullPath === activeFile;
-
-                return (
-                    <div key={fullPath}>
-                        <FileTreeItem
-                            name={name}
-                            fullPath={fullPath}
-                            isDir={isDir}
-                            isExpanded={isExpanded}
-                            isActive={isActive}
-                            depth={depth}
-                            onToggle={() => toggleDir(fullPath)}
-                            onOpen={() => !isDir && onOpenFile(fullPath)}
-                            onContextMenu={(e) => onContextMenu(e, fullPath)}
-                        />
-                        {isDir && isExpanded && (
-                            <FileTree
-                                node={val}
-                                prefix={fullPath}
-                                depth={depth + 1}
-                                expandedDirs={expandedDirs}
-                                toggleDir={toggleDir}
-                                activeFile={activeFile}
-                                onOpenFile={onOpenFile}
-                                onContextMenu={onContextMenu}
-                            />
-                        )}
-                    </div>
-                );
-            })}
-        </div>
-    );
-};
-
-const FileTreeItem = ({ name, fullPath, isDir, isExpanded, isActive, depth, onToggle, onOpen, onContextMenu }) => {
-    const [hov, setHov] = useState(false);
-    return (
-        <div
-            onClick={isDir ? onToggle : onOpen}
-            onContextMenu={onContextMenu}
-            onMouseEnter={() => setHov(true)}
-            onMouseLeave={() => setHov(false)}
-            style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: `3px 8px 3px ${16 + depth * 16}px`,
-                backgroundColor: isActive ? C.accent + '33' : hov ? C.hoverBg : 'transparent',
-                cursor: 'pointer', color: isActive ? C.text : C.textMuted,
-                fontSize: '13px', userSelect: 'none',
-                transition: 'background-color 0.1s',
-            }}
-        >
-            <span style={{ fontSize: '11px', width: '12px', flexShrink: 0 }}>
-                {isDir ? (isExpanded ? '▼' : '▶') : ''}
-            </span>
-            <span style={{ fontSize: '14px' }}>{isDir ? (isExpanded ? '📂' : '📁') : fileIcon(name)}</span>
-            <span>{name}</span>
-        </div>
-    );
-};
-
-// ── Status bar ────────────────────────────────────────────────────────────────
-const StatusBar = ({ filePath, lang, cursor, message }) => (
-    <div style={{
-        backgroundColor: C.accent, color: '#fff',
-        display: 'flex', alignItems: 'center', gap: '16px',
-        padding: '2px 12px', fontSize: '12px', flexShrink: 0,
-    }}>
-        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {message}
-        </span>
-        {filePath && (
-            <span style={{ opacity: 0.85 }}>{filePath}</span>
-        )}
-        {lang && (
-            <span style={{ opacity: 0.85, textTransform: 'capitalize' }}>{lang}</span>
-        )}
-        <span style={{ opacity: 0.85 }}>Ln {cursor.line}, Col {cursor.col}</span>
-    </div>
-);
-
-// ── Context menu ──────────────────────────────────────────────────────────────
-const ContextMenu = ({ x, y, path, onDelete, onNewFile, onClose }) => (
-    <div
-        style={{
-            position: 'fixed', top: y, left: x, zIndex: 9999,
-            backgroundColor: '#252526', border: `1px solid ${C.border}`,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-            minWidth: '180px',
-        }}
-        onClick={e => e.stopPropagation()}
-    >
-        <CtxItem label="📄 New File Here" onClick={onNewFile} />
-        <div style={{ height: '1px', backgroundColor: C.border, margin: '4px 0' }} />
-        <CtxItem label="🗑 Delete" onClick={onDelete} danger />
-    </div>
-);
-
-const CtxItem = ({ label, onClick, danger }) => {
-    const [hov, setHov] = useState(false);
-    return (
-        <div
-            onClick={onClick}
-            onMouseEnter={() => setHov(true)}
-            onMouseLeave={() => setHov(false)}
-            style={{
-                padding: '7px 16px', cursor: 'pointer',
-                backgroundColor: hov ? C.highlight : 'transparent',
-                color: danger ? C.error : C.text, fontSize: '13px',
-                transition: 'background-color 0.1s',
-            }}
-        >
-            {label}
-        </div>
-    );
-};
-
-// ── Generic modal ─────────────────────────────────────────────────────────────
-const Modal = ({ title, onClose, children }) => (
-    <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ backgroundColor: '#252526', border: `1px solid ${C.border}`, minWidth: '360px', maxWidth: '500px', width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ color: C.text, fontSize: '13px', fontWeight: 600 }}>{title}</span>
-                <button onClick={onClose} style={{ background: 'none', border: 'none', color: C.textMuted, cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>×</button>
-            </div>
-            <div style={{ padding: '16px' }}>{children}</div>
-        </div>
-    </div>
-);
-
-const ModalBtn = ({ label, onClick, accent }) => {
-    const [hov, setHov] = useState(false);
-    return (
-        <button
-            onClick={onClick}
-            onMouseEnter={() => setHov(true)}
-            onMouseLeave={() => setHov(false)}
-            style={{
-                padding: '6px 16px', border: `1px solid ${accent ? C.accent : C.border}`,
-                backgroundColor: hov ? (accent ? C.accent : C.highlight) : 'transparent',
-                color: accent ? (hov ? '#fff' : C.accent) : C.text,
-                fontFamily: "'JetBrains Mono', monospace", fontSize: '12px',
-                cursor: 'pointer', transition: 'all 0.15s',
-            }}
-        >
-            {label}
-        </button>
-    );
-};
-
-// ── New template modal ────────────────────────────────────────────────────────
-const NewTemplateModal = ({ onClose, onCreate }) => {
-    const [problemId, setProblemId] = useState('');
-    const [language, setLanguage] = useState('JAVA');
-    const [templatePath, setTemplatePath] = useState('');
-
-    return (
-        <Modal title="New Template" onClose={onClose}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <label style={{ color: C.textMuted, fontSize: '12px' }}>Problem ID</label>
-                <input
-                    type="number"
-                    value={problemId}
-                    onChange={e => setProblemId(e.target.value)}
-                    placeholder="e.g. 42"
-                    style={{ padding: '8px', backgroundColor: C.inputBg, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', outline: 'none' }}
-                />
-                <label style={{ color: C.textMuted, fontSize: '12px' }}>Language</label>
-                <select
-                    value={language}
-                    onChange={e => setLanguage(e.target.value)}
-                    style={{ padding: '8px', backgroundColor: C.inputBg, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', outline: 'none' }}
-                >
-                    <option value="JAVA">JAVA</option>
-                    <option value="NODEJS">NODEJS</option>
-                    <option value="PYTHON">PYTHON</option>
-                </select>
-                <label style={{ color: C.textMuted, fontSize: '12px' }}>Template directory path (absolute)</label>
-                <input
-                    value={templatePath}
-                    onChange={e => setTemplatePath(e.target.value)}
-                    placeholder="/path/to/web-contest-templates/my-template"
-                    style={{ padding: '8px', backgroundColor: C.inputBg, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', outline: 'none' }}
-                />
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                    <ModalBtn label="Cancel" onClick={onClose} />
-                    <ModalBtn label="Create" accent onClick={() => onCreate({ problemId: Number(problemId), language, templatePath })} />
-                </div>
-            </div>
-        </Modal>
-    );
-};
-
-// ── Manifest editor modal ─────────────────────────────────────────────────────
-const ManifestModal = ({ manifest, files, onChange, onSave, onClose }) => {
-    const [tab, setTab] = useState('editable'); // editable | readonly | hidden
-
-    const getList = (key) => manifest[key] || [];
-
-    const toggleFile = (key, path) => {
-        const current = getList(key);
-        const updated = current.includes(path)
-            ? current.filter(p => p !== path)
-            : [...current, path];
-        onChange({ ...manifest, [key]: updated });
-    };
-
-    const tabs = [
-        { key: 'editableFiles', label: 'Editable', color: C.success },
-        { key: 'readonlyFiles', label: 'Read-Only', color: C.warning },
-        { key: 'hiddenFiles', label: 'Hidden', color: C.error },
-    ];
-
-    const activeKey = tab === 'editable' ? 'editableFiles' : tab === 'readonly' ? 'readonlyFiles' : 'hiddenFiles';
-
-    return (
-        <Modal title="Manifest Editor" onClose={onClose}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <p style={{ color: C.textMuted, fontSize: '12px', margin: 0 }}>
-                    Configure which files users can edit, see as read-only, or never see (hidden test files).
-                </p>
-
-                {/* Category tabs */}
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    {tabs.map(t => (
-                        <button
-                            key={t.key}
-                            onClick={() => setTab(t.key.replace('Files', '').toLowerCase())}
-                            style={{
-                                padding: '4px 12px', border: `1px solid ${t.color}`,
-                                backgroundColor: activeKey === t.key ? t.color + '33' : 'transparent',
-                                color: t.color, fontFamily: "'JetBrains Mono', monospace",
-                                fontSize: '11px', cursor: 'pointer',
-                            }}
-                        >
-                            {t.label} ({getList(t.key).length})
-                        </button>
-                    ))}
-                </div>
-
-                {/* File checkboxes */}
-                <div style={{ maxHeight: '240px', overflowY: 'auto', backgroundColor: C.bg, border: `1px solid ${C.border}`, padding: '8px' }}>
-                    {files.length === 0 ? (
-                        <div style={{ color: C.textMuted, fontSize: '12px' }}>No files loaded</div>
-                    ) : files.map(f => (
-                        <label key={f} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', cursor: 'pointer' }}>
-                            <input
-                                type="checkbox"
-                                checked={getList(activeKey).includes(f)}
-                                onChange={() => toggleFile(activeKey, f)}
-                                style={{ accentColor: C.accent }}
-                            />
-                            <span style={{ color: C.text, fontSize: '12px' }}>{f}</span>
-                        </label>
-                    ))}
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
-                    <ModalBtn label="Cancel" onClick={onClose} />
-                    <ModalBtn label="Save Manifest" accent onClick={onSave} />
-                </div>
-            </div>
-        </Modal>
-    );
+// ── Styles ────────────────────────────────────────────────────────────────────
+const styles = {
+    page: {
+        display: 'flex', flexDirection: 'column', height: '100vh',
+        background: C.bg, color: C.onBg,
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 12, overflow: 'hidden',
+    },
+    topBar: {
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '6px 12px', background: C.surfaceAlt,
+        borderBottom: `1px solid ${C.outline}`, flexShrink: 0,
+    },
+    select: {
+        background: '#3c3c3c', border: `1px solid ${C.outline}`, color: C.onBg,
+        padding: '4px 10px', fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 12, outline: 'none', cursor: 'pointer', maxWidth: 340,
+    },
+    emptyState: {
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', flex: 1, gap: 16, color: C.muted,
+        padding: 40, textAlign: 'center',
+    },
+    statusBar: {
+        background: C.primary, color: '#fff',
+        padding: '3px 12px', fontSize: 12, display: 'flex', flexShrink: 0,
+    },
+    btnBlue: {
+        background: C.accent, color: '#fff', border: 'none',
+        padding: '5px 14px', cursor: 'pointer', fontSize: 12,
+        fontFamily: "'JetBrains Mono', monospace",
+    },
+    btnRed: {
+        background: '#a1260d', color: '#fff', border: 'none',
+        padding: '5px 14px', cursor: 'pointer', fontSize: 12,
+        fontFamily: "'JetBrains Mono', monospace",
+    },
+    btnOutline: {
+        background: 'transparent', color: C.onBg, border: `1px solid ${C.outline}`,
+        padding: '4px 12px', cursor: 'pointer', fontSize: 12,
+        fontFamily: "'JetBrains Mono', monospace",
+    },
+    overlay: {
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+        zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    },
+    modal: {
+        background: '#252526', border: `1px solid ${C.outline}`,
+        minWidth: 460, maxWidth: 560, width: '100%',
+    },
+    modalHeader: {
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '12px 16px', borderBottom: `1px solid ${C.outline}`,
+        color: C.onBg, fontWeight: 600, fontSize: 13,
+    },
+    closeBtn: {
+        background: 'none', border: 'none', color: C.muted,
+        cursor: 'pointer', fontSize: 18, lineHeight: 1,
+    },
+    modalBody: {
+        padding: 20, display: 'flex', flexDirection: 'column', gap: 10,
+    },
+    label: { color: C.muted, fontSize: 11, marginBottom: 2 },
+    input: {
+        padding: '7px 10px', background: '#3c3c3c',
+        border: `1px solid ${C.outline}`, color: C.onBg,
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
+        outline: 'none', width: '100%', boxSizing: 'border-box',
+    },
+    preBlock: {
+        background: C.bg, color: C.error, padding: 10, margin: '4px 0',
+        fontSize: 11, overflow: 'auto', maxHeight: 100, whiteSpace: 'pre-wrap',
+        border: `1px solid ${C.outline}`,
+    },
 };
 
 export default AdminWebContest;
