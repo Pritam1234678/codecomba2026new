@@ -153,7 +153,7 @@ const WebContestList = () => {
                             challenge={c}
                             index={i}
                             isLast={i === challenges.length - 1}
-                            onClick={() => navigate(`/web-contest/${c.problemId}`)}
+                            onClick={() => navigate(`/web-contest/${c.problemId}/ide`)}
                         />
                     ))}
                 </motion.div>
