@@ -33,6 +33,7 @@ const EditProfile = lazy(() => import('./pages/EditProfile'));
 const Practice = lazy(() => import('./pages/Practice'));
 const PracticeSolve = lazy(() => import('./pages/PracticeSolve'));
 const WebContest = lazy(() => import('./pages/WebContest'));
+const WebIde = lazy(() => import('./pages/WebIde'));
 const WebContestList = lazy(() => import('./pages/WebContestList'));
 const AdminWebContest = lazy(() => import('./pages/AdminWebContest'));
 const PlatformDetails = lazy(() => import('./pages/PlatformDetails'));
@@ -170,6 +171,7 @@ function App() {
       <Route path="/practice/:id" element={lazyWrap(<UserRoute><PracticeSolve /></UserRoute>)} />
       <Route path="/web-contest" element={lazyWrap(<UserRoute><WebContestList /></UserRoute>)} />
       <Route path="/web-contest/:problemId" element={lazyWrap(<UserRoute><WebContest /></UserRoute>)} />
+      <Route path="/web-contest/:problemId/ide" element={lazyWrap(<UserRoute><WebIde /></UserRoute>)} />
       <Route path="/duel" element={lazyWrap(<UserRoute><Duel /></UserRoute>)} />
       <Route path="/duel/:matchId" element={lazyWrap(<UserRoute><DuelArena /></UserRoute>)} />
 
