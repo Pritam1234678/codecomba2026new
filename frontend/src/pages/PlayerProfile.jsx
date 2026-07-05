@@ -18,6 +18,35 @@ const C = {
     success:    '#4ade80',
 };
 
+const SocialLink = ({ url, icon, label, color }) => {
+    if (!url) return null;
+    return (
+        <a href={url} target="_blank" rel="noopener noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', border: `1px solid ${C.border}`, textDecoration: 'none', color: C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', transition: 'all 0.2s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = color; e.currentTarget.style.color = color; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
+        >
+            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>{icon}</span>
+            {label}
+        </a>
+    );
+};
+
+const SOCIALS = [
+    { key: 'githubUrl',    label: 'GitHub',    icon: 'code',           color: '#8b949e' },
+    { key: 'linkedinUrl',  label: 'LinkedIn',  icon: 'badge',          color: '#0a66c2' },
+    { key: 'instagramUrl', label: 'Instagram', icon: 'photo_camera',   color: '#E1306C' },
+    { key: 'twitterUrl',   label: 'Twitter',   icon: 'raven',          color: '#1DA1F2' },
+    { key: 'websiteUrl',   label: 'Website',   icon: 'language',       color: C.secondary },
+];
+
+const Pill = ({ icon, text, color }) => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', border: `1px solid ${color || C.border}`, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: color || C.muted, letterSpacing: '0.06em' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: '12px' }}>{icon}</span>
+        {text}
+    </span>
+);
+
 const StatBlock = ({ label, value, accent, icon }) => (
     <div style={{
         backgroundColor: C.surfaceLow, border: `1px solid ${C.border}`,
@@ -149,6 +178,30 @@ export default function PlayerProfile() {
                 <StatBlock label="Success Rate"       value={`${profile.successRate}%`}  accent={successRateColor} icon="percent" />
                 <StatBlock label="Contests Joined"    value={profile.contestsJoined}     accent={C.secondary} icon="emoji_events" />
             </motion.div>
+
+            {/* Bio + Info + Socials */}
+            {(profile.bio || profile.title || profile.company || profile.location || SOCIALS.some(s => profile[s.key])) && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}
+                    style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceLow, padding: '1.5rem', marginBottom: '2rem' }}
+                >
+                    {profile.bio && (
+                        <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: C.muted, lineHeight: 1.7, margin: '0 0 14px' }}>
+                            {profile.bio}
+                        </p>
+                    )}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: profile.bio ? '14px' : '0' }}>
+                        {profile.title && <Pill icon="work" text={profile.title} color={C.primary} />}
+                        {profile.company && <Pill icon="apartment" text={profile.company} color={C.secondary} />}
+                        {profile.location && <Pill icon="location_on" text={profile.location} />}
+                    </div>
+                    {SOCIALS.some(s => profile[s.key]) && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', paddingTop: profile.bio || profile.title || profile.company || profile.location ? '12px' : '0', borderTop: profile.bio || profile.title || profile.company || profile.location ? `1px solid ${C.border}` : 'none' }}>
+                            {SOCIALS.map(s => <SocialLink key={s.key} url={profile[s.key]} {...s} />)}
+                        </div>
+                    )}
+                </motion.div>
+            )}
 
             {/* Progress bar — success rate */}
             <motion.div

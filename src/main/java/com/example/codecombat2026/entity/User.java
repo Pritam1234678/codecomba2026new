@@ -51,6 +51,38 @@ public class User {
     @Column(nullable = false)
     private Boolean enabled = true;
 
+    // ── Social & extended profile fields (all optional) ────────────────────
+
+    @Column(name = "display_name", length = 60)
+    private String displayName;
+
+    @Column(columnDefinition = "TEXT")
+    private String bio;
+
+    @Column(length = 120)
+    private String title;
+
+    @Column(length = 100)
+    private String location;
+
+    @Column(length = 100)
+    private String company;
+
+    @Column(name = "github_url", length = 255)
+    private String githubUrl;
+
+    @Column(name = "linkedin_url", length = 255)
+    private String linkedinUrl;
+
+    @Column(name = "instagram_url", length = 255)
+    private String instagramUrl;
+
+    @Column(name = "twitter_url", length = 255)
+    private String twitterUrl;
+
+    @Column(name = "website_url", length = 255)
+    private String websiteUrl;
+
     // Cascade delete password reset tokens when user is deleted
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @com.fasterxml.jackson.annotation.JsonIgnore

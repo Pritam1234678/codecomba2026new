@@ -86,7 +86,11 @@ public class UserController {
 
         UserProfileResponse profile = new UserProfileResponse(
                 user.getId(), user.getUsername(), user.getEmail(),
-                user.getFullName(), photoUrl);
+                user.getFullName(), photoUrl,
+                user.getDisplayName(), user.getBio(), user.getTitle(),
+                user.getLocation(), user.getCompany(),
+                user.getGithubUrl(), user.getLinkedinUrl(), user.getInstagramUrl(),
+                user.getTwitterUrl(), user.getWebsiteUrl());
 
         try {
             redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(profile), PROFILE_TTL);
@@ -115,7 +119,11 @@ public class UserController {
                     .map(UserPhoto::getPhotoUrl).orElse(null));
             UserProfileResponse profile = new UserProfileResponse(
                     user.getId(), user.getUsername(), user.getEmail(),
-                    user.getFullName(), photoUrl);
+                    user.getFullName(), photoUrl,
+                    user.getDisplayName(), user.getBio(), user.getTitle(),
+                    user.getLocation(), user.getCompany(),
+                    user.getGithubUrl(), user.getLinkedinUrl(), user.getInstagramUrl(),
+                    user.getTwitterUrl(), user.getWebsiteUrl());
             try {
                 redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(profile), PROFILE_TTL);
             } catch (Exception ignored) {}
@@ -162,7 +170,7 @@ public class UserController {
 
     // ─── PUT /api/user/profile ────────────────────────────────────────────────
     @PutMapping("/profile")
-    public ResponseEntity<?> updateUserProfile(@RequestBody UpdateProfileRequest request) {
+    public ResponseEntity<?> updateUserProfile(@RequestBody EditProfileRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
 
@@ -175,17 +183,33 @@ public class UserController {
         if (request.getFullName() != null && !request.getFullName().isEmpty()) {
             user.setFullName(request.getFullName());
         }
+        // Social / extended fields — all optional
+        if (request.getDisplayName() != null) user.setDisplayName(request.getDisplayName().orElse(null));
+        if (request.getBio() != null)          user.setBio(request.getBio().orElse(null));
+        if (request.getTitle() != null)        user.setTitle(request.getTitle().orElse(null));
+        if (request.getLocation() != null)     user.setLocation(request.getLocation().orElse(null));
+        if (request.getCompany() != null)      user.setCompany(request.getCompany().orElse(null));
+        if (request.getGithubUrl() != null)    user.setGithubUrl(request.getGithubUrl().orElse(null));
+        if (request.getLinkedinUrl() != null)  user.setLinkedinUrl(request.getLinkedinUrl().orElse(null));
+        if (request.getInstagramUrl() != null) user.setInstagramUrl(request.getInstagramUrl().orElse(null));
+        if (request.getTwitterUrl() != null)   user.setTwitterUrl(request.getTwitterUrl().orElse(null));
+        if (request.getWebsiteUrl() != null)   user.setWebsiteUrl(request.getWebsiteUrl().orElse(null));
 
         userRepository.save(user);
 
         try { redis.delete("profile:" + username); } catch (Exception ignored) {}
+        try { redis.delete("public-profile:" + username); } catch (Exception ignored) {}
 
         String photoUrl = resolvePhotoUrl(userPhotoRepository.findByUserId(user.getId())
                 .map(UserPhoto::getPhotoUrl).orElse(null));
 
         return ResponseEntity.ok(new UserProfileResponse(
                 user.getId(), user.getUsername(), user.getEmail(),
-                user.getFullName(), photoUrl));
+                user.getFullName(), photoUrl,
+                user.getDisplayName(), user.getBio(), user.getTitle(),
+                user.getLocation(), user.getCompany(),
+                user.getGithubUrl(), user.getLinkedinUrl(), user.getInstagramUrl(),
+                user.getTwitterUrl(), user.getWebsiteUrl()));
     }
 
     // ─── POST /api/user/profile/photo ─────────────────────────────────────────
@@ -286,6 +310,14 @@ public class UserController {
     @GetMapping("/profile/{username}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getPublicProfile(@PathVariable String username) {
+        String cacheKey = "public-profile:" + username;
+        try {
+            String cached = redis.opsForValue().get(cacheKey);
+            if (cached != null) {
+                return ResponseEntity.ok(objectMapper.readValue(cached, Map.class));
+            }
+        } catch (Exception ignored) {}
+
         User user = userRepository.findByUsername(username).orElse(null);
         if (user == null || !user.getEnabled()) {
             return ResponseEntity.notFound().build();
@@ -305,8 +337,6 @@ public class UserController {
                 () -> submissionRepository.findByUser_Id(user.getId()));
         CompletableFuture<Long> contestRegFuture = CompletableFuture.supplyAsync(
                 () -> contestRegistrationRepository.countByUserId(user.getId()));
-        CompletableFuture<Long> duelWinsFuture = CompletableFuture.supplyAsync(
-                () -> 0L); // placeholder — extend when duel repo exposes countWinsByUserId
 
         List<Submission> subs = subsFuture.join();
         long contestsJoined = contestRegFuture.join();
@@ -330,19 +360,65 @@ public class UserController {
         response.put("problemsSolved", problemsSolved);
         response.put("successRate", Math.round(successRate * 10.0) / 10.0);
         response.put("contestsJoined", contestsJoined);
+        // Social + extended fields
+        response.put("displayName", user.getDisplayName());
+        response.put("bio", user.getBio());
+        response.put("title", user.getTitle());
+        response.put("location", user.getLocation());
+        response.put("company", user.getCompany());
+        response.put("githubUrl", user.getGithubUrl());
+        response.put("linkedinUrl", user.getLinkedinUrl());
+        response.put("instagramUrl", user.getInstagramUrl());
+        response.put("twitterUrl", user.getTwitterUrl());
+        response.put("websiteUrl", user.getWebsiteUrl());
+
+        try {
+            redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(response), PROFILE_TTL);
+        } catch (Exception ignored) {}
+
         return ResponseEntity.ok(response);
     }
 
     // ─── Inner DTOs ───────────────────────────────────────────────────────────
 
-    public static class UpdateProfileRequest {
+    public static class EditProfileRequest {
         private String email;
         private String fullName;
+        private java.util.Optional<String> displayName;
+        private java.util.Optional<String> bio;
+        private java.util.Optional<String> title;
+        private java.util.Optional<String> location;
+        private java.util.Optional<String> company;
+        private java.util.Optional<String> githubUrl;
+        private java.util.Optional<String> linkedinUrl;
+        private java.util.Optional<String> instagramUrl;
+        private java.util.Optional<String> twitterUrl;
+        private java.util.Optional<String> websiteUrl;
 
         public String getEmail() { return email; }
         public void setEmail(String email) { this.email = email; }
         public String getFullName() { return fullName; }
         public void setFullName(String fullName) { this.fullName = fullName; }
+        public java.util.Optional<String> getDisplayName() { return displayName; }
+        public void setDisplayName(String displayName) { this.displayName = java.util.Optional.ofNullable(displayName); }
+        public java.util.Optional<String> getBio() { return bio; }
+        public void setBio(String bio) { this.bio = java.util.Optional.ofNullable(bio); }
+        public java.util.Optional<String> getTitle() { return title; }
+        public void setTitle(String title) { this.title = java.util.Optional.ofNullable(title); }
+        public java.util.Optional<String> getLocation() { return location; }
+        public void setLocation(String location) { this.location = java.util.Optional.ofNullable(location); }
+        public java.util.Optional<String> getCompany() { return company; }
+        public void setCompany(String company) { this.company = java.util.Optional.ofNullable(company); }
+        public java.util.Optional<String> getGithubUrl() { return githubUrl; }
+        public void setGithubUrl(String githubUrl) { this.githubUrl = java.util.Optional.ofNullable(githubUrl); }
+        public java.util.Optional<String> getLinkedinUrl() { return linkedinUrl; }
+        public void setLinkedinUrl(String linkedinUrl) { this.linkedinUrl = java.util.Optional.ofNullable(linkedinUrl); }
+        public java.util.Optional<String> getInstagramUrl() { return instagramUrl; }
+        public void setInstagramUrl(String instagramUrl) { this.instagramUrl = java.util.Optional.ofNullable(instagramUrl); }
+        public java.util.Optional<String> getTwitterUrl() { return twitterUrl; }
+        public void setTwitterUrl(String twitterUrl) { this.twitterUrl = java.util.Optional.ofNullable(twitterUrl); }
+        public java.util.Optional<String> getWebsiteUrl() { return websiteUrl; }
+        public void setWebsiteUrl(String websiteUrl) { this.websiteUrl = java.util.Optional.ofNullable(websiteUrl); }
     }
 
     public static class PhotoUploadResponse {
@@ -364,6 +440,17 @@ public class UserController {
         private String email;
         private String fullName;
         private String photoUrl;
+        // Social + extended fields
+        private String displayName;
+        private String bio;
+        private String title;
+        private String location;
+        private String company;
+        private String githubUrl;
+        private String linkedinUrl;
+        private String instagramUrl;
+        private String twitterUrl;
+        private String websiteUrl;
 
         public UserProfileResponse() {}
 
@@ -376,15 +463,59 @@ public class UserController {
             this.photoUrl = photoUrl;
         }
 
+        /** Full-constructor with socials. */
+        public UserProfileResponse(Long id, String username, String email,
+                String fullName, String photoUrl,
+                String displayName, String bio, String title,
+                String location, String company,
+                String githubUrl, String linkedinUrl, String instagramUrl,
+                String twitterUrl, String websiteUrl) {
+            this.id = id;
+            this.username = username;
+            this.email = email;
+            this.fullName = fullName;
+            this.photoUrl = photoUrl;
+            this.displayName = displayName;
+            this.bio = bio;
+            this.title = title;
+            this.location = location;
+            this.company = company;
+            this.githubUrl = githubUrl;
+            this.linkedinUrl = linkedinUrl;
+            this.instagramUrl = instagramUrl;
+            this.twitterUrl = twitterUrl;
+            this.websiteUrl = websiteUrl;
+        }
+
         public Long getId() { return id; }
         public String getUsername() { return username; }
         public String getEmail() { return email; }
         public String getFullName() { return fullName; }
         public String getPhotoUrl() { return photoUrl; }
+        public String getDisplayName() { return displayName; }
+        public String getBio() { return bio; }
+        public String getTitle() { return title; }
+        public String getLocation() { return location; }
+        public String getCompany() { return company; }
+        public String getGithubUrl() { return githubUrl; }
+        public String getLinkedinUrl() { return linkedinUrl; }
+        public String getInstagramUrl() { return instagramUrl; }
+        public String getTwitterUrl() { return twitterUrl; }
+        public String getWebsiteUrl() { return websiteUrl; }
         public void setId(Long id) { this.id = id; }
         public void setUsername(String username) { this.username = username; }
         public void setEmail(String email) { this.email = email; }
         public void setFullName(String fullName) { this.fullName = fullName; }
         public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
+        public void setDisplayName(String displayName) { this.displayName = displayName; }
+        public void setBio(String bio) { this.bio = bio; }
+        public void setTitle(String title) { this.title = title; }
+        public void setLocation(String location) { this.location = location; }
+        public void setCompany(String company) { this.company = company; }
+        public void setGithubUrl(String githubUrl) { this.githubUrl = githubUrl; }
+        public void setLinkedinUrl(String linkedinUrl) { this.linkedinUrl = linkedinUrl; }
+        public void setInstagramUrl(String instagramUrl) { this.instagramUrl = instagramUrl; }
+        public void setTwitterUrl(String twitterUrl) { this.twitterUrl = twitterUrl; }
+        public void setWebsiteUrl(String websiteUrl) { this.websiteUrl = websiteUrl; }
     }
 }
