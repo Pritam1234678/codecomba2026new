@@ -253,53 +253,90 @@ public class ProctoringAdminController {
     // ── Endpoints ──────────────────────────────────────────────────────────
 
     /**
-     * Live list of currently-active sessions for a contest, optionally
-     * filtered by the {@code flagged} predicate (Req 15.1, 15.5).
+     * List of sessions for a contest, optionally filtered by the
+     * {@code flagged} predicate (Req 15.1, 15.5).
      *
-     * <p>Read path:
-     * <ol>
-     *   <li>{@code SMEMBERS proctoring:contest:{cid}:active} → session
-     *       ids (the cache is the source of truth for "who is currently
-     *       in the arena").</li>
-     *   <li>For each id, {@code MGET} the four hot keys
-     *       ({@code score}, {@code band}, {@code lastEventAt},
-     *       {@code connected}).</li>
-     *   <li>{@code findAllById} on the DB fills in {@code username}
-     *       (joined via {@link UserRepository}) and supplies fallback
-     *       values for {@code riskScore}/{@code riskBand}/{@code flagged}
-     *       when the cache key is missing or unparseable.</li>
-     *   <li>{@code connected} is computed as
-     *       {@code registry.isConnected(sid) AND lastEventAtMs > now-90s}
-     *       per Q6.</li>
-     * </ol>
+     * <p>Default ({@code status} absent or {@code LIVE}): reads the Valkey hot
+     * set {@code proctoring:contest:{cid}:active} and follows the existing
+     * cache-first path.
      *
-     * <p>If Valkey is unavailable the SMEMBERS step falls back to
-     * {@link ProctoringSessionRepository#findByContestIdAndEndedAtIsNull(Long)}
-     * so the dashboard never goes blank during a cache outage.
+     * <p>{@code status=ALL}: returns every session (active + ended) for this
+     * contest directly from the DB, sorted by id ascending. The Valkey hot
+     * projection is never consulted in this mode because ended sessions are
+     * explicitly removed from the active set. Used by the admin dashboard's
+     * "All Sessions" toggle so admins can review completed sessions after
+     * the contest has finished.
      *
      * @param cid     parent {@code contests.id}
      * @param flagged optional filter — when present, restrict to rows
      *                whose {@code flagged} predicate matches
-     * @return live list rows in session-id order (stable for snapshot diffs)
+     * @param status  when {@code ALL}, return every session for the contest
+     *                (active + ended); otherwise (including absent) return
+     *                only live sessions
+     * @return session rows in session-id order (stable for snapshot diffs)
      */
     @GetMapping("/contests/{cid}/sessions")
     public ResponseEntity<List<LiveSessionRow>> liveSessions(@PathVariable Long cid,
-                                                             @RequestParam(value = "flagged", required = false) Boolean flagged) {
-        // 1. Resolve active session ids — cache first, DB fallback.
+                                                             @RequestParam(value = "flagged", required = false) Boolean flagged,
+                                                             @RequestParam(value = "status", required = false) String status) {
+        // ── ALL mode: every session for this contest, straight from DB. ──
+        boolean allMode = "ALL".equalsIgnoreCase(status);
+        if (allMode) {
+            List<ProctoringSession> dbRows = sessionRepo.findByContestIdOrderByIdAsc(cid);
+            if (dbRows.isEmpty()) {
+                return ResponseEntity.ok(Collections.emptyList());
+            }
+
+            List<Long> userIds = new ArrayList<>(dbRows.size());
+            for (ProctoringSession s : dbRows) {
+                if (s.getUserId() != null) userIds.add(s.getUserId());
+            }
+            Map<Long, String> usernameByUserId = new HashMap<>(userIds.size() * 2);
+            for (User u : userRepo.findAllById(userIds)) {
+                usernameByUserId.put(u.getId(), u.getUsername());
+            }
+
+            long nowMs = System.currentTimeMillis();
+            List<LiveSessionRow> rows = new ArrayList<>(dbRows.size());
+            for (ProctoringSession dbRow : dbRows) {
+                boolean isFlagged = Boolean.TRUE.equals(dbRow.getFlagged());
+                if (flagged != null && isFlagged != flagged) continue;
+
+                int riskScore = dbRow.getRiskScore() == null ? 0 : dbRow.getRiskScore();
+                RiskBand riskBand = dbRow.getRiskBand() == null ? RiskBand.LOW : dbRow.getRiskBand();
+                String username = usernameByUserId.getOrDefault(dbRow.getUserId(), null);
+
+                // ended sessions: connected=false, lastEventAtMs from
+                // DB's ended_at (fallback to started_at).
+                boolean active = dbRow.getEndedAt() == null;
+                Long lastEventAtMs = null;
+                if (active) {
+                    try {
+                        String raw = redis.opsForValue().get(SESSION_KEY_PREFIX + dbRow.getId() + LAST_EVENT_KEY_SUFFIX);
+                        lastEventAtMs = parseLongOrNull(raw);
+                    } catch (Exception ignored) { /* stay null */ }
+                }
+
+                rows.add(new LiveSessionRow(
+                        dbRow.getId(), dbRow.getUserId(), username,
+                        riskScore, riskBand, isFlagged, lastEventAtMs,
+                        active && registry.isConnected(dbRow.getId())));
+            }
+            return ResponseEntity.ok(rows);
+        }
+
+        // ── LIVE mode (default) ──────────────────────────────────────────
         List<Long> sessionIds = readActiveSessionIds(cid);
         if (sessionIds.isEmpty()) {
             return ResponseEntity.ok(Collections.emptyList());
         }
 
-        // 2. Bulk-fetch DB rows so we can populate username and use
-        //    the durable score/band as a fallback.
         List<ProctoringSession> dbRows = sessionRepo.findAllById(sessionIds);
         Map<Long, ProctoringSession> dbBySid = new HashMap<>(dbRows.size() * 2);
         for (ProctoringSession s : dbRows) {
             dbBySid.put(s.getId(), s);
         }
 
-        // 3. Resolve usernames in one batch.
         List<Long> userIds = new ArrayList<>(dbRows.size());
         for (ProctoringSession s : dbRows) {
             if (s.getUserId() != null) userIds.add(s.getUserId());
@@ -309,7 +346,6 @@ public class ProctoringAdminController {
             usernameByUserId.put(u.getId(), u.getUsername());
         }
 
-        // 4. MGET the hot keys for each session id in order.
         List<String> keys = new ArrayList<>(sessionIds.size() * 4);
         for (Long sid : sessionIds) {
             keys.add(SESSION_KEY_PREFIX + sid + SCORE_KEY_SUFFIX);
@@ -331,32 +367,21 @@ public class ProctoringAdminController {
         for (int i = 0; i < sessionIds.size(); i++) {
             Long sid = sessionIds.get(i);
             ProctoringSession dbRow = dbBySid.get(sid);
-            // A session id in the SMEMBERS set without a DB row is a
-            // post-deletion straggler — skip it rather than render a
-            // half-row that the frontend can't action on.
             if (dbRow == null) continue;
 
             String scoreRaw = mgetResults != null ? safeAt(mgetResults, i * 4) : null;
             String bandRaw = mgetResults != null ? safeAt(mgetResults, i * 4 + 1) : null;
             String lastEventRaw = mgetResults != null ? safeAt(mgetResults, i * 4 + 2) : null;
-            // connectedRaw (i*4+3) is intentionally unused — registry is
-            // the in-process source of truth; the Valkey key is just a
-            // projection consumed by other tooling.
 
             int riskScore = parseIntOrFallback(scoreRaw, dbRow.getRiskScore() == null ? 0 : dbRow.getRiskScore());
             RiskBand riskBand = parseBandOrFallback(bandRaw,
                     dbRow.getRiskBand() == null ? RiskBand.LOW : dbRow.getRiskBand());
             Long lastEventAtMs = parseLongOrNull(lastEventRaw);
 
-            // Q6: connected iff WS bound AND lastEventAt within 90s.
             boolean wsBound = registry.isConnected(sid);
             boolean fresh = lastEventAtMs != null && (nowMs - lastEventAtMs) < CONNECTED_FRESHNESS_MS;
             boolean connected = wsBound && fresh;
 
-            // Flagged is always taken from the DB (durable projection)
-            // — Req 12.6 ties flagged to band==HIGH and the durable
-            // write happens via persistBand/rescore. The cache has no
-            // "flagged" key.
             boolean isFlagged = Boolean.TRUE.equals(dbRow.getFlagged());
 
             if (flagged != null && isFlagged != flagged) continue;

@@ -75,6 +75,16 @@ public interface ProctoringSessionRepository extends JpaRepository<ProctoringSes
     List<ProctoringSession> findByContestIdAndEndedAtIsNull(Long contestId);
 
     /**
+     * Every session (active + ended) for a contest, ordered by id
+     * ascending — admin dashboard's "All Sessions" toggle (post-contest
+     * review).
+     *
+     * @param contestId parent {@code contests.id}
+     * @return all sessions for the contest, sorted by id ASC
+     */
+    List<ProctoringSession> findByContestIdOrderByIdAsc(Long contestId);
+
+    /**
      * Every currently-active session across all contests — used by the
      * Valkey→Postgres risk-score flusher (Req 18.1, 18.2). Bounded by
      * the MVP concurrency target (≤ 100 active sessions per JVM —

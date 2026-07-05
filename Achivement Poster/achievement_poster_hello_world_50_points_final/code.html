@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CodeCoder Achievement Poster</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400&amp;family=JetBrains+Mono:wght@400;500&amp;family=Playfair+Display:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#653d1e",
+                        "on-primary-fixed-variant": "#633f18",
+                        "on-background": "#e5e2e1",
+                        "tertiary": "#f4bb92",
+                        "primary": "#f1bc8b",
+                        "secondary-container": "#604403",
+                        "secondary-fixed-dim": "#e9c176",
+                        "on-tertiary-fixed": "#301400",
+                        "on-secondary": "#412d00",
+                        "error": "#ffb4ab",
+                        "surface-container-low": "#1c1b1b",
+                        "on-primary-fixed": "#2d1600",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#f4bb92",
+                        "on-error-container": "#ffdad6",
+                        "inverse-primary": "#7e562d",
+                        "background": "#131313",
+                        "surface-dim": "#131313",
+                        "primary-fixed-dim": "#f1bc8b",
+                        "outline": "#9d8e83",
+                        "surface-container": "#201f1f",
+                        "outline-variant": "#50453b",
+                        "primary-container": "#b6875a",
+                        "on-tertiary-container": "#422105",
+                        "tertiary-fixed": "#ffdcc5",
+                        "surface-tint": "#f1bc8b",
+                        "primary-fixed": "#ffdcbe",
+                        "surface": "#131313",
+                        "surface-variant": "#353534",
+                        "surface-container-high": "#2a2a2a",
+                        "secondary": "#e9c176",
+                        "on-secondary-fixed": "#261900",
+                        "on-error": "#690005",
+                        "tertiary-container": "#b98661",
+                        "on-primary": "#492904",
+                        "on-secondary-fixed-variant": "#5d4201",
+                        "on-surface-variant": "#d4c4b7",
+                        "inverse-on-surface": "#313030",
+                        "surface-container-lowest": "#0e0e0e",
+                        "inverse-surface": "#e5e2e1",
+                        "on-surface": "#e5e2e1",
+                        "secondary-fixed": "#ffdea5",
+                        "surface-bright": "#3a3939",
+                        "on-secondary-container": "#dab36a",
+                        "on-primary-container": "#412200",
+                        "surface-container-highest": "#353534",
+                        "on-tertiary": "#4a280a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "panel-gap": "1px",
+                        "margin-desktop": "64px",
+                        "gutter": "32px",
+                        "unit": "4px",
+                        "margin-mobile": "20px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Playfair Display"],
+                        "headline-md": ["Playfair Display"],
+                        "code-sm": ["JetBrains Mono"],
+                        "body-md": ["Geist"],
+                        "display-lg-mobile": ["Playfair Display"],
+                        "body-lg": ["Geist"],
+                        "label-caps": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["72px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["32px", { "lineHeight": "1.2", "fontWeight": "600" }],
+                        "code-sm": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "display-lg-mobile": ["48px", { "lineHeight": "1.1", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "1", "letterSpacing": "0.1em", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface min-h-screen flex items-center justify-center p-8">
+<!-- Poster Container -->
+<div class="relative w-full max-w-[480px] aspect-[4/5] border-panel-gap border-outline-variant overflow-hidden group shadow-2xl shadow-black/50">
+<!-- Background Asset -->
+<div class="absolute inset-0 w-full h-full">
+<img alt="Background Texture" class="w-full h-full object-cover opacity-80 mix-blend-luminosity group-hover:scale-105 transition-transform duration-[2000ms] ease-out" src="https://lh3.googleusercontent.com/aida/AP1WRLv2pdB9wNBheXPMnCSgnKmoyuLDrba7Vin3Cas-r4_MeeIbJBn8-vNcb91kXEPWnCSgDLQVGMTVMLv0b-n_ibikyPmTC8EineXA5eQmV5lFX65HPFy8NcvZBUqdsEfgO3XlogBliYuZuv7j46IuZgQNP2CGsBir_qftyV_Jd3Ny5MwCW3Vj1OWMXqQ07u1cDs1KxBktR0Ezzz1FG62CTNlf9KraoIcVzEgfeQsic7z9bMaCP_a1Q2XaqvWE"/>
+</div>
+<!-- Glassmorphism Vignette / Depth Layers -->
+<div class="absolute inset-0 bg-background/30 backdrop-blur-[4px]"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
+<div class="absolute inset-0 bg-gradient-to-b from-surface-container-lowest/80 via-transparent to-transparent h-1/3"></div>
+<!-- Precision Grid Lines -->
+<div class="absolute inset-0 pointer-events-none">
+<div class="absolute left-8 top-0 bottom-0 w-panel-gap bg-outline-variant/30"></div>
+<div class="absolute right-8 top-0 bottom-0 w-panel-gap bg-outline-variant/30"></div>
+<div class="absolute top-8 left-0 right-0 h-panel-gap bg-outline-variant/30"></div>
+<div class="absolute bottom-8 left-0 right-0 h-panel-gap bg-outline-variant/30"></div>
+</div>
+<!-- Content Canvas -->
+<div class="relative z-10 flex flex-col h-full items-center justify-between p-12 text-center">
+<!-- Top Section -->
+<div class="mt-4">
+<div class="inline-flex items-center justify-center border-panel-gap border-secondary/40 bg-surface-container-lowest/60 backdrop-blur-[12px] px-6 py-3">
+<span class="font-label-caps text-label-caps text-on-surface-variant tracking-[0.2em] uppercase">Achievement Unlocked</span>
+</div>
+</div>
+<!-- Center Section -->
+<div class="flex flex-col items-center justify-center flex-grow -mt-8">
+<!-- Decorative Top Bracket -->
+<div class="flex items-center gap-4 mb-8 opacity-60">
+<div class="h-panel-gap w-8 bg-secondary"></div>
+<span class="font-code-sm text-code-sm text-secondary">TIER: BEGINNER</span>
+<div class="h-panel-gap w-8 bg-secondary"></div>
+</div>
+<!-- Main Title -->
+<h1 class="font-display-lg text-display-lg text-inverse-surface mb-6 drop-shadow-lg">Hello World</h1>
+<!-- Points Element -->
+<div class="relative mb-10 group-hover:scale-105 transition-transform duration-700 ease-out">
+<div class="absolute -inset-4 bg-secondary/10 blur-xl rounded-full"></div>
+<span class="relative font-headline-md text-headline-md text-secondary tracking-wide">50 POINTS</span>
+</div>
+<!-- Description -->
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-[85%] leading-relaxed">
+                    Every great developer starts with a single line of code. Your journey has officially begun.
+                </p>
+</div>
+<!-- Bottom Section -->
+<div class="mb-2 flex flex-col items-center">
+<div class="w-12 h-panel-gap bg-outline-variant mb-6"></div>
+<span class="font-headline-md text-headline-md text-on-surface opacity-40 italic tracking-widest">CodeCoder</span>
+</div>
+</div>
+<!-- Corner Accents (Architectural Noir) -->
+<div class="absolute top-0 left-0 w-8 h-8 border-t-[2px] border-l-[2px] border-secondary/60"></div>
+<div class="absolute top-0 right-0 w-8 h-8 border-t-[2px] border-r-[2px] border-secondary/60"></div>
+<div class="absolute bottom-0 left-0 w-8 h-8 border-b-[2px] border-l-[2px] border-secondary/60"></div>
+<div class="absolute bottom-0 right-0 w-8 h-8 border-b-[2px] border-r-[2px] border-secondary/60"></div>
+</div>
+</body></html>

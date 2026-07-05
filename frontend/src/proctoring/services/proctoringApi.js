@@ -63,22 +63,22 @@ const adminWarn = (sid, message) =>
 const adminRescore = (sid) =>
     api.post(`/admin/proctoring/sessions/${sid}/rescore`);
 
-// GET /api/admin/proctoring/contests/{cid}/sessions?flagged=…
-const adminListSessions = (cid, flagged) =>
+// GET /api/admin/proctoring/contests/{cid}/sessions?flagged=…&status=…
+const adminListSessions = (cid, flagged, status) =>
     api.get(`/admin/proctoring/contests/${cid}/sessions`, {
-        params: flagged === undefined ? {} : { flagged },
+        params: { flagged, status: status || undefined },
     });
 
 // Object-form sibling that maps directly to the dashboard contract
-// `adminLiveList({ contestId?, flagged? })`. Backend has no global
+// `adminLiveList({ contestId?, flagged?, status? })`. Backend has no global
 // "all contests" endpoint, so passing `contestId: undefined` resolves
 // to a 400 — callers fanning out across contests must invoke
 // `adminListSessions(cid)` per proctored contest themselves.
-const adminLiveList = ({ contestId, flagged } = {}) => {
+const adminLiveList = ({ contestId, flagged, status } = {}) => {
     if (contestId == null) {
         return Promise.reject(new Error('adminLiveList: contestId is required'));
     }
-    return adminListSessions(contestId, flagged);
+    return adminListSessions(contestId, flagged, status);
 };
 
 // POST /api/admin/proctoring/contests/{cid}/stream/ticket

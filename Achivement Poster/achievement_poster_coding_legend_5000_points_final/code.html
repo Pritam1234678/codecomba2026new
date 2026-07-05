@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Coding Legend - Achievement Poster</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Geist:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#653d1e",
+                        "on-primary-fixed-variant": "#633f18",
+                        "on-background": "#e5e2e1",
+                        "tertiary": "#f4bb92",
+                        "primary": "#f1bc8b",
+                        "secondary-container": "#604403",
+                        "secondary-fixed-dim": "#e9c176",
+                        "on-tertiary-fixed": "#301400",
+                        "on-secondary": "#412d00",
+                        "error": "#ffb4ab",
+                        "surface-container-low": "#1c1b1b",
+                        "on-primary-fixed": "#2d1600",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#f4bb92",
+                        "on-error-container": "#ffdad6",
+                        "inverse-primary": "#7e562d",
+                        "background": "#131313",
+                        "surface-dim": "#131313",
+                        "primary-fixed-dim": "#f1bc8b",
+                        "outline": "#9d8e83",
+                        "surface-container": "#201f1f",
+                        "outline-variant": "#50453b",
+                        "primary-container": "#b6875a",
+                        "on-tertiary-container": "#422105",
+                        "tertiary-fixed": "#ffdcc5",
+                        "surface-tint": "#f1bc8b",
+                        "primary-fixed": "#ffdcbe",
+                        "surface": "#131313",
+                        "surface-variant": "#353534",
+                        "surface-container-high": "#2a2a2a",
+                        "secondary": "#e9c176",
+                        "on-secondary-fixed": "#261900",
+                        "on-error": "#690005",
+                        "tertiary-container": "#b98661",
+                        "on-primary": "#492904",
+                        "on-secondary-fixed-variant": "#5d4201",
+                        "on-surface-variant": "#d4c4b7",
+                        "inverse-on-surface": "#313030",
+                        "surface-container-lowest": "#0e0e0e",
+                        "inverse-surface": "#e5e2e1",
+                        "on-surface": "#e5e2e1",
+                        "secondary-fixed": "#ffdea5",
+                        "surface-bright": "#3a3939",
+                        "on-secondary-container": "#dab36a",
+                        "on-primary-container": "#412200",
+                        "surface-container-highest": "#353534",
+                        "on-tertiary": "#4a280a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "panel-gap": "1px",
+                        "margin-desktop": "64px",
+                        "gutter": "32px",
+                        "unit": "4px",
+                        "margin-mobile": "20px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Playfair Display"],
+                        "headline-md": ["Playfair Display"],
+                        "code-sm": ["JetBrains Mono"],
+                        "body-md": ["Geist"],
+                        "display-lg-mobile": ["Playfair Display"],
+                        "body-lg": ["Geist"],
+                        "label-caps": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["72px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["32px", { "lineHeight": "1.2", "fontWeight": "600" }],
+                        "code-sm": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "display-lg-mobile": ["48px", { "lineHeight": "1.1", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "1", "letterSpacing": "0.1em", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(19, 19, 19, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        
+        .bronze-glow {
+            box-shadow: 0 0 40px rgba(241, 188, 139, 0.15);
+        }
+
+        .poster-aspect {
+            aspect-ratio: 4 / 5;
+        }
+
+        /* Subtle ambient pulse for the background */
+        @keyframes subtlePulse {
+            0% { transform: scale(1); opacity: 0.95; }
+            50% { transform: scale(1.02); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.95; }
+        }
+        .bg-pulse {
+            animation: subtlePulse 15s infinite alternate ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex items-center justify-center p-8 md:p-margin-desktop antialiased font-body-md selection:bg-primary-container selection:text-on-primary-container">
+<!-- Main Container - Simulating an architectural canvas -->
+<main class="w-full max-w-4xl mx-auto flex items-center justify-center">
+<!-- Poster Wrapper (4:5 Ratio) -->
+<div class="relative w-full max-w-[600px] poster-aspect overflow-hidden rounded-sm border border-outline-variant bg-surface-container-lowest shadow-2xl group">
+<!-- Background Image layer -->
+<div class="absolute inset-0 z-0 bg-black">
+<img alt="Legendary crown floating in a cosmic red and gold nebula with crystalline shards" class="w-full h-full object-cover opacity-80 mix-blend-screen bg-pulse" src="https://lh3.googleusercontent.com/aida/AP1WRLuLiPYQnv51Ud2yNi59ce2ExNUhmNG7PA0vPk9zJyfMEPU_DxJyFYXDHLCRYOVbzPXjYIi0EozVlBQ5wludX4N2rkYHfB_hAYQNli4ZPXyCUrL_-2DLruy2eF6994dkMipOlDKC6H7mZWicjslAg9YLWvXuWy7s3B9DbpB-S11TRgPHmYL8Zxkmmz1MqWT-ATu-SumtIfJAPAD4tsrYy0EWwD35Y7bcGdJNWb_l6VgSpm542plchZL5dQXR"/>
+<!-- Vignette and Gradient Overlays for depth and text legibility -->
+<div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/50"></div>
+<div class="absolute inset-0 bg-gradient-to-r from-background/30 via-transparent to-background/30"></div>
+</div>
+<!-- Content Canvas -->
+<div class="relative z-10 w-full h-full flex flex-col items-center justify-between p-12 text-center">
+<!-- Top Section -->
+<div class="flex flex-col items-center gap-4 pt-8">
+<!-- Subtle Badge -->
+<div class="inline-flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-full glass-panel backdrop-blur-md">
+<span class="material-symbols-outlined text-primary text-[14px]">stars</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant tracking-widest uppercase">Achievement Unlocked</span>
+</div>
+</div>
+<!-- Center Section -->
+<div class="flex flex-col items-center gap-6 mt-auto mb-auto relative w-full">
+<!-- Decorative hairline framing -->
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
+<div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent"></div>
+<div class="py-12 glass-panel w-full border-y border-outline-variant/30 flex flex-col items-center gap-6 relative overflow-hidden">
+<!-- Internal glow -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/4 h-1/2 bg-primary/5 blur-[80px] rounded-full pointer-events-none"></div>
+<!-- Title -->
+<h1 class="font-display-lg text-display-lg-mobile md:text-display-lg text-surface-tint tracking-tight leading-none drop-shadow-lg relative z-10">
+                            Coding Legend
+                        </h1>
+<!-- Points -->
+<div class="inline-flex flex-col items-center gap-2 z-10">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-widest">Current Tier</span>
+<div class="font-headline-md text-headline-md text-secondary border-b-2 border-secondary/50 pb-2 bronze-glow">
+                                5000 POINTS
+                            </div>
+</div>
+<!-- Description -->
+<p class="max-w-xs font-body-lg text-body-lg text-on-surface-variant/80 font-light mt-4 z-10">
+                            A milestone reserved for the elite. Your dedication and expertise have earned legendary status.
+                        </p>
+</div>
+</div>
+<!-- Bottom Section -->
+<div class="pb-8 w-full flex justify-between items-end border-t border-outline-variant/30 pt-8 mt-auto">
+<div class="flex flex-col items-start gap-1">
+<span class="font-label-caps text-label-caps text-on-surface-variant/50">ID / 0X-LGND-5K</span>
+<span class="font-code-sm text-code-sm text-primary/70">VERIFIED</span>
+</div>
+<div class="font-headline-md text-headline-md text-surface-tint italic opacity-80 tracking-tighter">
+                        CodeCoder
+                    </div>
+</div>
+<!-- Architectural Corner Accents -->
+<div class="absolute top-4 left-4 w-4 h-4 border-t border-l border-outline-variant"></div>
+<div class="absolute top-4 right-4 w-4 h-4 border-t border-r border-outline-variant"></div>
+<div class="absolute bottom-4 left-4 w-4 h-4 border-b border-l border-outline-variant"></div>
+<div class="absolute bottom-4 right-4 w-4 h-4 border-b border-r border-outline-variant"></div>
+</div>
+</div>
+</main>
+</body></html>

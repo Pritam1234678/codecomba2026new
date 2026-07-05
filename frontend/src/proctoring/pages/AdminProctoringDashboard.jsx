@@ -270,7 +270,7 @@ const SessionCard = ({ row, contestName, onOpen }) => {
                         display: 'inline-block',
                         animation: row.connected ? 'apdPulse 1.5s infinite' : 'none',
                     }} />
-                    {row.connected ? 'Connected' : 'Offline'}
+                    {row.connected ? 'Connected' : 'Ended'}
                 </span>
             </div>
 
@@ -389,6 +389,7 @@ export default function AdminProctoringDashboard() {
     // Filters (client-side)
     const [bandFilter, setBandFilter] = useState(new Set()); // empty == all
     const [flaggedOnly, setFlaggedOnly] = useState(false);
+    const [viewMode, setViewMode] = useState('LIVE'); // LIVE | ALL
     const [page, setPage] = useState(1);
 
     // SSE bookkeeping — only used when a single contest is selected.
@@ -426,11 +427,15 @@ export default function AdminProctoringDashboard() {
 
     // ── Fetch rows for the current scope ────────────────────────────────
     const fetchRows = useCallback(async () => {
+        const isAllMode = viewMode === 'ALL';
         try {
             // Specific contest selected: single REST call.
             if (contestId !== ALL_CONTESTS) {
                 const cid = Number(contestId);
-                const res = await proctoringApi.adminLiveList({ contestId: cid });
+                const res = await proctoringApi.adminLiveList({
+                    contestId: cid,
+                    status: isAllMode ? 'ALL' : undefined,
+                });
                 const list = Array.isArray(res?.data) ? res.data : [];
                 setRows(list.map((r) => ({ ...r, contestId: cid })));
                 setError(null);
@@ -445,7 +450,10 @@ export default function AdminProctoringDashboard() {
             }
             const results = await Promise.allSettled(
                 contests.map((c) =>
-                    proctoringApi.adminLiveList({ contestId: c.id })
+                    proctoringApi.adminLiveList({
+                        contestId: c.id,
+                        status: isAllMode ? 'ALL' : undefined,
+                    })
                         .then((res) => ({ id: c.id, list: Array.isArray(res?.data) ? res.data : [] }))
                 )
             );
@@ -461,12 +469,12 @@ export default function AdminProctoringDashboard() {
         } catch (err) {
             setError(
                 err?.response?.data?.message ||
-                'Failed to load live sessions. Check your admin access and try again.'
+                'Failed to load sessions. Check your admin access and try again.'
             );
         } finally {
             setLoading(false);
         }
-    }, [contestId, contests]);
+    }, [contestId, contests, viewMode]);
 
     // ── Polling (always on; SSE supplements when a contest is selected) ─
     useEffect(() => {
@@ -491,7 +499,8 @@ export default function AdminProctoringDashboard() {
             esRef.current.close();
             esRef.current = null;
         }
-        if (contestId === ALL_CONTESTS) return undefined;
+        // SSE is only meaningful in LIVE mode — ended sessions don't change.
+        if (contestId === ALL_CONTESTS || viewMode !== 'LIVE') return undefined;
         const cid = Number(contestId);
         let cancelled = false;
         let es = null;
@@ -538,7 +547,7 @@ export default function AdminProctoringDashboard() {
             if (es) es.close();
             esRef.current = null;
         };
-    }, [contestId, fetchRows]);
+    }, [contestId, fetchRows, viewMode]);
 
     // ── Filtered + sorted view ──────────────────────────────────────────
     const visibleRows = useMemo(() => {
@@ -558,7 +567,7 @@ export default function AdminProctoringDashboard() {
         });
     }, [rows, bandFilter, flaggedOnly]);
 
-    useEffect(() => { setPage(1); }, [bandFilter, flaggedOnly, contestId]);
+    useEffect(() => { setPage(1); }, [bandFilter, flaggedOnly, contestId, viewMode]);
 
     const contestNameById = useMemo(() => {
         const m = new Map();
@@ -642,12 +651,26 @@ export default function AdminProctoringDashboard() {
                 >
                     Flagged Only
                 </button>
+
+                <span style={{ ...styles.controlLabel, marginLeft: '8px' }}>View</span>
+                <button
+                    type="button"
+                    onClick={() => setViewMode(viewMode === 'LIVE' ? 'ALL' : 'LIVE')}
+                    style={{
+                        ...styles.chip(viewMode === 'ALL', C.primary),
+                    }}
+                    title={viewMode === 'LIVE' ? 'Show all sessions including ended' : 'Show only live sessions'}
+                >
+                    {viewMode === 'ALL' ? 'ALL' : 'LIVE'}
+                </button>
             </div>
 
             <section>
                 <div style={styles.sectionHeader}>
-                    <span style={styles.livePulse} />
-                    <span style={styles.sectionLabel}>Live Sessions</span>
+                    {viewMode === 'LIVE' && <span style={styles.livePulse} />}
+                    <span style={styles.sectionLabel}>
+                        {viewMode === 'LIVE' ? 'Live Sessions' : 'All Sessions'}
+                    </span>
                     <span style={styles.countLabel}>
                         ({visibleRows.length}{visibleRows.length !== rows.length ? ` of ${rows.length}` : ''})
                     </span>

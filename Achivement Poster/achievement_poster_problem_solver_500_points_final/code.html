@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Problem Solver - Achievement Unlocked</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400&amp;family=JetBrains+Mono:wght@400;500&amp;family=Playfair+Display:ital,wght@0,600;0,700;1,600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#653d1e",
+                        "on-primary-fixed-variant": "#633f18",
+                        "on-background": "#e5e2e1",
+                        "tertiary": "#f4bb92",
+                        "primary": "#f1bc8b",
+                        "secondary-container": "#604403",
+                        "secondary-fixed-dim": "#e9c176",
+                        "on-tertiary-fixed": "#301400",
+                        "on-secondary": "#412d00",
+                        "error": "#ffb4ab",
+                        "surface-container-low": "#1c1b1b",
+                        "on-primary-fixed": "#2d1600",
+                        "error-container": "#93000a",
+                        "tertiary-fixed-dim": "#f4bb92",
+                        "on-error-container": "#ffdad6",
+                        "inverse-primary": "#7e562d",
+                        "background": "#131313",
+                        "surface-dim": "#131313",
+                        "primary-fixed-dim": "#f1bc8b",
+                        "outline": "#9d8e83",
+                        "surface-container": "#201f1f",
+                        "outline-variant": "#50453b",
+                        "primary-container": "#b6875a",
+                        "on-tertiary-container": "#422105",
+                        "tertiary-fixed": "#ffdcc5",
+                        "surface-tint": "#f1bc8b",
+                        "primary-fixed": "#ffdcbe",
+                        "surface": "#131313",
+                        "surface-variant": "#353534",
+                        "surface-container-high": "#2a2a2a",
+                        "secondary": "#e9c176",
+                        "on-secondary-fixed": "#261900",
+                        "on-error": "#690005",
+                        "tertiary-container": "#b98661",
+                        "on-primary": "#492904",
+                        "on-secondary-fixed-variant": "#5d4201",
+                        "on-surface-variant": "#d4c4b7",
+                        "inverse-on-surface": "#313030",
+                        "surface-container-lowest": "#0e0e0e",
+                        "inverse-surface": "#e5e2e1",
+                        "on-surface": "#e5e2e1",
+                        "secondary-fixed": "#ffdea5",
+                        "surface-bright": "#3a3939",
+                        "on-secondary-container": "#dab36a",
+                        "on-primary-container": "#412200",
+                        "surface-container-highest": "#353534",
+                        "on-tertiary": "#4a280a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "panel-gap": "1px",
+                        "margin-desktop": "64px",
+                        "gutter": "32px",
+                        "unit": "4px",
+                        "margin-mobile": "20px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Playfair Display"],
+                        "headline-md": ["Playfair Display"],
+                        "code-sm": ["JetBrains Mono"],
+                        "body-md": ["Geist"],
+                        "display-lg-mobile": ["Playfair Display"],
+                        "body-lg": ["Geist"],
+                        "label-caps": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["72px", { "lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-md": ["32px", { "lineHeight": "1.2", "fontWeight": "600" }],
+                        "code-sm": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "display-lg-mobile": ["48px", { "lineHeight": "1.1", "fontWeight": "700" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "1", "letterSpacing": "0.1em", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        .glass-panel {
+            background: rgba(19, 19, 19, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .shimmer-text {
+            background: linear-gradient(90deg, #d4c4b7 0%, #ffffff 50%, #d4c4b7 100%);
+            background-size: 200% auto;
+            color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: shimmer 3s linear infinite;
+        }
+
+        @keyframes shimmer {
+            to {
+                background-position: 200% center;
+            }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex items-center justify-center p-4 sm:p-gutter">
+<!-- Poster Container (Vertical 4:5 Aspect Ratio Approximation) -->
+<main class="relative w-full max-w-[600px] aspect-[4/5] overflow-hidden border border-outline-variant rounded-none bg-surface-container-lowest shadow-2xl flex flex-col justify-between">
+<!-- Background Image -->
+<div class="absolute inset-0 z-0">
+<img alt="Background image" class="w-full h-full object-cover opacity-80 mix-blend-luminosity" src="https://lh3.googleusercontent.com/aida/AP1WRLuVQzkVYl9ml58Um5kN_IEwYGzdWCEY_E1pwZ3Vet5Ez7tBTJrwgEV_4U67Jgk2roEPIYoZdnEYoFT8dgcJpSiWFet1xkHfm9UbhQNQkLV5yQS43t2jEr6XbmINTLtVjZMQExlksgHDKsgIZS1lQgufLLIEVttAf4MHAJVhHw1a2kbtRg72dShEu8SIiTU-xFtyG4h4cxFmmYSbmKP6Mb2folyyFOFrOqrxB2zmLOk9cG1114e9JB79OVs"/>
+<div class="absolute inset-0 bg-gradient-to-b from-background/90 via-transparent to-background/90"></div>
+<div class="absolute inset-0 bg-gradient-to-r from-background/50 via-transparent to-background/50"></div>
+</div>
+<!-- Top Section -->
+<header class="relative z-10 w-full p-8 flex flex-col items-center pt-16">
+<div class="flex items-center gap-3 border border-outline-variant px-6 py-2 rounded-full backdrop-blur-md bg-surface-container/30">
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant tracking-[0.2em] uppercase">ACHIEVEMENT UNLOCKED</span>
+<span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+</div>
+<div class="mt-8 flex items-center justify-center gap-2">
+<div class="h-[1px] w-12 bg-outline-variant"></div>
+<span class="font-label-caps text-label-caps text-primary tracking-widest uppercase">Tier: Advanced</span>
+<div class="h-[1px] w-12 bg-outline-variant"></div>
+</div>
+</header>
+<!-- Center Section (Content) -->
+<article class="relative z-10 flex-1 flex flex-col items-center justify-center px-12 text-center">
+<h1 class="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface mb-6 shimmer-text leading-tight">
+                Problem<br/>Solver
+            </h1>
+<div class="glass-panel w-full py-8 px-6 relative">
+<!-- Decorative Corner Accents -->
+<div class="absolute top-0 left-0 w-2 h-2 border-t border-l border-primary"></div>
+<div class="absolute top-0 right-0 w-2 h-2 border-t border-r border-primary"></div>
+<div class="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-primary"></div>
+<div class="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-primary"></div>
+<div class="flex items-baseline justify-center gap-3 mb-6">
+<span class="font-headline-md text-headline-md text-secondary tracking-tight">500</span>
+<span class="font-label-caps text-label-caps text-secondary uppercase tracking-[0.2em]">Points</span>
+</div>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-md mx-auto leading-relaxed">
+                    Your persistence and logical thinking are turning obstacles into opportunities.
+                </p>
+</div>
+</article>
+<!-- Bottom Section -->
+<footer class="relative z-10 w-full p-8 pb-16 flex flex-col items-center">
+<div class="w-[1px] h-16 bg-gradient-to-b from-primary/50 to-transparent mb-6"></div>
+<div class="font-headline-md text-headline-md text-on-surface-variant tracking-widest opacity-50 uppercase">
+                CodeCoder
+            </div>
+</footer>
+</main>
+</body></html>

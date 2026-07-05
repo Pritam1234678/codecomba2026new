@@ -1,0 +1,26 @@
+{
+    "templateId": "spring-crud-users",
+    "title": "Build a User CRUD REST API",
+    "language": "JAVA",
+    "difficulty": "EASY",
+    "description": "Given a User entity, UserRepository, and UserService — build a UserController that exposes CRUD endpoints. Validate input, return proper HTTP status codes.",
+    "testCount": 6,
+    "timeoutSeconds": 60,
+    "memoryMB": 512,
+    "entryCommand": "mvn test -q -Dsurefire.useFile=false -Dspring.main.banner-mode=off",
+    "editableFiles": [
+        "src/main/java/com/codecombat/challenge/controller/UserController.java"
+    ],
+    "readonlyFiles": [
+        "src/main/java/com/codecombat/challenge/entity/User.java",
+        "src/main/java/com/codecombat/challenge/repository/UserRepository.java",
+        "src/main/java/com/codecombat/challenge/service/UserService.java"
+    ],
+    "hiddenFiles": [
+        "pom.xml",
+        "src/main/java/com/codecombat/challenge/ChallengeApplication.java",
+        "src/main/resources/application.properties",
+        "src/test/java/com/codecombat/challenge/UserControllerTest.java",
+        "manifest.json"
+    ]
+}
