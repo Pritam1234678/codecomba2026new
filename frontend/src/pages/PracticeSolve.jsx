@@ -224,28 +224,28 @@ const PracticeSolve = () => {
 
     // ── Load problem + snippets ───────────────────────────────────────────────
     useEffect(() => {
+        let cancelled = false;
         setLoading(true);
         setOutput(null);
         // Do NOT reset code/language — lazy initializers already restored from localStorage.
         setSnippets({});
 
-        PracticeService.getProblem(id)
-            .then(res => {
-                setProblem(res.data.problem);
-                setSolved(res.data.solved);
-                setPointsAvailable(res.data.pointsAvailable);
-            })
-            .catch(err => {
-                console.error('Practice problem load failed', err);
-                setProblem(null);
-            })
-            .finally(() => setLoading(false));
+        // Wait for BOTH promises before setting loading=false so the Run
+        // button never appears with a stale placeholder in the editor.
+        Promise.all([
+            PracticeService.getProblem(id),
+            ProblemService.getSnippets(id),
+        ])
+            .then(([problemRes, snippetRes]) => {
+                if (cancelled) return;
+                setProblem(problemRes.data.problem);
+                setSolved(problemRes.data.solved);
+                setPointsAvailable(problemRes.data.pointsAvailable);
 
-        ProblemService.getSnippets(id)
-            .then(res => {
                 const map = {};
-                res.data.forEach(s => { map[s.language] = s.starterCode; });
+                snippetRes.data.forEach(s => { map[s.language] = s.starterCode; });
                 setSnippets(map);
+
                 // Only seed with snippet if the user has no REAL draft (ignore placeholder defaults).
                 const isPlaceholder = (s) => !s || s.trim() === '' || s.trim() === '// Write your code here' || s.trim() === '// Write your code here\n';
                 const savedLang = (() => { try { return localStorage.getItem(`lang_practice_${id}`); } catch { return null; } })();
@@ -258,7 +258,16 @@ const PracticeSolve = () => {
                 }
                 // If savedCode is a real draft, lazy initializer already loaded it — do nothing.
             })
-            .catch(() => {});
+            .catch(err => {
+                if (cancelled) return;
+                console.error('Practice problem load failed', err);
+                setProblem(null);
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => { cancelled = true; };
     }, [id]);
 
     const handleLanguageChange = (lang) => {
