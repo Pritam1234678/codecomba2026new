@@ -189,8 +189,8 @@ function App() {
         element={lazyWrap(<UserRoute><ProctoredContestTerminated /></UserRoute>)}
       />
 
-      {/* Profile — own profile page */}
-      <Route path="/profile" element={<div className="flex-1">{lazyWrap(<UserRoute><EditProfile /></UserRoute>)}</div>} />
+      {/* Socials — view-only public identity card */}
+      <Route path="/socials" element={<div className="flex-1">{lazyWrap(<UserRoute><Socials /></UserRoute>)}</div>} />
 
       {/* Admin proctoring drill-down (task 10.5, Req 15.3, 15.4, 15.6, 15.7) */}
       <Route
