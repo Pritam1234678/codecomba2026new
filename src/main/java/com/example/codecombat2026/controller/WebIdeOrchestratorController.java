@@ -72,7 +72,7 @@ public class WebIdeOrchestratorController {
      *   7. Return to frontend: { sessionId, url, language }
      */
     @PostMapping("/session/start")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> startSession(@RequestBody Map<String, Object> body,
                                           @AuthenticationPrincipal UserDetailsImpl user,
                                           HttpServletRequest request) {
@@ -154,7 +154,7 @@ public class WebIdeOrchestratorController {
      * Routes to correct VM's /local/stop.
      */
     @PostMapping("/session/stop")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> stopSession(@RequestBody Map<String, String> body,
                                          HttpServletRequest request) {
         String sessionId = body.get("sessionId");
@@ -189,7 +189,7 @@ public class WebIdeOrchestratorController {
      * Routes to correct VM's /local/test. Returns the test verdict.
      */
     @PostMapping("/session/test")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> testSession(@RequestBody Map<String, Object> body,
                                          HttpServletRequest request) {
         Object sessionIdObj = body.get("sessionId");
@@ -228,7 +228,7 @@ public class WebIdeOrchestratorController {
      * Keeps session alive (called by frontend every 60s).
      */
     @PostMapping("/session/heartbeat")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> heartbeat(@RequestBody Map<String, String> body,
                                        HttpServletRequest request) {
         String sessionId = body.get("sessionId");

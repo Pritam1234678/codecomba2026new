@@ -43,7 +43,7 @@ public class WebContestController {
      * Returns 202 with the submission (contains submissionId for SSE tracking).
      */
     @PostMapping("/run")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> runCode(@RequestBody WebContestRunRequest request,
                                      @AuthenticationPrincipal UserDetailsImpl userDetails) {
         if (!rateLimiter.allowTestRun(userDetails.getId())) {
@@ -68,7 +68,7 @@ public class WebContestController {
      * 5 submit cap per problem (same as contest).
      */
     @PostMapping("/submit")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> submitCode(@RequestBody WebContestRunRequest request,
                                         @AuthenticationPrincipal UserDetailsImpl userDetails) {
         if (!rateLimiter.allowSubmission(userDetails.getId())) {
