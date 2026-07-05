@@ -41,6 +41,7 @@ const Leaderboard = lazy(() => import('./pages/Leaderboard'));
 const ContestLeaderboard = lazy(() => import('./pages/ContestLeaderboard'));
 const UserSearch = lazy(() => import('./pages/UserSearch'));
 const PlayerProfile = lazy(() => import('./pages/PlayerProfile'));
+const Socials = lazy(() => import('./pages/Socials'));
 
 // Admin pages — heaviest, load only when admin navigates there
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
