@@ -15,6 +15,7 @@
 - Pre-fill profile/edit forms with data from AuthService/login context — don't create redundant fields (e.g., separate displayName) when the same data already exists in the user's auth profile. Confidence: 0.60
 
 # workflow
+- When removing a feature/field, always start from the backend (database schema, API, models) and then clean up the frontend — never remove frontend-only without backend changes. Confidence: 0.75
 - Prefer thorough, exhaustive full-stack analysis over quick responses — analyze both frontend and backend together. Confidence: 0.70
 - Verify before destructive DB operations — ask for explicit confirmation and do NOT proceed without it. Deleting the user entity itself is a separate action from cleaning related data. Confidence: 0.90
 - When the user says "delete history" during proctoring testing, run full cleanup of proctoring data: SQL (screenshots, events, admin_audit, consent_acks, sessions, registrations), Valkey/Redis (proctoring:*), and disk screenshots — all scoped to the test user. Confidence: 0.70

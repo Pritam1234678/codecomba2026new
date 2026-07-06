@@ -144,7 +144,7 @@ export default function Socials() {
         setPhotoPreview(null);
         if (profile) {
             setForm({
-                displayName: profile.displayName || '', bio: profile.bio || '',
+                fullName: profile.fullName || '', bio: profile.bio || '',
                 title: profile.title || '', location: profile.location || '', company: profile.company || '',
                 githubUrl: profile.githubUrl || '', linkedinUrl: profile.linkedinUrl || '',
                 instagramUrl: profile.instagramUrl || '', twitterUrl: profile.twitterUrl || '',
@@ -240,11 +240,13 @@ export default function Socials() {
                             ) : (
                                 <motion.div key="edit" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}
                                     style={{ display: 'grid', gap: '14px', gridTemplateColumns: '1fr 1fr' }}>
-                                    <div style={{ gridColumn: 'span 2' }}>
-                                        <EditInput label="Display Name" name="displayName" value={form.displayName} onChange={handleChange} placeholder="How others see you" autoFocus />
+                                    <EditInput label="Full Name" name="fullName" value={form.fullName} onChange={handleChange} placeholder="Full name" autoFocus />
+                                    <div style={{ opacity: 0.4 }}>
+                                        <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.18em', color: C.outline, textTransform: 'uppercase' }}>Email</label>
+                                        <input value={form.email} disabled
+                                            style={{ width: '100%', backgroundColor: 'transparent', border: 'none', borderBottom: `1px solid ${C.border}`, color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', padding: '6px 0', outline: 'none', cursor: 'not-allowed', boxSizing: 'border-box' }} />
+                                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: C.primary, marginTop: '2px', letterSpacing: '0.05em' }}>from login — cannot change</span>
                                     </div>
-                                    <EditInput label="Email" name="email" value={form.email} onChange={handleChange} placeholder="you@example.com" />
-                                    <EditInput label="Full Name" name="fullName" value={form.fullName} onChange={handleChange} placeholder="Full name" />
                                     <EditInput label="Title" name="title" value={form.title} onChange={handleChange} placeholder="e.g. Software Engineer" />
                                     <EditInput label="Company" name="company" value={form.company} onChange={handleChange} placeholder="Company / org" />
                                     <EditInput label="Location" name="location" value={form.location} onChange={handleChange} placeholder="e.g. Mumbai, India" />

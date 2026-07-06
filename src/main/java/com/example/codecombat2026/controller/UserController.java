@@ -184,7 +184,6 @@ public class UserController {
             user.setFullName(request.getFullName());
         }
         // Social / extended fields — all optional
-        if (request.getDisplayName() != null) user.setDisplayName(request.getDisplayName().orElse(null));
         if (request.getBio() != null)          user.setBio(request.getBio().orElse(null));
         if (request.getTitle() != null)        user.setTitle(request.getTitle().orElse(null));
         if (request.getLocation() != null)     user.setLocation(request.getLocation().orElse(null));
@@ -360,8 +359,6 @@ public class UserController {
         response.put("problemsSolved", problemsSolved);
         response.put("successRate", Math.round(successRate * 10.0) / 10.0);
         response.put("contestsJoined", contestsJoined);
-        // Social + extended fields
-        response.put("displayName", user.getDisplayName());
         response.put("bio", user.getBio());
         response.put("title", user.getTitle());
         response.put("location", user.getLocation());
@@ -384,7 +381,6 @@ public class UserController {
     public static class EditProfileRequest {
         private String email;
         private String fullName;
-        private java.util.Optional<String> displayName;
         private java.util.Optional<String> bio;
         private java.util.Optional<String> title;
         private java.util.Optional<String> location;
@@ -441,7 +437,6 @@ public class UserController {
         private String fullName;
         private String photoUrl;
         // Social + extended fields
-        private String displayName;
         private String bio;
         private String title;
         private String location;
@@ -466,7 +461,7 @@ public class UserController {
         /** Full-constructor with socials. */
         public UserProfileResponse(Long id, String username, String email,
                 String fullName, String photoUrl,
-                String displayName, String bio, String title,
+                String bio, String title,
                 String location, String company,
                 String githubUrl, String linkedinUrl, String instagramUrl,
                 String twitterUrl, String websiteUrl) {
@@ -475,7 +470,6 @@ public class UserController {
             this.email = email;
             this.fullName = fullName;
             this.photoUrl = photoUrl;
-            this.displayName = displayName;
             this.bio = bio;
             this.title = title;
             this.location = location;
@@ -507,7 +501,6 @@ public class UserController {
         public void setEmail(String email) { this.email = email; }
         public void setFullName(String fullName) { this.fullName = fullName; }
         public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
-        public void setDisplayName(String displayName) { this.displayName = displayName; }
         public void setBio(String bio) { this.bio = bio; }
         public void setTitle(String title) { this.title = title; }
         public void setLocation(String location) { this.location = location; }
@@ -518,4 +511,22 @@ public class UserController {
         public void setTwitterUrl(String twitterUrl) { this.twitterUrl = twitterUrl; }
         public void setWebsiteUrl(String websiteUrl) { this.websiteUrl = websiteUrl; }
     }
+}
+rl) { this.websiteUrl = websiteUrl; }
+    }
+}
+}
+}
+}
+    }
+}
+rl; }
+    }
+}
+}
+}
+}
+    }
+}
+
 }

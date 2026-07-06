@@ -53,9 +53,6 @@ public class User {
 
     // ── Social & extended profile fields (all optional) ────────────────────
 
-    @Column(name = "display_name", length = 60)
-    private String displayName;
-
     @Column(columnDefinition = "TEXT")
     private String bio;
 
