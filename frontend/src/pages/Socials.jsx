@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import api from '../services/api';
 import AuthService from '../services/auth.service';
