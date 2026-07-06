@@ -87,7 +87,7 @@ public class UserController {
         UserProfileResponse profile = new UserProfileResponse(
                 user.getId(), user.getUsername(), user.getEmail(),
                 user.getFullName(), photoUrl,
-                user.getDisplayName(), user.getBio(), user.getTitle(),
+                user.getBio(), user.getTitle(),
                 user.getLocation(), user.getCompany(),
                 user.getGithubUrl(), user.getLinkedinUrl(), user.getInstagramUrl(),
                 user.getTwitterUrl(), user.getWebsiteUrl());
@@ -120,7 +120,7 @@ public class UserController {
             UserProfileResponse profile = new UserProfileResponse(
                     user.getId(), user.getUsername(), user.getEmail(),
                     user.getFullName(), photoUrl,
-                    user.getDisplayName(), user.getBio(), user.getTitle(),
+                    user.getBio(), user.getTitle(),
                     user.getLocation(), user.getCompany(),
                     user.getGithubUrl(), user.getLinkedinUrl(), user.getInstagramUrl(),
                     user.getTwitterUrl(), user.getWebsiteUrl());
@@ -184,7 +184,6 @@ public class UserController {
             user.setFullName(request.getFullName());
         }
         // Social / extended fields — all optional
-        if (request.getDisplayName() != null) user.setDisplayName(request.getDisplayName().orElse(null));
         if (request.getBio() != null)          user.setBio(request.getBio().orElse(null));
         if (request.getTitle() != null)        user.setTitle(request.getTitle().orElse(null));
         if (request.getLocation() != null)     user.setLocation(request.getLocation().orElse(null));
@@ -206,7 +205,7 @@ public class UserController {
         return ResponseEntity.ok(new UserProfileResponse(
                 user.getId(), user.getUsername(), user.getEmail(),
                 user.getFullName(), photoUrl,
-                user.getDisplayName(), user.getBio(), user.getTitle(),
+                user.getBio(), user.getTitle(),
                 user.getLocation(), user.getCompany(),
                 user.getGithubUrl(), user.getLinkedinUrl(), user.getInstagramUrl(),
                 user.getTwitterUrl(), user.getWebsiteUrl()));
