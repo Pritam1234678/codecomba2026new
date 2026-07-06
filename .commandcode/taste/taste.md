@@ -11,6 +11,9 @@
 # ai-integration
 - Use NVIDIA NIM API (integrate.api.nvidia.com/v1/chat/completions) with model moonshotai/kimi-k2.6 for AI-powered features. Confidence: 0.65
 
+# ui-patterns
+- Pre-fill profile/edit forms with data from AuthService/login context — don't create redundant fields (e.g., separate displayName) when the same data already exists in the user's auth profile. Confidence: 0.60
+
 # workflow
 - Prefer thorough, exhaustive full-stack analysis over quick responses — analyze both frontend and backend together. Confidence: 0.70
 - Verify before destructive DB operations — ask for explicit confirmation and do NOT proceed without it. Deleting the user entity itself is a separate action from cleaning related data. Confidence: 0.90

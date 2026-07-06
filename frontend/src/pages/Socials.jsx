@@ -30,15 +30,16 @@ const StatCard = ({ label, value, accent, icon }) => (
     </motion.div>
 );
 
-const EditInput = ({ label, name, value, onChange, placeholder, type = 'text', autoFocus }) => {
+const EditInput = ({ label, name, value, onChange, placeholder, type = 'text', autoFocus, disabled }) => {
     const [focused, setFocused] = useState(false);
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.18em', color: C.outline, textTransform: 'uppercase' }}>{label}</label>
             <input type={type} name={name} value={value || ''} onChange={onChange} placeholder={placeholder}
-                autoFocus={autoFocus}
+                autoFocus={autoFocus} disabled={disabled}
                 onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-                style={{ backgroundColor: 'transparent', border: 'none', borderBottom: `1px solid ${focused ? C.primary : C.border}`, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', padding: '6px 0', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box' }} />
+                style={{ backgroundColor: 'transparent', border: 'none', borderBottom: `1px solid ${focused ? C.primary : C.border}`, color: disabled ? C.outline : C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', padding: '6px 0', outline: 'none', transition: 'border-color 0.2s', boxSizing: 'border-box', opacity: disabled ? 0.5 : 1, cursor: disabled ? 'not-allowed' : 'text' }} />
+            {disabled && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: C.primary, marginTop: '2px', letterSpacing: '0.05em' }}>from login — cannot change</span>}
         </div>
     );
 };
@@ -69,7 +70,7 @@ const GhostField = ({ icon, label }) => (
     </div>
 );
 
-const EMPTY_FORM = { displayName: '', bio: '', title: '', location: '', company: '', githubUrl: '', linkedinUrl: '', instagramUrl: '', twitterUrl: '', websiteUrl: '' };
+const EMPTY_FORM = { fullName: '', email: '', bio: '', title: '', location: '', company: '', githubUrl: '', linkedinUrl: '', instagramUrl: '', twitterUrl: '', websiteUrl: '' };
 
 export default function Socials() {
     const { isMobile } = useResponsive();
@@ -91,8 +92,8 @@ export default function Socials() {
             const p = res.data;
             setProfile(p);
             setForm({
-                displayName: p.displayName || '', bio: p.bio || '',
-                title: p.title || '', location: p.location || '', company: p.company || '',
+                fullName: p.fullName || user?.username || '', email: p.email || user?.email || '',
+                bio: p.bio || '', title: p.title || '', location: p.location || '', company: p.company || '',
                 githubUrl: p.githubUrl || '', linkedinUrl: p.linkedinUrl || '',
                 instagramUrl: p.instagramUrl || '', twitterUrl: p.twitterUrl || '',
                 websiteUrl: p.websiteUrl || '',
@@ -156,7 +157,7 @@ export default function Socials() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>Loading...</div>
     );
 
-    const displayName = profile?.displayName || profile?.fullName || currentUser?.username || 'Player';
+    const displayName = profile?.fullName || currentUser?.username || 'Player';
     const initials = displayName.charAt(0).toUpperCase();
 
     return (
