@@ -1020,7 +1020,7 @@ const ProblemSolve = () => {
                         <div style={{ height: '40px', flexShrink: 0, borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, display: 'flex', alignItems: 'center', padding: '0 16px', gap: '24px' }}>
                             <button
                                 onClick={() => setConsoleTab('output')}
-                                style={{ height: '100%', display: 'flex', alignItems: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: consoleTab === 'output' ? C.secondary : C.outline, borderBottom: consoleTab === 'output' ? `2px solid ${C.secondary}` : '2px solid transparent', background: 'none', border: 'none', borderBottom: consoleTab === 'output' ? `2px solid ${C.secondary}` : '2px solid transparent', cursor: 'pointer', paddingTop: '2px' }}
+                                style={{ height: '100%', display: 'flex', alignItems: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', color: consoleTab === 'output' ? C.secondary : C.outline, background: 'none', border: 'none', borderBottom: consoleTab === 'output' ? `2px solid ${C.secondary}` : '2px solid transparent', cursor: 'pointer', paddingTop: '2px' }}
                             >
                                 Output Console
                             </button>
