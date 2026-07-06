@@ -315,7 +315,7 @@ export default function Socials() {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}
                     style={{ marginTop: '2.5rem' }}>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '16px' }}>Achievements</span>
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '24px', justifyContent: 'center', maxWidth: isMobile ? '100%' : '1152px', margin: '0 auto' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'center' }}>
                         {TIERS.map(t => {
                             const userPoints = stats?.totalPoints ?? profile?.totalPoints ?? 0;
                             const unlocked = userPoints >= t.min;
