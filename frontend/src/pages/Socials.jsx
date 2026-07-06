@@ -164,7 +164,7 @@ export default function Socials() {
         setEditMode(false); setSelectedPhoto(null); setPhotoPreview(null);
         if (profile) {
             setForm({
-                fullName: profile.fullName || '', bio: profile.bio || '',
+                fullName: profile.fullName || '', bio: profile.bio || '', email: profile.email || '',
                 title: profile.title || '', location: profile.location || '', company: profile.company || '',
                 githubUrl: profile.githubUrl || '', linkedinUrl: profile.linkedinUrl || '',
                 instagramUrl: profile.instagramUrl || '', twitterUrl: profile.twitterUrl || '', websiteUrl: profile.websiteUrl || '',
@@ -292,6 +292,14 @@ export default function Socials() {
                                     <EditInput label="Title" name="title" value={form.title} onChange={handleChange} placeholder="e.g. Software Engineer" />
                                     <EditInput label="Company" name="company" value={form.company} onChange={handleChange} placeholder="Company / org" />
                                     <EditInput label="Location" name="location" value={form.location} onChange={handleChange} placeholder="e.g. Mumbai, India" />
+                                    <div style={{ gridColumn: 'span 2', borderTop: `1px solid ${C.border}33`, paddingTop: '14px', marginTop: '4px' }}>
+                                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '12px' }}>Social Links</span>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 20px' }}>
+                                            {SOCIAL_LINKS.map(s => (
+                                                <EditInput key={s.key} label={s.label} name={s.key} value={form[s.key]} onChange={handleChange} placeholder={s.placeholder} />
+                                            ))}
+                                        </div>
+                                    </div>
                                     <div style={{ gridColumn: 'span 2' }}>
                                         <EditTextArea label="Bio" name="bio" value={form.bio} onChange={handleChange} placeholder="Tell others about yourself…" />
                                     </div>
