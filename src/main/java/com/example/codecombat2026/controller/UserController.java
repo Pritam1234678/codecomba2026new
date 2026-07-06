@@ -511,7 +511,3 @@ public class UserController {
         public void setWebsiteUrl(String websiteUrl) { this.websiteUrl = websiteUrl; }
     }
 }
-(String twitterUrl) { this.twitterUrl = twitterUrl; }
-        public void setWebsiteUrl(String websiteUrl) { this.websiteUrl = websiteUrl; }
-    }
-}
