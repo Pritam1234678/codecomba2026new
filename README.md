@@ -1,70 +1,268 @@
-# CodeCombat 🚀
+# CodeCoder 
 
-[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen?style=for-the-badge)](http://codecombat.live)
-[![Spring Boot](https://img.shields.io/badge/Spring_Boot-F27309?style=for-the-badge&logo=spring-boot&logoColor=white)](https://spring.io/projects/spring-boot)
-[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![MySQL](https://img.shields.io/badge/MySQL-00000F?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Website](https://img.shields.io/badge/Website-codecoder.in-blue?style=for-the-badge)](https://codecoder.in)
+[![Spring Boot](https://img.shields.io/badge/Spring_Boot-6DB33F?style=for-the-badge&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
+[![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Java](https://img.shields.io/badge/Java-21-red?style=for-the-badge&logo=openjdk)](https://openjdk.org/)
 
-**CodeCombat** is a high-performance Online Judge and Competitive Programming platform. It provides a robust infrastructure for hosting coding contests, solving algorithmic problems, and tracking real-time performance through a dynamic leaderboard.
+**CodeCoder** is a modern Online Judge and Competitive Programming platform designed for students, developers, coding communities, and organizations. It provides a secure, scalable, and high-performance environment for practicing Data Structures & Algorithms, hosting coding contests, conducting technical assessments, and improving programming skills through real-world challenges.
 
-## 🌟 Key Features
-
-### 🖥️ Advanced Code Execution
-- **Multi-Language Support**: Execute code in **Java, C++, Python, JavaScript, and C**.
-- **Secure Sandbox**: Docker-based execution ensures user submissions are run in an isolated and secure environment.
-- **Robust Judge**: Automatically validates submissions against multiple test cases with strict Time Limit (TLE) and Memory Limit (MLE) checks.
-
-### 🏆 Contest & Problem Management
-- **Dynamic Contests**: Schedule and manage coding contests with automated start/end times.
-- **Problem Bank**: Comprehensive problem sets with varying difficulty levels (Easy, Medium, Hard).
-- **Admin Dashboard**: Full control over problem creation, test case management, and user oversight.
-
-### 📊 Real-time User Engagement
-- **Live Leaderboard**: Watch rankings change in real-time as users submit solutions.
-- **User Dashboard**: Track personal progress, success rates, and recent submission history.
-- **Modern UI/UX**: Clean, responsive, and glassmorphism-inspired design optimized for both desktop and mobile devices.
-
-## 🛠️ Tech Stack
-
-- **Frontend**: React.js, Vite, Tailwind CSS, Framer Motion, Monaco Editor.
-- **Backend**: Spring Boot, Spring Security (JWT), Spring Data JPA.
-- **Core Engine**: Docker (for code sandboxing), Java Process-based execution.
-- **Database**: MySQL.
-- **Deployment**: AWS EC2, Nginx.
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Java 17 or higher
-- Node.js & npm
-- MySQL Server
-- Docker (Required for code execution)
-
-### Backend Setup
-1. Clone the repository and navigate to the root directory.
-2. Update `src/main/resources/application.properties` with your MySQL credentials.
-3. Build and run the application:
-   ```bash
-   mvn clean spring-boot:run
-   ```
-
-### Frontend Setup
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-## 🌐 Live Deployment
-The platform is live and accessible at: [http://codecombat.live](http://codecombat.live)
+Built with scalability and performance in mind, CodeCoder combines a powerful backend, secure code execution, live contest infrastructure, intelligent caching, and a modern user experience to deliver a professional coding platform.
 
 ---
-Developed with ❤️ by [Your Name/Team]
+
+# ✨ Features
+
+## 💻 Online Judge
+
+- Secure Docker-based code execution
+- Multi-language support
+  - Java
+  - C++
+  - C
+  - Python
+  - JavaScript
+- Automatic compilation & execution
+- Hidden and sample test cases
+- Time Limit (TLE) validation
+- Memory Limit (MLE) validation
+- Runtime Error detection
+- Wrong Answer validation
+- Accepted solution verification
+- Detailed execution results
+
+---
+
+## 🏆 Competitive Programming
+
+- Live Coding Contests
+- Real-time Leaderboard
+- Contest Registration
+- Automatic Contest Start & End
+- Contest Timer
+- Ranking based on score & submission time
+- Problem-wise scoring
+- Contest History
+
+---
+
+## ⚔️ Duel Mode
+
+Challenge another programmer in a real-time coding battle.
+
+Features include:
+
+- 1 vs 1 coding battles
+- Live submission tracking
+- Automatic winner determination
+- Fastest accepted solution wins
+- Real-time duel status
+- Fair tie-breaking system
+
+---
+
+## 🎥 AI Proctored Coding Contests
+
+CodeCoder provides advanced online proctoring for secure technical assessments.
+
+Features include:
+
+- Webcam monitoring
+- Random screenshot capture
+- Face detection
+- Tab switching detection
+- Window focus detection
+- Full-screen enforcement
+- Activity monitoring
+- Suspicious activity logging
+
+Perfect for colleges, companies and hiring challenges.
+
+---
+
+## 📚 Problem Management
+
+- Rich Problem Statements
+- Constraints
+- Input & Output Format
+- Examples
+- Editorial Support
+- Difficulty Levels
+- Tags
+- Custom Code Templates
+- Language-specific Boilerplate Code
+
+---
+
+## 👨‍💻 User Dashboard
+
+Users can track:
+
+- Problems Solved
+- Contest History
+- Submission History
+- Success Rate
+- Recent Activity
+- Rating (Upcoming)
+- Performance Analytics
+
+---
+
+## 👨‍💼 Admin Dashboard
+
+Complete platform management tools.
+
+- Create Problems
+- Upload Test Cases
+- Manage Contests
+- Manage Users
+- View Submissions
+- Moderate Reports
+- Contest Analytics
+
+---
+
+## ⚡ Performance
+
+Designed for high performance.
+
+- Redis/Valkey Caching
+- Queue-based Submission Processing
+- Optimized Database Queries
+- Asynchronous Judge Engine
+- Pagination
+- Fast API Responses
+- Scalable Architecture
+
+---
+
+# 🛠 Tech Stack
+
+## Frontend
+
+- React
+- Vite
+- Tailwind CSS
+- Framer Motion
+- Monaco Editor
+- Axios
+
+## Backend
+
+- Java
+- Spring Boot
+- Spring Security
+- JWT Authentication
+- Spring Data JPA
+- Hibernate
+- Maven
+
+## Database
+
+- MySQL
+- Redis / Valkey
+
+## Infrastructure
+
+- Docker
+- Nginx
+- Oracle Cloud
+- Linux
+
+---
+
+# 🔐 Security
+
+- JWT Authentication
+- Password Encryption
+- Secure APIs
+- Rate Limiting
+- Docker Sandbox Isolation
+- Input Validation
+- Role-Based Access Control (RBAC)
+
+---
+
+# 🚀 Getting Started
+
+## Requirements
+
+- Java 21+
+- Node.js
+- MySQL
+- Docker
+- Maven
+
+## Backend
+
+```bash
+git clone https://github.com/Pritam1234678/CodeCoder.git
+
+cd backend
+
+mvn clean install
+
+mvn spring-boot:run
+```
+
+## Frontend
+
+```bash
+cd frontend
+
+npm install
+
+npm run dev
+```
+
+---
+
+# 🌍 Live Website
+
+### 🔗 https://codecoder.in
+
+Practice coding, participate in contests, challenge friends, and prepare for interviews—all from one platform.
+
+---
+
+# 🎯 Roadmap
+
+- AI Code Review
+- AI Hint Generation
+- Company-wise Question Sheets
+- Interview Preparation Tracks
+- Virtual Contest Mode
+- Rating System
+- Discussion Forum
+- Code Plagiarism Detection
+- Team Contests
+- Certifications
+- Mobile Application
+
+---
+
+# 🤝 Contributing
+
+Contributions are welcome!
+
+Feel free to fork the repository, open issues, and submit pull requests.
+
+---
+
+# 📄 License
+
+This project is licensed under the MIT License.
+
+---
+
+# 👨‍💻 Developer
+
+**Pritam Mandal**
+
+Founder & Developer of **CodeCoder**
+
+🌐 Website: https://codecoder.in
+
+Building the next-generation competitive programming platform for developers.
