@@ -281,7 +281,7 @@ export default function AchievementPoster({ tier, unlocked }) {
 
     return (
         <div style={{
-            aspectRatio: '4/5', width: '100%', maxWidth: 440, position: 'relative',
+            aspectRatio: '4/5', width: '100%', maxWidth: 540, position: 'relative',
             overflow: 'hidden', backgroundColor: STYLES.bg,
             border: `1px solid ${STYLES.border}`,
             boxShadow: locked ? 'none' : `0 0 30px ${accent}18`,
