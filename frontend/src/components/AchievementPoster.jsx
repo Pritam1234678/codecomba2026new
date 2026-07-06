@@ -13,25 +13,14 @@ const IMG_MAP = {
 export default function AchievementPoster({ tier, unlocked }) {
     const src = IMG_MAP[tier.name];
     const locked = !unlocked;
-
-    return (
-        <div style={{
-            aspectRatio: '4/5', width: '100%', maxWidth: 540, position: 'relative',
-            overflow: 'hidden', backgroundColor: '#131313',
-            border: `1px solid #50453b`,
-            opacity: locked ? 0.3 : 1,
-            filter: locked ? 'grayscale(1)' : 'none',
-            transition: 'all 0.5s ease',
-        }}>
-            {src && (
-                <img src={src} alt={tier.name}
-                    style={{
-                        position: 'absolute', inset: 0,
-                        width: '100%', height: '100%',
-                        objectFit: 'contain', objectPosition: 'center center',
-                    }}
-                />
-            )}
-        </div>
-    );
+    return src ? (
+        <img src={src} alt={tier.name}
+            style={{
+                width: '100%', height: 'auto', display: 'block',
+                opacity: locked ? 0.3 : 1,
+                filter: locked ? 'grayscale(1)' : 'none',
+                transition: 'all 0.5s ease',
+            }}
+        />
+    ) : null;
 }
