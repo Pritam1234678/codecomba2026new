@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import AuthService from '../services/auth.service';
 import useResponsive from '../hooks/useResponsive';
+import AchievementCard, { TIERS } from '../components/AchievementCard';
 
 const C = {
     bg: '#131313', surfaceCon: '#201f1f', surfaceLow: '#1c1b1b', surfaceHi: '#2a2a2a',
@@ -300,6 +301,19 @@ export default function Socials() {
                         <StatCard label="Points"    value={stats?.totalPoints ?? profile?.totalPoints ?? 0} accent="#ff8c00" icon="stars" />
                     </div>
                 </div>
+
+                {/* ── Achievements ── */}
+                <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}
+                    style={{ marginTop: '2.5rem' }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '16px' }}>Achievements</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : 3}, 1fr)`, gap: '20px', justifyContent: 'center' }}>
+                        {TIERS.map(t => {
+                            const userPoints = stats?.totalPoints ?? profile?.totalPoints ?? 0;
+                            const unlocked = userPoints >= t.min;
+                            return <AchievementCard key={t.name} tier={t} unlocked={unlocked} />;
+                        })}
+                    </div>
+                </motion.div>
             </main>
 
             {/* ── Toast ── */}

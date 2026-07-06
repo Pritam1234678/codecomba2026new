@@ -13,6 +13,10 @@
 
 # ui-patterns
 - Pre-fill profile/edit forms with data from AuthService/login context — don't create redundant fields (e.g., separate displayName) when the same data already exists in the user's auth profile. Confidence: 0.60
+- Use code-rendered graphics (Canvas/SVG/CSS) instead of static images for visual display elements (badges, posters, achievements) — code renders faster and avoids image load latency. Confidence: 0.65
+
+# git
+- Git identity: Always use name=Pritam Mandal, email=mandalpritam765@gmail.com, GitHub=Pritam1234678. Never use --author, GIT_AUTHOR_*, GIT_COMMITTER_* env vars, bot identities, or local machine identity (e.g., pritam@kali.pritam). Never modify git config. All commits must attribute to Pritam1234678. No force-push unless explicitly asked. Confidence: 0.90
 
 # workflow
 - When removing a feature/field, always start from the backend (database schema, API, models) and then clean up the frontend — never remove frontend-only without backend changes. Confidence: 0.75
