@@ -29,7 +29,6 @@ const ContestList = lazy(() => import('./pages/ContestList'));
 const ContestDetail = lazy(() => import('./pages/ContestDetail'));
 const ProblemSolve = lazy(() => import('./pages/ProblemSolve'));
 const UserDashboard = lazy(() => import('./pages/UserDashboard'));
-const EditProfile = lazy(() => import('./pages/EditProfile'));
 const Practice = lazy(() => import('./pages/Practice'));
 const PracticeSolve = lazy(() => import('./pages/PracticeSolve'));
 const WebContest = lazy(() => import('./pages/WebContest'));
@@ -164,7 +163,7 @@ function App() {
 
       {/* User Routes */}
       <Route path="/dashboard" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><UserDashboard /></UserRoute>)}</div>} />
-      <Route path="/profile/edit" element={lazyWrap(<UserRoute><EditProfile /></UserRoute>)} />
+      <Route path="/profile/edit" element={<Navigate to="/socials" replace />} />
       <Route path="/contests" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><ContestList /></UserRoute>)}</div>} />
       <Route path="/contests/:id" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><ContestDetail /></UserRoute>)}</div>} />
       <Route path="/problems/:id" element={<div className="flex-1 px-14 py-8">{lazyWrap(<UserRoute><ProblemSolve /></UserRoute>)}</div>} />

@@ -42,7 +42,6 @@ const USER_NAV = [
     { label: 'Compiler', icon: 'terminal', to: '/compiler' },
     { label: 'Platform Details', icon: 'settings', to: '/platform-details' },
     { label: 'Support', icon: 'help_outline', to: '/support' },
-    { label: 'Edit Profile', icon: 'account_circle', to: '/profile/edit' },
     { label: 'Socials', icon: 'person', to: '/socials' },
 ];
 
