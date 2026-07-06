@@ -262,7 +262,19 @@ export default function Socials() {
                         {/* Edit button — floating at top right */}
                         <div style={{ position: isMobile ? 'relative' : 'absolute', top: isMobile ? '0' : '0', right: isMobile ? '0' : '0', marginTop: isMobile ? '20px' : '0' }}>
                             {!editMode ? (
-                                <button onClick={() => setEditMode(true)}
+                                <button onClick={() => {
+                                    // Sync form with latest profile before opening edit
+                                    if (profile) setForm({
+                                        fullName: profile.fullName || currentUser?.username || '',
+                                        email: profile.email || currentUser?.email || '',
+                                        bio: profile.bio || '', title: profile.title || '',
+                                        location: profile.location || '', company: profile.company || '',
+                                        githubUrl: profile.githubUrl || '', linkedinUrl: profile.linkedinUrl || '',
+                                        instagramUrl: profile.instagramUrl || '', twitterUrl: profile.twitterUrl || '',
+                                        websiteUrl: profile.websiteUrl || '',
+                                    });
+                                    setEditMode(true);
+                                }}
                                     style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', border: `1px solid ${C.secondary}44`, color: C.secondary, backgroundColor: 'transparent', padding: '8px 24px', cursor: 'pointer', transition: 'all 0.3s' }}
                                     onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${C.secondary}15`; e.currentTarget.style.borderColor = C.secondary; }}
                                     onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = `${C.secondary}44`; }}>
