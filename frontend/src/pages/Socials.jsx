@@ -5,14 +5,13 @@ import AuthService from '../services/auth.service';
 import useResponsive from '../hooks/useResponsive';
 import AchievementPoster from '../components/AchievementPoster';
 
-// Tier list
 const TIERS = [
-    { name: 'Hello World',    min: 50,   accent: '#f1bc8b' },
-    { name: 'Bug Hunter',     min: 100,  accent: '#4ade80' },
-    { name: 'Problem Solver', min: 500,  accent: '#e9c176' },
-    { name: 'Algorithm Ace',  min: 1000, accent: '#facc15' },
-    { name: 'Code Architect', min: 2000, accent: '#60a5fa' },
-    { name: 'Coding Legend',  min: 5000, accent: '#ff6b6b' },
+    { name: 'Hello World',    min: 50   },
+    { name: 'Bug Hunter',     min: 100  },
+    { name: 'Problem Solver', min: 500  },
+    { name: 'Algorithm Ace',  min: 1000 },
+    { name: 'Code Architect', min: 2000 },
+    { name: 'Coding Legend',  min: 5000 },
 ];
 
 const C = {
