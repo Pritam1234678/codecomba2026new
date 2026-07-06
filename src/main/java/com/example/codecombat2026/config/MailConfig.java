@@ -1,6 +1,7 @@
 package com.example.codecombat2026.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -60,7 +61,7 @@ public class MailConfig {
     private String brevoUsername;
 
     /** Brevo SMTP API key (used as the SMTP password). */
-    @Value("${BREVO_PASSWORD}")
+    @Value("${BREVO_PASSWORD:}")
     private String brevoPassword;
 
     // ── Bean definitions ──────────────────────────────────────────────────────
@@ -79,8 +80,10 @@ public class MailConfig {
     /**
      * Secondary mail sender — Brevo relay for {@code support@codecoder.in}.
      * Inject with {@code @Qualifier("supportMailSender")}.
+     * Only created when BREVO_PASSWORD is set (optional in production).
      */
     @Bean
+    @ConditionalOnProperty("BREVO_PASSWORD")
     public JavaMailSender supportMailSender() {
         return buildSender(brevoHost, brevoPort, brevoUsername, brevoPassword);
     }

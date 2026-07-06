@@ -50,7 +50,7 @@ public class EmailService {
     private JavaMailSender noreplyMailSender;
 
     /** Brevo relay — used for support@codecoder.in inbound tickets. */
-    @Autowired
+    @Autowired(required = false)
     @Qualifier("supportMailSender")
     private JavaMailSender supportMailSender;
 
