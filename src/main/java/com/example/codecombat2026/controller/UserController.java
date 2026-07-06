@@ -184,6 +184,7 @@ public class UserController {
             user.setFullName(request.getFullName());
         }
         // Social / extended fields — all optional
+        if (request.getDisplayName() != null) user.setDisplayName(request.getDisplayName().orElse(null));
         if (request.getBio() != null)          user.setBio(request.getBio().orElse(null));
         if (request.getTitle() != null)        user.setTitle(request.getTitle().orElse(null));
         if (request.getLocation() != null)     user.setLocation(request.getLocation().orElse(null));
@@ -359,6 +360,7 @@ public class UserController {
         response.put("problemsSolved", problemsSolved);
         response.put("successRate", Math.round(successRate * 10.0) / 10.0);
         response.put("contestsJoined", contestsJoined);
+        // Social + extended fields
         response.put("bio", user.getBio());
         response.put("title", user.getTitle());
         response.put("location", user.getLocation());
@@ -395,8 +397,6 @@ public class UserController {
         public void setEmail(String email) { this.email = email; }
         public String getFullName() { return fullName; }
         public void setFullName(String fullName) { this.fullName = fullName; }
-        public java.util.Optional<String> getDisplayName() { return displayName; }
-        public void setDisplayName(String displayName) { this.displayName = java.util.Optional.ofNullable(displayName); }
         public java.util.Optional<String> getBio() { return bio; }
         public void setBio(String bio) { this.bio = java.util.Optional.ofNullable(bio); }
         public java.util.Optional<String> getTitle() { return title; }
@@ -486,7 +486,6 @@ public class UserController {
         public String getEmail() { return email; }
         public String getFullName() { return fullName; }
         public String getPhotoUrl() { return photoUrl; }
-        public String getDisplayName() { return displayName; }
         public String getBio() { return bio; }
         public String getTitle() { return title; }
         public String getLocation() { return location; }
@@ -512,21 +511,7 @@ public class UserController {
         public void setWebsiteUrl(String websiteUrl) { this.websiteUrl = websiteUrl; }
     }
 }
-rl) { this.websiteUrl = websiteUrl; }
+(String twitterUrl) { this.twitterUrl = twitterUrl; }
+        public void setWebsiteUrl(String websiteUrl) { this.websiteUrl = websiteUrl; }
     }
-}
-}
-}
-}
-    }
-}
-rl; }
-    }
-}
-}
-}
-}
-    }
-}
-
 }

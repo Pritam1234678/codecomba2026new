@@ -157,8 +157,8 @@ export default function Socials() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>Loading...</div>
     );
 
-    const displayName = profile?.fullName || currentUser?.username || 'Player';
-    const initials = displayName.charAt(0).toUpperCase();
+    const shownName = profile?.fullName || currentUser?.username || 'Player';
+    const initials = shownName.charAt(0).toUpperCase();
 
     return (
         <div style={{ minHeight: '100vh', backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", paddingBottom: '4rem' }}>
@@ -225,7 +225,7 @@ export default function Socials() {
                         <AnimatePresence mode="wait">
                             {!editMode ? (
                                 <motion.div key="view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-                                    <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 600, color: C.primary, margin: '0 0 4px' }}>{displayName}</h2>
+                                    <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 600, color: C.primary, margin: '0 0 4px' }}>{shownName}</h2>
                                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline, letterSpacing: '0.06em', display: 'inline-block', marginBottom: '14px' }}>@{currentUser?.username}</span>
                                     {profile?.bio ? (
                                         <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '15px', color: C.muted, lineHeight: 1.75, margin: '0 0 16px', maxWidth: '600px' }}>{profile.bio}</p>
