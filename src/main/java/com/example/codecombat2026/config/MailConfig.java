@@ -83,7 +83,7 @@ public class MailConfig {
      * Only created when BREVO_PASSWORD is set (optional in production).
      */
     @Bean
-    @ConditionalOnProperty("BREVO_PASSWORD")
+    @ConditionalOnExpression("not '${BREVO_PASSWORD:}'.isBlank()")
     public JavaMailSender supportMailSender() {
         return buildSender(brevoHost, brevoPort, brevoUsername, brevoPassword);
     }
