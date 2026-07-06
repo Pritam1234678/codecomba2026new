@@ -2,6 +2,7 @@
 -- All columns are nullable — the profile is optional and editable after creation.
 
 ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS display_name  VARCHAR(60),
     ADD COLUMN IF NOT EXISTS bio           TEXT,
     ADD COLUMN IF NOT EXISTS title         VARCHAR(120),
     ADD COLUMN IF NOT EXISTS location      VARCHAR(100),
