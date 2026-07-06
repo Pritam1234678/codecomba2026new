@@ -1,7 +1,6 @@
 package com.example.codecombat2026.config;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -110,6 +109,12 @@ public class MailConfig {
         // Disable SSL on the socket level — STARTTLS upgrades the plain connection
         props.put("mail.smtp.ssl.enable", "false");
         // Trust the relay's certificate (avoids SNI issues on some JDK versions)
+        props.put("mail.smtp.ssl.trust", host);
+
+        return sender;
+    }
+}
+ersions)
         props.put("mail.smtp.ssl.trust", host);
 
         return sender;

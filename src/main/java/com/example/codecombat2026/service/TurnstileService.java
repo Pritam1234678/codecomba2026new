@@ -35,7 +35,7 @@ public class TurnstileService {
     @Value("${TURNSTILE_SECRET:}")
     private String secret;
 
-    @Value("${TURNSTILE_ENABLED:false}")
+    @Value("${TURNSTILE_ENABLED:true}")
     private boolean enabled;
 
     private final RestClient http = RestClient.builder().build();
