@@ -3,16 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import AuthService from '../services/auth.service';
 import useResponsive from '../hooks/useResponsive';
-import AchievementPoster from '../components/AchievementPoster';
-
-const TIERS = [
-    { name: 'Hello World',    min: 50   },
-    { name: 'Bug Hunter',     min: 100  },
-    { name: 'Problem Solver', min: 500  },
-    { name: 'Algorithm Ace',  min: 1000 },
-    { name: 'Code Architect', min: 2000 },
-    { name: 'Coding Legend',  min: 5000 },
-];
+import AchievementPoster, { TIERS } from '../components/AchievementPoster';
 
 const C = {
     bg: '#131313', surfaceCon: '#201f1f', surfaceLow: '#1c1b1b', surfaceHi: '#2a2a2a',
@@ -315,11 +306,15 @@ export default function Socials() {
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}
                     style={{ marginTop: '2.5rem' }}>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '16px' }}>Achievements</span>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'center' }}>
-                        {TIERS.map(t => {
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '20px', maxWidth: isMobile ? '100%' : '1100px', margin: '0 auto' }}>
+                        {TIERS.map((t, i) => {
                             const userPoints = stats?.totalPoints ?? profile?.totalPoints ?? 0;
                             const unlocked = userPoints >= t.min;
-                            return <AchievementPoster key={t.name} tier={t} unlocked={unlocked} />;
+                            // Asymmetric spans: items 0,3 span 1 col; items 1,4 span 2 cols; item 2,5 span 1 col
+                            const gridSpan = isMobile ? {} : (
+                                i === 1 || i === 4 ? { gridColumn: 'span 2' } : {}
+                            );
+                            return <div key={t.name} style={gridSpan}><AchievementPoster tier={t} unlocked={unlocked} /></div>;
                         })}
                     </div>
                 </motion.div>

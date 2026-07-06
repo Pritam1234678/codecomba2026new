@@ -13,8 +13,7 @@
 
 # ui-patterns
 - Pre-fill profile/edit forms with data from AuthService/login context — don't create redundant fields (e.g., separate displayName) when the same data already exists in the user's auth profile. Confidence: 0.60
-- Use actual image files (PNG/WebP) for achievement posters and visual display elements — convert PNGs to WebP for better performance. Confidence: 0.70
-- Display achievement poster/badge images at their native resolution without fixed aspect-ratio containers — no cropping, no letterboxing, no forced sizing. Images should render "as-is" with their original dimensions. Confidence: 0.85
+- Design achievement cards with pure CSS/HTML — modern aesthetic, no image files (WebP/PNG), asymmetric alignment. Confidence: 0.85
 
 # git
 - Git identity: Always use name=Pritam Mandal, email=mandalpritam765@gmail.com, GitHub=Pritam1234678. Never use --author, GIT_AUTHOR_*, GIT_COMMITTER_* env vars, bot identities, or local machine identity (e.g., pritam@kali.pritam). Never modify git config. All commits must attribute to Pritam1234678. No force-push unless explicitly asked. Confidence: 0.90
