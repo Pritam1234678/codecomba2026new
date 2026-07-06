@@ -290,9 +290,6 @@ export default function Socials() {
                     </AnimatePresence>
                 </motion.section>
 
-                {/* ── Stats ── */}
-                <div>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '16px' }}>Performance Metrics</span>
                 {/* ── Contest Stats ── */}
                 <div style={{ marginBottom: '2rem' }}>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '14px' }}>Contest Performance</span>
