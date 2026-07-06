@@ -54,6 +54,9 @@ const LockedContent = ({ min }) => (
 // ── HELLO WORLD (50 pts) — Architectural Noir ─────────────────────────────
 const HelloWorld = ({ locked, accent = STYLES.primary }) => (
     <>
+        <img src="/achievements/achievement_poster_hello_world_50_points_final.webp" alt=""
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: locked ? 0.2 : 0.85, mixBlendMode: 'luminosity' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #131313, transparent 40%, #131313cc)' }} />
         <GDS opacity={locked ? 0.015 : 0.05} />
         <div style={{ position: 'absolute', top: 16, left: 16, ...STYLES.corner(16, accent) }} />
         <div style={{ position: 'absolute', top: 16, right: 16, borderTop: `1px solid ${accent}`, borderRight: `1px solid ${accent}`, width: 16, height: 16, opacity: 0.5 }} />
@@ -86,6 +89,9 @@ const HelloWorld = ({ locked, accent = STYLES.primary }) => (
 // ── BUG HUNTER (100 pts) — Cyber Clean ────────────────────────────────────
 const BugHunter = ({ locked, accent = '#4ade80' }) => (
     <>
+        <img src="/achievements/achievement_poster_bug_hunter_100_points_final.webp" alt=""
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: locked ? 0.2 : 0.8, mixBlendMode: 'screen' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #131313, transparent 30%, #131313aa)' }} />
         <div style={{ position: 'absolute', inset: '15% 8%', borderRadius: 8, border: `1px solid ${accent}10`, pointerEvents: 'none' }} />
         <div style={{ ...STYLES.glass, padding: '5px 20px', borderRadius: 32, marginTop: 22, display: 'inline-flex', border: `1px solid ${locked ? STYLES.border : accent}33` }}>
             <span className="material-symbols-outlined" style={{ fontSize: 12, color: accent, marginRight: 6, fontVariationSettings: "'FILL' 1" }}>{locked ? 'lock' : 'bug_report'}</span>
@@ -113,6 +119,9 @@ const BugHunter = ({ locked, accent = '#4ade80' }) => (
 // ── PROBLEM SOLVER (500 pts) — Architectural Shimmer ──────────────────────
 const ProblemSolver = ({ locked, accent = '#e9c176' }) => (
     <>
+        <img src="/achievements/achievement_poster_problem_solver_500_points_final.webp" alt=""
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: locked ? 0.2 : 0.8, mixBlendMode: 'luminosity' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, #131313ee, transparent 35%, #131313ee)' }} />
         <div style={{ position: 'absolute', inset: 12, border: `1px solid ${accent}15`, pointerEvents: 'none' }} />
         <div style={{ ...STYLES.glass, padding: '5px 22px', borderRadius: 32, marginTop: 22, display: 'inline-flex', border: `1px solid ${locked ? STYLES.border : accent}33` }}>
             <span className="material-symbols-outlined" style={{ fontSize: 12, color: accent, marginRight: 6, fontVariationSettings: "'FILL' 1" }}>{locked ? 'lock' : 'workspace_premium'}</span>
@@ -142,6 +151,9 @@ const ProblemSolver = ({ locked, accent = '#e9c176' }) => (
 // ── ALGORITHM ACE (1000 pts) — Master Command Center ──────────────────────
 const AlgorithmAce = ({ locked, accent = '#facc15' }) => (
     <>
+        <img src="/achievements/achievement_poster_algorithm_ace_1000_points_final.webp" alt=""
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: locked ? 0.2 : 0.8 }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #131313, transparent 35%, #131313cc)' }} />
         <div style={{ position: 'absolute', inset: 16, border: `1px solid ${accent}20`, pointerEvents: 'none', zIndex: 0 }} />
         <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 64, height: 1, backgroundColor: accent, opacity: 0.5 }} />
         <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 64, height: 1, backgroundColor: accent, opacity: 0.5 }} />
@@ -171,6 +183,9 @@ const AlgorithmAce = ({ locked, accent = '#facc15' }) => (
 // ── CODE ARCHITECT (2000 pts) — Grandmaster Blue ──────────────────────────
 const CodeArchitect = ({ locked, accent = '#60a5fa' }) => (
     <>
+        <img src="/achievements/achievement_poster_code_architect_2000_points_final.webp" alt=""
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: locked ? 0.2 : 0.8, mixBlendMode: 'screen' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #131313 5%, transparent 40%, #131313dd)' }} />
         <GDS opacity={locked ? 0.01 : 0.04} />
         <div style={{ position: 'absolute', inset: 16, border: `1px solid ${accent}18`, borderRadius: 6, pointerEvents: 'none' }} />
         <div style={{ ...STYLES.glass, padding: '5px 22px', borderRadius: 32, marginTop: 22, display: 'inline-flex', border: `1px solid ${locked ? STYLES.border : accent}33`, borderTopWidth: 2, borderTopColor: accent }}>
@@ -211,6 +226,9 @@ const CodeArchitect = ({ locked, accent = '#60a5fa' }) => (
 // ── CODING LEGEND (5000 pts) — Legend Red ─────────────────────────────────
 const CodingLegend = ({ locked, accent = '#ff6b6b' }) => (
     <>
+        <img src="/achievements/achievement_poster_coding_legend_5000_points_final.webp" alt=""
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: locked ? 0.2 : 0.8, mixBlendMode: 'screen' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #131313, transparent 30%, #131313cc)' }} />
         <GDS opacity={locked ? 0.01 : 0.03} />
         <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at 50% 40%, ${accent}08, transparent 60%)`, pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: 12, left: 12, width: 10, height: 10, borderTop: `1px solid ${accent}`, borderLeft: `1px solid ${accent}`, opacity: 0.5 }} />
@@ -263,7 +281,7 @@ export default function AchievementPoster({ tier, unlocked }) {
 
     return (
         <div style={{
-            aspectRatio: '4/5', width: '100%', maxWidth: 360, position: 'relative',
+            aspectRatio: '4/5', width: '100%', maxWidth: 440, position: 'relative',
             overflow: 'hidden', backgroundColor: STYLES.bg,
             border: `1px solid ${STYLES.border}`,
             boxShadow: locked ? 'none' : `0 0 30px ${accent}18`,
