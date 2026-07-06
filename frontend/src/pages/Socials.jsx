@@ -3,7 +3,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import AuthService from '../services/auth.service';
 import useResponsive from '../hooks/useResponsive';
-import AchievementCard, { TIERS } from '../components/AchievementCard';
+import AchievementPoster from '../components/AchievementPoster';
+
+// Tier list
+const TIERS = [
+    { name: 'Hello World',    min: 50,   accent: '#f1bc8b' },
+    { name: 'Bug Hunter',     min: 100,  accent: '#4ade80' },
+    { name: 'Problem Solver', min: 500,  accent: '#e9c176' },
+    { name: 'Algorithm Ace',  min: 1000, accent: '#facc15' },
+    { name: 'Code Architect', min: 2000, accent: '#60a5fa' },
+    { name: 'Coding Legend',  min: 5000, accent: '#ff6b6b' },
+];
 
 const C = {
     bg: '#131313', surfaceCon: '#201f1f', surfaceLow: '#1c1b1b', surfaceHi: '#2a2a2a',
@@ -310,7 +320,7 @@ export default function Socials() {
                         {TIERS.map(t => {
                             const userPoints = stats?.totalPoints ?? profile?.totalPoints ?? 0;
                             const unlocked = userPoints >= t.min;
-                            return <AchievementCard key={t.name} tier={t} unlocked={unlocked} />;
+                            return <AchievementPoster key={t.name} tier={t} unlocked={unlocked} />;
                         })}
                     </div>
                 </motion.div>
