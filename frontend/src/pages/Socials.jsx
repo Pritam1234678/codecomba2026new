@@ -180,6 +180,9 @@ export default function Socials() {
 
     return (
         <div ref={containerRef} style={{ minHeight: '100vh', backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", position: 'relative', overflow: 'hidden' }}>
+            {/* Background watermark logo */}
+            <img src="/logo-watermark.png" alt=""
+                style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: '60%', maxWidth: '700px', opacity: 0.03, pointerEvents: 'none', zIndex: 0, filter: 'grayscale(1)' }} />
             <GridCanvas opacity={0.03} spacing={32} />
 
             {/* ──────────────────────────────────────────────────────────────────
@@ -401,6 +404,11 @@ export default function Socials() {
                         return <div key={t.name} style={span}><AchievementPoster tier={t} unlocked={unlocked} /></div>;
                     })}
                 </div>
+            </div>
+
+            {/* Footer branding */}
+            <div style={{ padding: isMobile ? '32px 20px' : '48px 64px', display: 'flex', justifyContent: 'flex-end', borderTop: `1px solid ${C.border}22` }}>
+                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 600, fontStyle: 'italic', color: C.onBg, opacity: 0.15, letterSpacing: '0.04em' }}>CodeCoder</span>
             </div>
 
             {/* ── Toast ── */}
