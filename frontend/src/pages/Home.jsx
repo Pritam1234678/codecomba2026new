@@ -344,7 +344,7 @@ const Home = () => {
 
                 {/* Stats marquee — bottom, full width — Optimus style */}
                 <div style={{
-                    position: 'absolute', bottom: '5rem', left: 0, right: 0, zIndex: 10,
+                    position: 'absolute', bottom: '0', left: 0, right: 0, zIndex: 10,
                     opacity: heroVis ? 1 : 0, transition: 'opacity 0.8s ease 0.5s',
                     overflow: 'hidden', width: '100vw',
                 }}>
