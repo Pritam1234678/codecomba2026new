@@ -3,9 +3,11 @@ package com.example.codecombat2026.controller;
 import com.example.codecombat2026.entity.Submission;
 import com.example.codecombat2026.entity.User;
 import com.example.codecombat2026.entity.UserPhoto;
+import com.example.codecombat2026.entity.UserProblemSolved;
 import com.example.codecombat2026.repository.ContestRegistrationRepository;
 import com.example.codecombat2026.repository.SubmissionRepository;
 import com.example.codecombat2026.repository.UserPhotoRepository;
+import com.example.codecombat2026.repository.UserProblemSolvedRepository;
 import com.example.codecombat2026.repository.UserRepository;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,6 +44,7 @@ public class UserController {
     @Autowired private UserPhotoRepository userPhotoRepository;
     @Autowired private SubmissionRepository submissionRepository;
     @Autowired private ContestRegistrationRepository contestRegistrationRepository;
+    @Autowired private UserProblemSolvedRepository userProblemSolvedRepository;
     @Autowired private StringRedisTemplate redis;
     @Autowired private ObjectMapper objectMapper;
 
@@ -336,17 +339,29 @@ public class UserController {
                 () -> submissionRepository.findByUser_Id(user.getId()));
         CompletableFuture<Long> contestRegFuture = CompletableFuture.supplyAsync(
                 () -> contestRegistrationRepository.countByUserId(user.getId()));
+        CompletableFuture<Long> practiceCountFuture = CompletableFuture.supplyAsync(
+                () -> userProblemSolvedRepository.countByUserId(user.getId()));
+        CompletableFuture<List<UserProblemSolved>> practiceListFuture = CompletableFuture.supplyAsync(
+                () -> userProblemSolvedRepository.findByUserId(user.getId()));
 
         List<Submission> subs = subsFuture.join();
         long contestsJoined = contestRegFuture.join();
+        long practiceSolved = practiceCountFuture.join();
+        int practicePointsEarned = practiceListFuture.join().stream()
+                .mapToInt(ups -> ups.getPointsEarned() != null ? ups.getPointsEarned() : 0).sum();
 
-        long totalSubmissions = subs.size();
-        long acceptedSubmissions = subs.stream().filter(s -> "AC".equals(s.getStatus() != null ? s.getStatus().name() : "")).count();
-        long problemsSolved = subs.stream().filter(s -> "AC".equals(s.getStatus() != null ? s.getStatus().name() : ""))
+        // Contest submissions (contest_id IS NOT NULL)
+        List<Submission> contestSubs = subs.stream()
+                .filter(s -> s.getContest() != null).toList();
+        long contestTotalSubmissions = contestSubs.size();
+        long contestAcceptedSubmissions = contestSubs.stream()
+                .filter(s -> "AC".equals(s.getStatus() != null ? s.getStatus().name() : "")).count();
+        long contestProblemsSolved = contestSubs.stream()
+                .filter(s -> "AC".equals(s.getStatus() != null ? s.getStatus().name() : ""))
                 .map(s -> s.getProblem() != null ? s.getProblem().getId() : null)
-                .filter(id -> id != null)
-                .distinct().count();
-        double successRate = totalSubmissions > 0 ? (acceptedSubmissions * 100.0 / totalSubmissions) : 0;
+                .filter(id -> id != null).distinct().count();
+        double contestSuccessRate = contestTotalSubmissions > 0
+                ? (contestAcceptedSubmissions * 100.0 / contestTotalSubmissions) : 0;
 
         Map<String, Object> response = new HashMap<>();
         response.put("id", user.getId());
@@ -354,11 +369,20 @@ public class UserController {
         response.put("fullName", user.getFullName());
         response.put("photoUrl", photoUrl);
         response.put("totalPoints", user.getTotalPoints());
-        response.put("totalSubmissions", totalSubmissions);
-        response.put("acceptedSubmissions", acceptedSubmissions);
-        response.put("problemsSolved", problemsSolved);
-        response.put("successRate", Math.round(successRate * 10.0) / 10.0);
+        // Contest stats
+        response.put("contestTotalSubmissions", contestTotalSubmissions);
+        response.put("contestAcceptedSubmissions", contestAcceptedSubmissions);
+        response.put("contestProblemsSolved", contestProblemsSolved);
+        response.put("contestSuccessRate", Math.round(contestSuccessRate * 10.0) / 10.0);
         response.put("contestsJoined", contestsJoined);
+        // Practice stats
+        response.put("practiceProblemsSolved", practiceSolved);
+        response.put("practicePointsEarned", practicePointsEarned);
+        // Legacy flat keys (backwards compat)
+        response.put("totalSubmissions", contestTotalSubmissions);
+        response.put("acceptedSubmissions", contestAcceptedSubmissions);
+        response.put("problemsSolved", contestProblemsSolved);
+        response.put("successRate", Math.round(contestSuccessRate * 10.0) / 10.0);
         // Social + extended fields
         response.put("bio", user.getBio());
         response.put("title", user.getTitle());

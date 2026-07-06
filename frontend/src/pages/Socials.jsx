@@ -293,12 +293,25 @@ export default function Socials() {
                 {/* ── Stats ── */}
                 <div>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '16px' }}>Performance Metrics</span>
+                {/* ── Contest Stats ── */}
+                <div style={{ marginBottom: '2rem' }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '14px' }}>Contest Performance</span>
                     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : 5}, 1fr)`, gap: '14px' }}>
-                        <StatCard label="Solved"    value={stats?.problemsSolved ?? 0} accent={C.success} icon="check_circle" />
-                        <StatCard label="Submissions" value={stats?.totalSubmissions ?? 0} accent={C.secondary} icon="send" />
-                        <StatCard label="Accept Rate" value={stats?.successRate != null ? `${stats.successRate}%` : '0%'} accent={C.primary} icon="trending_up" />
+                        <StatCard label="Solved"    value={stats?.contestProblemsSolved ?? stats?.problemsSolved ?? 0} accent={C.success} icon="check_circle" />
+                        <StatCard label="Submissions" value={stats?.contestTotalSubmissions ?? stats?.totalSubmissions ?? 0} accent={C.secondary} icon="send" />
+                        <StatCard label="Accept Rate" value={stats?.contestSuccessRate != null ? `${stats.contestSuccessRate}%` : (stats?.successRate != null ? `${stats.successRate}%` : '0%')} accent={C.primary} icon="trending_up" />
                         <StatCard label="Contests"  value={stats?.contestsJoined ?? 0} accent={C.warning} icon="emoji_events" />
-                        <StatCard label="Points"    value={stats?.totalPoints ?? profile?.totalPoints ?? 0} accent="#ff8c00" icon="stars" />
+                        <StatCard label="Total Points" value={stats?.totalPoints ?? profile?.totalPoints ?? 0} accent="#ff8c00" icon="stars" />
+                    </div>
+                </div>
+
+                {/* ── Practice Stats ── */}
+                <div style={{ marginBottom: '2rem' }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '14px' }}>Practice Progress</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : 3}, 1fr)`, gap: '14px' }}>
+                        <StatCard label="Problems Solved" value={stats?.practiceProblemsSolved ?? 0} accent="#4ade80" icon="fitness_center" />
+                        <StatCard label="Points Earned"   value={stats?.practicePointsEarned ?? 0} accent="#facc15" icon="workspace_premium" />
+                        <StatCard label="Total Points"    value={stats?.totalPoints ?? profile?.totalPoints ?? 0} accent="#60a5fa" icon="stars" />
                     </div>
                 </div>
 
