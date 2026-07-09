@@ -349,12 +349,14 @@ public class SandboxRunner {
         /** Compilation: bigger memory budget, longer CPU, more procs (compilers fork). */
         public static SandboxLimits forCompile() {
             return new SandboxLimits(
-                // RLIMIT_AS (virtual memory). The JVM (javac) needs >4 GB of
-                // virtual address space to start — on a 10 GB host the default
-                // max heap alone is ~2.5 GB plus metaspace/code cache pushes it
-                // past 4 GB, so the old 4096 MB floor made javac fail with
-                // "Could not reserve enough space for object heap" (exit 1,
-                // no output) inside bwrap. 8 GB is safe headroom.
+                // RLIMIT_AS limits VIRTUAL address space, NOT resident RAM.
+                // javac's measured peak virtual reservation on this host is
+                // ~5.4 GB (MaxHeapSize 2.66 GB + CompressedClassSpaceSize 1 GB
+                // + ReservedCodeCacheSize 240 MB + metaspace + thread stacks)
+                // while its RSS stays ~120 MB. The old 4096 MB floor was below
+                // that, so javac died with "Could not reserve enough space for
+                // object heap" (exit 1, no output) inside bwrap. 8 GB virtual
+                // headroom.
                 /* mem */     8192,
                 /* cpu */     60,
                 /* procs */   256,
