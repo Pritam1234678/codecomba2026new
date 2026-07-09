@@ -444,10 +444,16 @@ function ContestCard({ contest, navigate }) {
         ? `Starts ${timeAgo(contest.startTime).replace(' ago', '')}`
         : 'Ended';
 
-    const durationMs = end - start;
-    const durationH  = Math.floor(durationMs / 3600000);
-    const durationM  = Math.floor((durationMs % 3600000) / 60000);
-    const durationStr = durationH > 0 ? `${durationH}h ${durationM > 0 ? durationM + 'm' : ''}` : `${durationM}m`;
+    // Remaining time until start (upcoming) or until end (live)
+    const remainingMs = Math.max(0, isLive ? end - now : start - now);
+    const remainingDays = Math.floor(remainingMs / 86400000);
+    const remainingH  = Math.floor((remainingMs % 86400000) / 3600000);
+    const remainingM  = Math.floor((remainingMs % 3600000) / 60000);
+    const remainingStr = remainingDays > 0
+        ? `${remainingDays}d ${remainingH}h ${remainingM}m`
+        : remainingH > 0
+        ? `${remainingH}h ${remainingM}m`
+        : `${remainingM}m`;
 
     return (
         <div
@@ -471,7 +477,7 @@ function ContestCard({ contest, navigate }) {
                 </span>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.secondary, display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>timer</span>
-                    {durationStr}
+                    {isLive ? `${remainingStr} left` : `Starts in ${remainingStr}`}
                 </span>
             </div>
             <h4 style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', fontWeight: 600, color: C.onBg, lineHeight: 1.3, margin: 0 }}>
