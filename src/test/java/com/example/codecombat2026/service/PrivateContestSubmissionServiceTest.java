@@ -82,6 +82,9 @@ class PrivateContestSubmissionServiceTest {
     @Mock
     private ObjectMapper objectMapper;
 
+    @Mock
+    private com.example.codecombat2026.config.PrivateContestMetricsConfig metricsConfig;
+
     @InjectMocks
     private PrivateContestSubmissionService submissionService;
 

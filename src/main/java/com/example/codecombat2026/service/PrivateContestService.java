@@ -10,7 +10,11 @@ import com.example.codecombat2026.exception.ForbiddenException;
 import com.example.codecombat2026.exception.ResourceNotFoundException;
 import com.example.codecombat2026.proctoring.entity.ProctoredContest;
 import com.example.codecombat2026.proctoring.repository.ProctoredContestRepository;
+import com.example.codecombat2026.entity.PrivateContestParticipant;
+import com.example.codecombat2026.entity.ContestProblem;
+import com.example.codecombat2026.repository.ContestProblemRepository;
 import com.example.codecombat2026.repository.ContestRepository;
+import com.example.codecombat2026.repository.PrivateContestParticipantRepository;
 import com.example.codecombat2026.repository.PrivateContestRepository;
 import com.example.codecombat2026.repository.UserRepository;
 import org.slf4j.Logger;
@@ -55,6 +59,9 @@ public class PrivateContestService {
     private PrivateContestRepository privateContestRepository;
 
     @Autowired
+    private PrivateContestParticipantRepository participantRepository;
+
+    @Autowired
     private ContestRepository contestRepository;
 
     @Autowired
@@ -73,10 +80,16 @@ public class PrivateContestService {
     private EmailService emailService;
 
     @Autowired
+    private PrivateContestEmailService privateContestEmailService;
+
+    @Autowired
     private PrivateContestCacheService cacheService;
 
     @Autowired
     private ProctoredContestRepository proctoredContestRepository;
+
+    @Autowired
+    private ContestProblemRepository contestProblemRepository;
 
     @Autowired
     private com.example.codecombat2026.config.PrivateContestMetricsConfig metricsConfig;
@@ -427,6 +440,125 @@ public class PrivateContestService {
         return convertToDTO(privateContest, null);
     }
 
+    /**
+     * Clone an ended private contest to reuse its problem set and settings.
+     * 
+     * Validates that:
+     * - The requesting user is the host of the source contest
+     * - The source contest status is ENDED
+     * 
+     * Creates:
+     * - A new Contest entity with the same name (appended with " (Copy)"),
+     *   description and proctoring settings, status UPCOMING, and
+     *   start/end times left unset for the host to configure
+     * - A new PrivateContest wrapper entity owned by the same host
+     * - A new ProctoredContest entity if the source contest had proctoring enabled
+     * - New ContestProblem junction rows mirroring the source contest's problem list
+     *   (same displayOrder, fresh addedAt)
+     * - A new invite token for the cloned contest
+     * 
+     * Does NOT copy participants, submissions, or leaderboard data.
+     * 
+     * Note: the cloned contest counts toward the host's monthly quota, but since
+     * cloning itself does not set start/end times yet, quota/duration/overlap
+     * validation is deferred to when the host saves the new times via
+     * {@link #updateContestDetails(Long, PrivateContestDTO, Long)}.
+     * 
+     * @param contestId The ID of the source contest to clone
+     * @param hostUserId The ID of the user requesting the clone
+     * @return PrivateContestDTO for the newly created (cloned) contest
+     * @throws ResourceNotFoundException if the source contest doesn't exist
+     * @throws ForbiddenException if the requesting user is not the host of the source contest
+     * @throws ConflictException if the source contest status is not ENDED
+     * 
+     * Requirements: 33.1, 33.2, 33.3, 33.4, 33.5, 33.6
+     */
+    @Transactional
+    public PrivateContestDTO cloneContest(Long contestId, Long hostUserId) {
+        log.info("Cloning private contest {} by host user {}", contestId, hostUserId);
+
+        // Find the source private contest
+        PrivateContest sourcePrivateContest = privateContestRepository.findByContestId(contestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Private contest not found"));
+
+        // Verify user is the host of the source contest
+        if (!sourcePrivateContest.getHostUser().getId().equals(hostUserId)) {
+            throw new ForbiddenException("Only the contest host can clone this contest");
+        }
+
+        // Verify source contest has ended
+        Contest sourceContest = sourcePrivateContest.getContest();
+        if (sourceContest.getStatus() != Contest.ContestStatus.ENDED) {
+            throw new ConflictException("Only ended contests can be cloned");
+        }
+
+        // Create new Contest entity - status UPCOMING, start/end times unset
+        // (host must set new times before saving, per Requirement 33.5)
+        Contest newContest = new Contest();
+        newContest.setName(sourceContest.getName() + " (Copy)");
+        newContest.setDescription(sourceContest.getDescription());
+        newContest.setStartTime(null);
+        newContest.setEndTime(null);
+        newContest.setStatus(Contest.ContestStatus.UPCOMING);
+        newContest.setActive(false);
+
+        newContest = contestRepository.save(newContest);
+        log.info("Created cloned base contest with ID {} from source contest {}", newContest.getId(), contestId);
+
+        // Create new PrivateContest wrapper entity, owned by the same host
+        PrivateContest newPrivateContest = new PrivateContest();
+        newPrivateContest.setContest(newContest);
+        newPrivateContest.setHostUser(sourcePrivateContest.getHostUser());
+        newPrivateContest.setEnableProctoring(sourcePrivateContest.getEnableProctoring());
+        newPrivateContest.setCancelled(false);
+
+        newPrivateContest = privateContestRepository.save(newPrivateContest);
+        log.info("Created cloned private contest with ID {} for contest ID {}",
+                newPrivateContest.getId(), newContest.getId());
+
+        // Copy proctoring settings if the source contest had proctoring enabled
+        if (Boolean.TRUE.equals(newPrivateContest.getEnableProctoring())) {
+            ProctoredContest proctoredContest = new ProctoredContest();
+            proctoredContest.setContestId(newContest.getId());
+            proctoredContest.setCreatedAt(LocalDateTime.now());
+            proctoredContest.setConsentVersion(1);
+
+            proctoredContestRepository.save(proctoredContest);
+            log.info("Created ProctoredContest for cloned contest {}", newContest.getId());
+        }
+
+        // Copy problem attachments via the contest_problems junction table
+        List<ContestProblem> sourceProblems = contestProblemRepository
+                .findByContestIdOrderByDisplayOrderAscAddedAtAsc(contestId);
+
+        for (ContestProblem sourceProblem : sourceProblems) {
+            ContestProblem clonedProblem = new ContestProblem();
+            clonedProblem.setContestId(newContest.getId());
+            clonedProblem.setProblemId(sourceProblem.getProblemId());
+            clonedProblem.setDisplayOrder(sourceProblem.getDisplayOrder());
+            contestProblemRepository.save(clonedProblem);
+        }
+        log.info("Copied {} problem attachment(s) from contest {} to cloned contest {}",
+                sourceProblems.size(), contestId, newContest.getId());
+
+        // Generate a new invite token for the cloned contest
+        LocalDateTime tokenExpiry = LocalDateTime.now().plusDays(30);
+        PrivateContestInvitation invitation = inviteTokenService.createInvitation(newContest, tokenExpiry);
+        log.info("Generated invite token for cloned contest {}", newContest.getId());
+
+        // Note: participants, submissions, and leaderboard are intentionally NOT copied
+
+        PrivateContestDTO resultDTO = convertToDTO(newPrivateContest, invitation);
+
+        // Cache the newly created cloned contest metadata
+        cacheService.cacheContestMetadata(newContest.getId(), resultDTO);
+
+        // Cloned contests count toward the host's monthly quota, same as regular creation
+        metricsConfig.incrementContestsCreated();
+
+        return resultDTO;
+    }
+
     // ─── Private Helper Methods ───────────────────────────────────────────────
 
     /**
@@ -467,22 +599,30 @@ public class PrivateContestService {
      * Requirements: 18.3
      */
     private void sendContestCancelledEmail(PrivateContest privateContest) {
-        // TODO: Implement when email template is available
-        log.info("Contest cancellation emails would be sent for contest {}", 
-                privateContest.getContest().getId());
-        
-        // Placeholder for future implementation:
-        // List<PrivateContestParticipant> participants = 
-        //     participantRepository.findByContestId(privateContest.getContest().getId());
-        // 
-        // for (PrivateContestParticipant participant : participants) {
-        //     emailService.sendPrivateContestCancelled(
-        //         participant.getUser().getEmail(),
-        //         participant.getUser().getFullName(),
-        //         privateContest.getContest().getName(),
-        //         privateContest.getCancellationReason()
-        //     );
-        // }
+        Long contestId = privateContest.getContest().getId();
+
+        List<PrivateContestParticipant> participants = participantRepository.findByContestId(contestId);
+        if (participants.isEmpty()) {
+            log.info("No participants to notify for cancelled contest {}", contestId);
+            return;
+        }
+
+        List<User> participantUsers = participants.stream()
+                .map(PrivateContestParticipant::getUser)
+                .toList();
+
+        User host = privateContest.getHostUser();
+        String hostName = host.getFullName() != null ? host.getFullName() : host.getUsername();
+
+        privateContestEmailService.sendContestCancelledEmail(
+                participantUsers,
+                contestId,
+                privateContest.getContest().getName(),
+                hostName,
+                privateContest.getCancellationReason()
+        );
+        log.info("Queued contest cancellation emails for {} participants of contest {}",
+                participantUsers.size(), contestId);
     }
 
     /**

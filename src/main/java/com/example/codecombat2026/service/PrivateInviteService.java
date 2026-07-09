@@ -5,9 +5,11 @@ import com.example.codecombat2026.entity.PrivateContest;
 import com.example.codecombat2026.entity.PrivateContestInvitation;
 import com.example.codecombat2026.entity.PrivateContestParticipant;
 import com.example.codecombat2026.entity.User;
+import com.example.codecombat2026.exception.BadRequestException;
 import com.example.codecombat2026.exception.ConflictException;
 import com.example.codecombat2026.exception.ForbiddenException;
 import com.example.codecombat2026.exception.ResourceNotFoundException;
+import com.example.codecombat2026.repository.PrivateContestInvitationRepository;
 import com.example.codecombat2026.repository.PrivateContestParticipantRepository;
 import com.example.codecombat2026.repository.PrivateContestRepository;
 import com.example.codecombat2026.repository.UserRepository;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -40,6 +43,8 @@ public class PrivateInviteService {
 
     private static final Logger log = LoggerFactory.getLogger(PrivateInviteService.class);
 
+    private static final Duration DEFAULT_TOKEN_VALIDITY = Duration.ofDays(30);
+
     @Autowired
     private InviteTokenService inviteTokenService;
 
@@ -51,6 +56,9 @@ public class PrivateInviteService {
 
     @Autowired
     private PrivateContestRepository privateContestRepository;
+
+    @Autowired
+    private PrivateContestInvitationRepository invitationRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -258,5 +266,120 @@ public class PrivateInviteService {
         participantRepository.delete(participantOpt.get());
         
         log.info("Successfully removed participant {} from contest {}", userId, contestId);
+    }
+
+    /**
+     * Regenerate the invite token for a private contest.
+     * 
+     * Marks the currently active invite token (if any) as invalidated and
+     * generates a brand new token with a fresh expiry of 30 days from now.
+     * Only the contest host is permitted to regenerate the invite token.
+     * 
+     * @param contestId The ID of the contest
+     * @param hostUserId The ID of the user requesting the regeneration (must be the host)
+     * @return The newly created PrivateContestInvitation
+     * @throws ResourceNotFoundException if the private contest is not found
+     * @throws ForbiddenException if the requesting user is not the contest host
+     * 
+     * Requirements: 5.2, 5.3
+     */
+    @Transactional
+    public PrivateContestInvitation regenerateInviteToken(Long contestId, Long hostUserId) {
+        log.info("Host {} regenerating invite token for contest {}", hostUserId, contestId);
+
+        PrivateContest privateContest = getHostOwnedPrivateContest(contestId, hostUserId);
+        Contest contest = privateContest.getContest();
+
+        LocalDateTime newExpiry = LocalDateTime.now().plus(DEFAULT_TOKEN_VALIDITY);
+
+        Optional<PrivateContestInvitation> currentInvitation =
+                invitationRepository.findFirstByContestIdAndInvalidatedFalseOrderByCreatedAtDesc(contestId);
+
+        PrivateContestInvitation newInvitation;
+        if (currentInvitation.isPresent()) {
+            // Invalidates the old token and creates a new one with a fresh expiry
+            newInvitation = inviteTokenService.regenerateToken(
+                    currentInvitation.get().getToken(), contest, newExpiry);
+        } else {
+            // No active token exists yet, simply create a new one
+            newInvitation = inviteTokenService.createInvitation(contest, newExpiry);
+        }
+
+        log.info("Regenerated invite token for contest {} with new expiry {}", contestId, newExpiry);
+        return newInvitation;
+    }
+
+    /**
+     * Update the expiry timestamp of the active invite token for a private contest.
+     * 
+     * The new expiry must be no earlier than the current time and no later than
+     * the contest's end time. Only the contest host is permitted to update the
+     * token expiry.
+     * 
+     * @param contestId The ID of the contest
+     * @param hostUserId The ID of the user requesting the update (must be the host)
+     * @param expiresAt The desired new expiry timestamp
+     * @return The updated (or newly created, if none existed) PrivateContestInvitation
+     * @throws ResourceNotFoundException if the private contest is not found
+     * @throws ForbiddenException if the requesting user is not the contest host
+     * @throws BadRequestException if expiresAt is missing or out of the valid range
+     * 
+     * Requirements: 5.4
+     */
+    @Transactional
+    public PrivateContestInvitation updateTokenExpiry(Long contestId, Long hostUserId, LocalDateTime expiresAt) {
+        log.info("Host {} updating invite token expiry for contest {}", hostUserId, contestId);
+
+        PrivateContest privateContest = getHostOwnedPrivateContest(contestId, hostUserId);
+        Contest contest = privateContest.getContest();
+
+        if (expiresAt == null) {
+            throw new BadRequestException("Expiry time is required");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (expiresAt.isBefore(now)) {
+            throw new BadRequestException("Expiry time must be in the future");
+        }
+
+        LocalDateTime contestEndTime = contest.getEndTime();
+        if (contestEndTime != null && expiresAt.isAfter(contestEndTime)) {
+            throw new BadRequestException("Expiry time cannot be after contest end time");
+        }
+
+        Optional<PrivateContestInvitation> currentInvitation =
+                invitationRepository.findFirstByContestIdAndInvalidatedFalseOrderByCreatedAtDesc(contestId);
+
+        PrivateContestInvitation updatedInvitation;
+        if (currentInvitation.isPresent()) {
+            updatedInvitation = inviteTokenService.updateExpiry(currentInvitation.get().getToken(), expiresAt);
+        } else {
+            // No active token exists yet, create one with the requested expiry
+            updatedInvitation = inviteTokenService.createInvitation(contest, expiresAt);
+        }
+
+        log.info("Updated invite token expiry to {} for contest {}", expiresAt, contestId);
+        return updatedInvitation;
+    }
+
+    /**
+     * Look up the PrivateContest for a given contest ID and verify that the
+     * requesting user is the contest host.
+     * 
+     * @param contestId The ID of the contest
+     * @param hostUserId The ID of the user to verify as host
+     * @return The PrivateContest entity if verification succeeds
+     * @throws ResourceNotFoundException if the private contest is not found
+     * @throws ForbiddenException if the requesting user is not the contest host
+     */
+    private PrivateContest getHostOwnedPrivateContest(Long contestId, Long hostUserId) {
+        PrivateContest privateContest = privateContestRepository.findByContestId(contestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Private contest not found"));
+
+        if (!privateContest.getHostUser().getId().equals(hostUserId)) {
+            throw new ForbiddenException("Only the contest host can perform this action");
+        }
+
+        return privateContest;
     }
 }

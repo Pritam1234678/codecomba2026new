@@ -24,4 +24,7 @@ public interface ContestProblemRepository extends JpaRepository<ContestProblem, 
     int deleteByContestIdAndProblemId(@Param("cid") Long cid, @Param("pid") Long pid);
 
     long countByContestId(Long contestId);
+
+    @Query("SELECT COALESCE(MAX(cp.displayOrder), 0) FROM ContestProblem cp WHERE cp.contestId = :contestId")
+    Integer findMaxDisplayOrderByContestId(@Param("contestId") Long contestId);
 }

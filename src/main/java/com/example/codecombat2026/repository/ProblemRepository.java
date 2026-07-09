@@ -1,6 +1,8 @@
 package com.example.codecombat2026.repository;
 
 import com.example.codecombat2026.entity.Problem;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -49,5 +51,30 @@ public interface ProblemRepository extends JpaRepository<Problem, Long> {
         @Param("contestId") Long contestId,
         @Param("search")    String search,
         @Param("level")     String level
+    );
+
+    /**
+     * Paginated browse query for the Private Contest "Add Problems" picker
+     * (Requirements 8.1, 8.2, 30.2, 30.3).
+     *
+     * Only returns problems with {@code visibility} of {@code PUBLIC} or
+     * {@code PRIVATE_AVAILABLE} — {@code ADMIN_ONLY} and {@code PRIVATE_OWNED}
+     * problems are intentionally excluded from this general browse endpoint.
+     *
+     * {@code difficulty} and {@code search} are optional filters; passing
+     * {@code null} skips that filter.
+     */
+    @Query("""
+        SELECT p FROM Problem p
+        WHERE p.visibility IN ('PUBLIC', 'PRIVATE_AVAILABLE')
+        AND p.active = true
+        AND (:difficulty IS NULL OR p.level = :difficulty)
+        AND (:search IS NULL OR LOWER(p.title) LIKE LOWER(CONCAT('%', :search, '%')))
+        ORDER BY p.id DESC
+        """)
+    Page<Problem> browseByVisibility(
+        @Param("difficulty") String difficulty,
+        @Param("search") String search,
+        Pageable pageable
     );
 }

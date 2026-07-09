@@ -47,4 +47,14 @@ public interface PrivateContestInvitationRepository extends JpaRepository<Privat
      * @return Count of deleted invitations
      */
     long deleteByExpiresAtBefore(LocalDateTime expirationTime);
+
+    /**
+     * Find the most recently created, non-invalidated invitation for a contest.
+     * Used to locate the currently active invite token for a private contest,
+     * e.g. when updating its expiry time.
+     * 
+     * @param contestId The ID of the Contest entity
+     * @return Optional containing the active PrivateContestInvitation if found
+     */
+    Optional<PrivateContestInvitation> findFirstByContestIdAndInvalidatedFalseOrderByCreatedAtDesc(Long contestId);
 }

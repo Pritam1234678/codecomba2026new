@@ -39,7 +39,10 @@
 - **Valkey 7** (Redis fork) — listens on `0.0.0.0`
   - Password protected (see `.env` REDIS_PASSWORD)
   - iptables: only `10.0.0.0/24` + `20.194.7.164` can connect on port 6379
-- **JUDGE_WORKERS=2** — contest submission workers (drain `submission:queue`)
+- **JUDGE_WORKERS=2** — contest submission workers
+  - `SUBMISSION_QUEUE_MODE=BOTH` (default) — drains both `submission:queue`
+    (public contests) and `private:submission:queue` (private contests),
+    fair round-robin between the two
 - **PRACTICE_WORKERS=2** — synchronous practice execution pool
 
 ### Key paths
@@ -58,6 +61,7 @@
 DB_HOST=localhost
 REDIS_HOST=localhost
 JUDGE_WORKERS=2
+SUBMISSION_QUEUE_MODE=BOTH
 PRACTICE_WORKERS=2
 WEB_CONTEST_WORKERS=1
 ```
@@ -72,7 +76,9 @@ WEB_CONTEST_WORKERS=1
 
 ### What runs here
 - **Spring Boot app** (`/opt/codecombat/app.war`) — same WAR as VM1
-- **JUDGE_WORKERS=6** — drains shared `submission:queue` from VM1's Valkey
+- **JUDGE_WORKERS=6** — drains shared queues from VM1's Valkey
+  - `SUBMISSION_QUEUE_MODE=BOTH` (default) — same fair round-robin as VM1,
+    covers both public and private contest submissions
   - Contest submissions: LMOVE (atomic claim) → sandbox execute → write verdict DB → SSE
   - Janitor: reclaims stuck jobs every 60s
 - **PRACTICE_WORKERS=4** — receives practice runs via nginx load-balance
@@ -92,30 +98,58 @@ WEB_CONTEST_WORKERS=1
 DB_HOST=10.0.0.221
 REDIS_HOST=10.0.0.221
 JUDGE_WORKERS=6
+SUBMISSION_QUEUE_MODE=BOTH
 PRACTICE_WORKERS=4
 WEB_CONTEST_WORKERS=2
 ```
 
 ---
 
-## VM3 — "Into the Web" Java Execution Engine
+## VM3 — "Into the Web" Java Engine + Private Contest Judge
 
 **Public IP:** `140.245.8.52`
 **Private IP:** `10.0.0.228`
 **SSH:** `ssh -i "ssh-key-2026-05-17(3).key" ubuntu@140.245.8.52`
 
+VM3 does **two independent jobs** on the same instance — they share nothing
+(different Valkey queues, different worker pools) so they never interfere
+with each other:
+
+1. **"Into the Web" Java execution engine** (original role — unchanged)
+2. **Dedicated private-contest code judge** (new — added for Private Contest
+   Hosting feature, see below)
+
 ### What runs here
-- **Spring Boot app** (`/opt/codecombat/app.war`)
+
+**Into the Web (Java problems):**
 - **WEB_CONTEST_WORKERS=8** — drains `web-contest:queue` (Java problems)
   - WebContestWorkerPool: LMOVE → copy template → inject code → mvn test → TC parse
   - Janitor: reclaims stuck jobs every 60s
-- **JUDGE_WORKERS=1** (minimum, for ThreadPool init)
-- **PRACTICE_WORKERS=1** (minimum, for ThreadPool init)
 - **code-server** (VS Code in browser) — spawned on-demand per user session
   - Ports: 9001–9050 (one port per active session)
   - WebIdeService manages spawn/kill/test
   - Java extensions installed: redhat.java, vscjava.vscode-java-debug, vscjava.vscode-java-test, vscjava.vscode-maven
 - **Maven .m2 cache** at `~/.m2/repository` (133MB, pre-warmed, offline mode)
+
+**Private contest judge (dedicated, isolated execution):**
+- **JUDGE_WORKERS=3**, **SUBMISSION_QUEUE_MODE=PRIVATE_ONLY** — this instance's
+  `SubmissionWorkerPool` drains **only** `private:submission:queue`. It never
+  touches the public `submission:queue`, so private-contest code execution
+  (used by `PrivateContestSubmissionService`) never competes with public
+  contest load on VM1/VM2, and vice versa.
+  - Same sandbox (bwrap + prlimit), same DockerJudgeService, same leaderboard
+    logic as VM1/VM2 — only the queue selection differs.
+  - Leaderboard: writes to `private:leaderboard:{contestId}` (Valkey ZSET) via
+    `SubmissionWorkerPool.finalizeAndNotify()`, same as the public-contest path
+    but under the `private:` key prefix. Points are awarded once per
+    (user, problem, contest) via `private:points:awarded:*` idempotency keys.
+  - Janitor (`reclaimStuckJobs`, every 60s) reclaims stuck private jobs back
+    onto `private:submission:queue` — routing is keyed off
+    `job.privateContestId`, so it works correctly regardless of queue mode.
+  - **Fallback**: VM1 and VM2 stay in `BOTH` mode, so if VM3 is ever down,
+    private contest submissions still get judged (just alongside public load)
+    instead of stalling. VM3 is dedicated capacity, not a single point of failure.
+- **PRACTICE_WORKERS=1** (minimum, for ThreadPool init — practice mode isn't used here)
 
 ### Key paths
 - App WAR: `/opt/codecombat/app.war`
@@ -130,13 +164,27 @@ WEB_CONTEST_WORKERS=2
 ```
 DB_HOST=10.0.0.221
 REDIS_HOST=10.0.0.221
-JUDGE_WORKERS=1
+JUDGE_WORKERS=3
+SUBMISSION_QUEUE_MODE=PRIVATE_ONLY
 PRACTICE_WORKERS=1
 WEB_CONTEST_WORKERS=8
 WEB_IDE_WORKSPACE_BASE=/home/ubuntu/ide-workspaces
 WEB_IDE_CODE_SERVER=code-server
 WEB_IDE_PORT_MIN=9001
 WEB_IDE_PORT_MAX=9050
+```
+
+### Verifying private-only mode
+```bash
+ssh -i "ssh-key-2026-05-17(3).key" ubuntu@140.245.8.52 \
+  'sudo grep -E "JUDGE_WORKERS|SUBMISSION_QUEUE_MODE" /opt/codecombat/codecombat.env'
+# JUDGE_WORKERS=3
+# SUBMISSION_QUEUE_MODE=PRIVATE_ONLY
+```
+To confirm at runtime, check the startup log line on VM3 (requires `LOG_LEVEL_APP=INFO`
+or `DEBUG` temporarily, default is WARN):
+```
+✅ Started 3 judge workers (instance=..., mode=PRIVATE_ONLY, queues=[private:submission:queue]) — ~30 jobs/min max
 ```
 
 ---
@@ -221,9 +269,10 @@ WEB_CONTEST_WORKERS=2
    ┌──────▼──────┐ ┌──────▼──────┐ ┌──────▼──────┐
    │    VM2      │ │    VM3      │ │    VM4      │
    │10.0.0.34    │ │10.0.0.228   │ │10.0.0.187   │
-   │Judge workers│ │Java IDE     │ │Node IDE     │
-   │(6 contest,  │ │(8 workers + │ │(2 workers + │
-   │ 4 practice) │ │ code-server)│ │ code-server)│
+   │Judge workers│ │Java IDE +   │ │Node IDE     │
+   │(6 pub+priv, │ │private judge│ │(2 workers + │
+   │ 4 practice) │ │(8 web-cont +│ │ code-server)│
+   │             │ │ 3 priv-only)│ │             │
    └─────────────┘ └─────────────┘ └─────────────┘
                          │
                    (public internet)
@@ -242,8 +291,18 @@ WEB_CONTEST_WORKERS=2
 
 | Queue Key | Drained By | Purpose |
 |-----------|-----------|---------|
-| `submission:queue` | VM1 (2), VM2 (6) | Contest submissions + test runs |
+| `submission:queue` | VM1 (2, BOTH), VM2 (6, BOTH) | Public contest submissions + test runs |
+| `private:submission:queue` | VM1 (2, BOTH), VM2 (6, BOTH), **VM3 (3, PRIVATE_ONLY)** | Private contest submissions (Private Contest Hosting feature) |
 | `web-contest:queue` | VM2 (2), VM3 (8), VM4 (2), VM5 (2) | Into the Web run/submit |
+
+`SUBMISSION_QUEUE_MODE` controls which of the first two rows a given
+`SubmissionWorkerPool` instance drains (see `SubmissionWorkerPool.java`):
+- `BOTH` (VM1, VM2) — fair round-robin across both queues.
+- `PRIVATE_ONLY` (VM3) — drains only `private:submission:queue`, dedicating
+  VM3's CPU/sandbox slots to private contests so they never compete with
+  public contest load, and vice versa. VM3 is *additional* capacity — VM1/VM2
+  still service the private queue too, so a VM3 outage degrades to
+  "private and public share workers" rather than "private contests stop".
 
 ---
 
@@ -270,14 +329,22 @@ TLS cert: `/etc/letsencrypt/live/ide.codecoder.in/` (wildcard, auto-renew via Cl
 ./deploy_all.sh --vm2        # VM2 only
 ```
 
-### Deploy VM3 (Java IDE engine)
+### Deploy VM3 (Java IDE engine + private-contest judge)
 ```bash
 ssh -i "ssh-key-2026-05-17(3).key" ubuntu@140.245.8.52 \
   'cd ~/codecombat && git pull origin main && \
-   ./mvnw -q -DskipTests clean package && \
+   ./mvnw -q -Dmaven.test.skip=true clean package && \
    sudo cp target/*.war /opt/codecombat/app.war && \
    sudo systemctl restart codecombat'
 ```
+> Note: use `-Dmaven.test.skip=true` (not `-DskipTests`) — it skips test
+> *compilation* too, which matters if test sources are temporarily out of
+> sync with a service signature.
+>
+> `SUBMISSION_QUEUE_MODE=PRIVATE_ONLY` and `JUDGE_WORKERS=3` live in
+> `/opt/codecombat/codecombat.env` and are **not** touched by this deploy
+> command — they only need to be set once (see VM3 section above) and persist
+> across redeploys since the WAR is replaced but the env file is not.
 
 ### Deploy VM4 (Node IDE engine)
 ```bash
@@ -334,3 +401,82 @@ All VMs run: `sudo systemctl status codecombat`
 | `valkey` | VM1 | Valkey 7 cache + queue |
 | `postgresql` | VM1 | PostgreSQL 18 |
 | `nginx` | VM1 | Reverse proxy + TLS |
+
+---
+
+## Private Contest Hosting Feature
+
+Added on top of the existing public contest / practice / Into-the-Web
+infrastructure. No new VMs — reuses VM1's PostgreSQL and Valkey, and VM3 is
+repurposed to also run a dedicated private-contest judge (see VM3 section).
+
+### Data model (all on VM1's PostgreSQL, same DB as everything else)
+- `contest_hosting_requests` — admin-approved requests to become a host (V15)
+- `private_contests` — 1:1 extension of `contests` with host + proctoring flag (V15)
+- `private_contest_invitations` — per-contest invite tokens (V15)
+- `private_contest_participants` — who joined which private contest (V15)
+- `audit_logs` — compliance log for hosting/contest/participant lifecycle events (V17)
+
+Migrations V15–V17 are Flyway-managed like everything else — they run
+automatically on VM1's first boot after a deploy (VM1 owns the schema; VM2/VM3
+only validate against it, per the existing `deploy_all.sh` convention).
+
+### Submission flow (private contest)
+```
+Participant submits code
+        │
+        ▼
+PrivateContestSubmissionController.submitCode()
+        │  (rate limit + 5-submit cap checked here)
+        ▼
+PrivateContestSubmissionService.submitCode()
+        │  - validates participant + LIVE status + problem-in-contest
+        │  - creates Submission row (status=PENDING)
+        │  - builds SubmissionJob with privateContestId set
+        ▼
+LPUSH private:submission:queue   (Valkey, on VM1)
+        │
+        ├── VM1 workers (BOTH mode, shared with public queue)
+        ├── VM2 workers (BOTH mode, shared with public queue)
+        └── VM3 workers (PRIVATE_ONLY mode, dedicated)  ← primary consumer
+                │
+                ▼
+        SubmissionWorkerPool.processJob()
+                │  - DockerJudgeService.execute() under bwrap+prlimit sandbox
+                │  - writes verdict to `submissions` table
+                │  - finalizeAndNotify(): private:leaderboard:{contestId} ZSET update,
+                │    private:points:awarded:* idempotent point award, SSE verdict push
+                ▼
+        Participant sees verdict via SSE (/api/submissions/stream)
+        Leaderboard visible via GET /api/contests/private/{id}/leaderboard
+```
+
+### Key files
+- `SubmissionWorkerPool.java` — queue-mode-aware worker pool (`SUBMISSION_QUEUE_MODE`)
+- `PrivateContestSubmissionService.java` — validates + queues private submissions
+- `PrivateContestLeaderboardService.java` — reads `private:leaderboard:{contestId}` ZSET
+- `db/migration/V15__create_private_contest_tables.sql`
+- `db/migration/V17__create_audit_logs_table.sql`
+
+### Verifying the deploy end-to-end
+```bash
+# 1. Confirm migrations landed on VM1
+ssh -i oci_vm_key ubuntu@92.4.78.195 \
+  "PGPASSWORD=postgres psql -h localhost -U postgres -d codecombat -tAc \
+   \"SELECT version, success FROM flyway_schema_history WHERE version IN ('15','16','17');\""
+
+# 2. Confirm VM3 is in PRIVATE_ONLY mode
+ssh -i "ssh-key-2026-05-17(3).key" ubuntu@140.245.8.52 \
+  'sudo grep -E "JUDGE_WORKERS|SUBMISSION_QUEUE_MODE" /opt/codecombat/codecombat.env'
+
+# 3. Push a synthetic job onto the private queue and confirm it drains
+#    (submissionId won't exist in DB, so the worker will no-op gracefully —
+#    this only proves queue drain, not full end-to-end judging)
+ssh -i oci_vm_key ubuntu@92.4.78.195 '
+  PW=$(grep -E "^REDIS_PASSWORD=" ~/.env | cut -d= -f2)
+  redis-cli -a "$PW" --no-auth-warning LPUSH private:submission:queue \
+    "{\"submissionId\":1,\"userId\":1,\"problemId\":1,\"contestId\":1,\"code\":\"x\",\"language\":\"JAVA\",\"timeLimit\":5.0,\"memoryLimit\":256,\"testRun\":false,\"privateContestId\":1}"
+  sleep 3
+  redis-cli -a "$PW" --no-auth-warning LLEN private:submission:queue   # expect 0
+'
+```
