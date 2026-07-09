@@ -266,15 +266,26 @@ public class ProctoringScreenshotService {
                 .orElseThrow(() -> new ProctoringNotFoundException(
                         "Screenshot not found: " + screenshotId));
 
-        Path path = Paths.get(row.getStorageRef());
-        if (!Files.exists(path)) {
+        Path path = Paths.get(row.getStorageRef()).normalize();
+        // Defense-in-depth: prevent directory traversal. The storageRef is
+        // built from safe components during upload, but if the DB column is
+        // ever compromised a traversing path could read arbitrary files.
+        Path storageRoot = Paths.get(STORAGE_ROOT).toAbsolutePath().normalize();
+        Path resolved = storageRoot.resolveSibling(row.getStorageRef()).normalize();
+        if (!resolved.startsWith(storageRoot)) {
+            log.error("Proctoring: screenshot {} storageRef \"{}\" escapes STORAGE_ROOT",
+                    screenshotId, row.getStorageRef());
+            throw new ProctoringNotFoundException(
+                    "Screenshot not found: " + screenshotId);
+        }
+        if (!Files.exists(resolved)) {
             throw new ProctoringNotFoundException(
                     "Screenshot file purged: " + screenshotId);
         }
 
         byte[] data;
         try {
-            data = Files.readAllBytes(path);
+            data = Files.readAllBytes(resolved);
         } catch (IOException ex) {
             log.error("Failed to read proctoring screenshot {} from {}: {}",
                     screenshotId, row.getStorageRef(), ex.getMessage());

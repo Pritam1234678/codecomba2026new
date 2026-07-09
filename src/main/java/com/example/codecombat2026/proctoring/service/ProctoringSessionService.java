@@ -542,8 +542,9 @@ public class ProctoringSessionService {
      */
     private void seedSessionCounters(Long sessionId) {
         try {
-            redis.opsForValue().set(SESSION_KEY_PREFIX + sessionId + ":score", "0");
-            redis.opsForValue().set(SESSION_KEY_PREFIX + sessionId + ":band", RiskBand.LOW.name());
+            Duration ttl = Duration.ofHours(48); // safety net: auto-expire if cleanup missed
+            redis.opsForValue().set(SESSION_KEY_PREFIX + sessionId + ":score", "0", ttl);
+            redis.opsForValue().set(SESSION_KEY_PREFIX + sessionId + ":band", RiskBand.LOW.name(), ttl);
         } catch (Exception e) {
             log.warn("Failed to seed Valkey counters for proctoring session {}: {}",
                     sessionId, e.getMessage());

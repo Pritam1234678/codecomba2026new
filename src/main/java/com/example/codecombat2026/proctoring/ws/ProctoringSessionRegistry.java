@@ -13,6 +13,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -86,7 +87,7 @@ public class ProctoringSessionRegistry {
         }
 
         try {
-            redis.opsForValue().set(connectedKey(sessionId), "1");
+            redis.opsForValue().set(connectedKey(sessionId), "1", Duration.ofSeconds(90));
         } catch (Exception e) {
             // Best-effort projection; do not unbind on Valkey failure.
             log.warn("Failed to set Valkey connected flag for proctoring session {}: {}", sessionId, e.getMessage());

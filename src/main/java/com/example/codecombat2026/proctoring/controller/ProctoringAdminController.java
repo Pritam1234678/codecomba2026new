@@ -297,6 +297,26 @@ public class ProctoringAdminController {
             }
 
             long nowMs = System.currentTimeMillis();
+            // Batch-fetch lastEventAt from Redis (N → 1 round trip)
+            List<String> lastEventKeys = new ArrayList<>(dbRows.size());
+            for (ProctoringSession s : dbRows) {
+                lastEventKeys.add(SESSION_KEY_PREFIX + s.getId() + LAST_EVENT_KEY_SUFFIX);
+            }
+            Map<Long, Long> lastEventBySid = new HashMap<>();
+            if (!lastEventKeys.isEmpty()) {
+                try {
+                    List<String> vals = redis.opsForValue().multiGet(lastEventKeys);
+                    if (vals != null) {
+                        for (int i = 0; i < dbRows.size() && i < vals.size(); i++) {
+                            Long ms = parseLongOrNull(vals.get(i));
+                            if (ms != null) {
+                                lastEventBySid.put(dbRows.get(i).getId(), ms);
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+
             List<LiveSessionRow> rows = new ArrayList<>(dbRows.size());
             for (ProctoringSession dbRow : dbRows) {
                 boolean isFlagged = Boolean.TRUE.equals(dbRow.getFlagged());
@@ -306,16 +326,8 @@ public class ProctoringAdminController {
                 RiskBand riskBand = dbRow.getRiskBand() == null ? RiskBand.LOW : dbRow.getRiskBand();
                 String username = usernameByUserId.getOrDefault(dbRow.getUserId(), null);
 
-                // ended sessions: connected=false, lastEventAtMs from
-                // DB's ended_at (fallback to started_at).
                 boolean active = dbRow.getEndedAt() == null;
-                Long lastEventAtMs = null;
-                if (active) {
-                    try {
-                        String raw = redis.opsForValue().get(SESSION_KEY_PREFIX + dbRow.getId() + LAST_EVENT_KEY_SUFFIX);
-                        lastEventAtMs = parseLongOrNull(raw);
-                    } catch (Exception ignored) { /* stay null */ }
-                }
+                Long lastEventAtMs = active ? lastEventBySid.get(dbRow.getId()) : null;
 
                 rows.add(new LiveSessionRow(
                         dbRow.getId(), dbRow.getUserId(), username,
