@@ -23,27 +23,10 @@ public class LeaderboardController {
     @GetMapping("/contest/{contestId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<LeaderboardEntry>> getContestLeaderboard(@PathVariable Long contestId) {
-        if (leaderboardCache.exists(contestId)) {
-            List<LeaderboardEntry> cached = leaderboardCache.getTopN(contestId, 500);
-            if (!cached.isEmpty()) {
-                // Cache entries have no user data — enrich from DB batch
-                List<Long> userIds = cached.stream()
-                    .map(LeaderboardEntry::getUserId).collect(Collectors.toList());
-                Map<Long, LeaderboardEntry> userInfo = leaderboardService.batchUserInfo(userIds);
-                for (LeaderboardEntry e : cached) {
-                    LeaderboardEntry info = userInfo.get(e.getUserId());
-                    if (info != null) {
-                        if (e.getUserName() == null) e.setUserName(info.getUserName());
-                        if (e.getUserRoll() == null) e.setUserRoll(info.getUserRoll());
-                        if (e.getProblemsSolved() == null || e.getProblemsSolved() == 0)
-                            e.setProblemsSolved(info.getProblemsSolved());
-                        if (e.getPhotoUrl() == null) e.setPhotoUrl(info.getPhotoUrl());
-                    }
-                }
-                return ResponseEntity.ok(cached);
-            }
-        }
-
+        // Always read from DB — the service queries the submissions table and
+        // computes totalScore + problemsSolved correctly. The ZSET cache is
+        // only useful for real-time display; for the admin page, consistency
+        // matters more than a few ms of latency.
         List<LeaderboardEntry> fromDb = leaderboardService.getContestLeaderboard(contestId);
         if (!fromDb.isEmpty()) {
             leaderboardCache.seedFromDatabase(contestId, fromDb);
