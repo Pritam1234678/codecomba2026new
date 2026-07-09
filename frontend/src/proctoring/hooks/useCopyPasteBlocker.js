@@ -113,6 +113,8 @@ export function useCopyPasteBlocker({
       if (classTarget && classTarget.classList) {
         classTarget.classList.remove(NO_SELECT_CLASS);
       }
+      const styleEl = document.getElementById(STYLE_ELEMENT_ID);
+      if (styleEl) styleEl.remove();
     };
   }, [rootRef, enabled, reportEvents, blockEditor]);
 }

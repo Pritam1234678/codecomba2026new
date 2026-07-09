@@ -415,6 +415,7 @@ export default function AdminProctoringSession() {
   const [warnOpen, setWarnOpen] = useState(false);
   const [warnMessage, setWarnMessage] = useState('');
   const [actionMessage, setActionMessage] = useState(null); // { kind: 'success'|'error', text }
+  const actionTimerRef = useRef(null);
   const [previewSrc, setPreviewSrc] = useState(null);
 
   const sseRef = useRef(null);
@@ -541,10 +542,20 @@ export default function AdminProctoringSession() {
   // ── Action handlers ──────────────────────────────────────────────────────
   const flashAction = (kind, text) => {
     setActionMessage({ kind, text });
-    window.setTimeout(() => setActionMessage(null), 4000);
+    if (actionTimerRef.current) clearTimeout(actionTimerRef.current);
+    actionTimerRef.current = window.setTimeout(() => setActionMessage(null), 4000);
   };
 
+  // Cleanup action timer on unmount
+  useEffect(() => () => {
+    if (actionTimerRef.current) clearTimeout(actionTimerRef.current);
+  }, []);
+
   const handleForceEndConfirm = async () => {
+    if (!forceEndReason.trim()) {
+      flashAction('error', 'A reason is required for force-ending a session.');
+      return;
+    }
     setActionLoading('force-end');
     try {
       await proctoringApi.adminForceEnd(sessionId, forceEndReason);
