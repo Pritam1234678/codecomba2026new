@@ -35,10 +35,8 @@ import java.util.concurrent.TimeUnit;
  *          values. Raw text → no JSON escaping; one call → friendly to NVIDIA NIM's
  *          rate limit (the old per-language design fired 6 calls and tripped 429s).
  *
- * Sampling is tuned to avoid Kimi's repetition loops: a low temperature (0.2) makes
- * the model degenerate into repeated tokens (finish_reason=repetition → truncated
- * JSON), so we use a moderate temperature plus a frequency penalty. Both passes retry
- * on incomplete output, and the HTTP helper backs off on 429.
+ * Default model is NVIDIA Nemotron 3 Ultra (with reasoning enabled). DeepSeek is
+ * available as an alternative via the "model=deepseek" parameter.
  *
  * Works for custom story-line problems too, not just LeetCode names/numbers.
  */
@@ -48,13 +46,13 @@ import java.util.concurrent.TimeUnit;
 public class AiProblemGeneratorController {
 
     @Value("${NVIDIA_API_KEY:}")
-    private String kimiApiKey;
+    private String nvidiaApiKey;
 
     @Value("${DEEPSEEK_API_KEY:}")
     private String deepseekApiKey;
 
     private static final String NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-    private static final String MODEL_KIMI     = "moonshotai/kimi-k2.6";
+    private static final String MODEL_NEMOTRON = "nvidia/nemotron-3-ultra-550b-a55b";
     private static final String MODEL_DEEPSEEK = "deepseek-ai/deepseek-v4-pro";
 
     // Frontend consumes snippets keyed by these names.
@@ -84,7 +82,11 @@ public class AiProblemGeneratorController {
             return new ModelConfig(MODEL_DEEPSEEK, deepseekApiKey,
                 Map.of("chat_template_kwargs", Map.of("thinking", false)));
         }
-        return new ModelConfig(MODEL_KIMI, kimiApiKey, Map.of());
+        return new ModelConfig(MODEL_NEMOTRON, nvidiaApiKey,
+            Map.of(
+                "chat_template_kwargs", Map.of("enable_thinking", true),
+                "reasoning_budget", 16384
+            ));
     }
 
     // ─── Main endpoint ────────────────────────────────────────────────────────
