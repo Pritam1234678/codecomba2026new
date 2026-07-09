@@ -810,7 +810,8 @@ public class DuelService {
                 problem.getMemoryLimit(),
                 false,               // testRun
                 matchId,
-                null                 // proctoringSessionId — duels are independent of proctoring (task 11.2)
+                null,                // proctoringSessionId — duels are independent of proctoring (task 11.2)
+                false                // practice
         );
 
         try {
