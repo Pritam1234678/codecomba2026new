@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.List;
 import java.util.UUID;
@@ -136,7 +137,12 @@ public class DockerJudgeService {
             workDir, 30, false, null, SandboxLimits.forCompile()
         );
         if (compileResult.getExitCode() != 0) {
-            return new ExecutionResult("", compileResult.getStderr(), 0, 0, 1, false, false, true);
+            String err = compileResult.getStderr();
+            if (err == null || err.trim().isEmpty()) {
+                err = "Compilation failed (exit=" + compileResult.getExitCode() + ", no compiler output)";
+                log.warn("javac CE empty stderr: exit={}, jobId={}", compileResult.getExitCode(), jobId);
+            }
+            return new ExecutionResult("", err, 0, 0, 1, false, false, true);
         }
 
         return runProcess(
@@ -157,7 +163,12 @@ public class DockerJudgeService {
             workDir, 30, false, null, SandboxLimits.forCompile()
         );
         if (compileResult.getExitCode() != 0) {
-            return new ExecutionResult("", compileResult.getStderr(), 0, 0, 1, false, false, true);
+            String err = compileResult.getStderr();
+            if (err == null || err.trim().isEmpty()) {
+                err = "Compilation failed (exit=" + compileResult.getExitCode() + ", no compiler output)";
+                log.warn("g++ CE empty stderr: exit={}, jobId={}", compileResult.getExitCode(), jobId);
+            }
+            return new ExecutionResult("", err, 0, 0, 1, false, false, true);
         }
 
         return runProcess(List.of(binary.toString()),
@@ -176,7 +187,12 @@ public class DockerJudgeService {
             workDir, 30, false, null, SandboxLimits.forCompile()
         );
         if (compileResult.getExitCode() != 0) {
-            return new ExecutionResult("", compileResult.getStderr(), 0, 0, 1, false, false, true);
+            String err = compileResult.getStderr();
+            if (err == null || err.trim().isEmpty()) {
+                err = "Compilation failed (exit=" + compileResult.getExitCode() + ", no compiler output)";
+                log.warn("gcc CE empty stderr: exit={}, jobId={}", compileResult.getExitCode(), jobId);
+            }
+            return new ExecutionResult("", err, 0, 0, 1, false, false, true);
         }
 
         return runProcess(List.of(binary.toString()),
@@ -240,24 +256,30 @@ public class DockerJudgeService {
 
         // Read stdout and stderr concurrently to avoid blocking on full pipe buffer.
         // Use daemon threads so they never prevent JVM shutdown.
+        // Uses read() not readLine() — compiler/runtime may write partial lines
+        // without trailing newlines, and readLine() would block indefinitely.
+        // After the process exits, read() returns -1 (EOF) unless orphaned child
+        // processes still hold the pipe open — the join timeout below handles that.
         StringBuilder stdout = new StringBuilder();
         StringBuilder stderr = new StringBuilder();
 
         Thread stdoutReader = new Thread(() -> {
-            try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = r.readLine()) != null) {
-                    synchronized (stdout) { stdout.append(line).append("\n"); }
+            try (InputStream is = process.getInputStream()) {
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = is.read(buf)) != -1) {
+                    synchronized (stdout) { stdout.append(new String(buf, 0, n, StandardCharsets.UTF_8)); }
                 }
             } catch (IOException ignored) {}
         }, "judge-stdout-reader");
         stdoutReader.setDaemon(true);
 
         Thread stderrReader = new Thread(() -> {
-            try (BufferedReader r = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-                String line;
-                while ((line = r.readLine()) != null) {
-                    synchronized (stderr) { stderr.append(line).append("\n"); }
+            try (InputStream is = process.getErrorStream()) {
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = is.read(buf)) != -1) {
+                    synchronized (stderr) { stderr.append(new String(buf, 0, n, StandardCharsets.UTF_8)); }
                 }
             } catch (IOException ignored) {}
         }, "judge-stderr-reader");
@@ -275,16 +297,18 @@ public class DockerJudgeService {
             log.warn("Process killed after {}ms (limit={}s)", elapsed, timeLimitSeconds);
 
             // Give readers brief time to drain any final bytes after kill
-            stdoutReader.join(500);
-            stderrReader.join(500);
+            awaitReader(stdoutReader, 500, "stdout after kill");
+            awaitReader(stderrReader, 500, "stderr after kill");
 
             return new ExecutionResult(stdout.toString(), "Time Limit Exceeded",
                 elapsed, 0, 1, true, false, false);
         }
 
-        // Process exited normally — wait briefly for readers to flush
-        stdoutReader.join(1000);
-        stderrReader.join(1000);
+        // Process exited normally — wait for readers to finish draining the pipe.
+        // 5s timeout handles cases where orphaned child processes keep the pipe
+        // open, preventing EOF from being delivered to the reader thread.
+        awaitReader(stdoutReader, 5000, "stdout");
+        awaitReader(stderrReader, 5000, "stderr");
 
         int exitCode = process.exitValue();
         boolean isTle = enforceTimeLimit && elapsed > (timeLimitSeconds * 1000L);
@@ -312,6 +336,23 @@ public class DockerJudgeService {
 
         return new ExecutionResult(stdout.toString(), stderr.toString(),
             elapsed, 0, exitCode, false, false, false);
+    }
+
+    /**
+     * Await reader thread completion with a timeout. Logs a warning if the
+     * thread is still alive after the timeout — this indicates an orphaned
+     * child process holding the pipe open (most likely a compiler subprocess
+     * that was not cleaned up by its parent).
+     */
+    private void awaitReader(Thread reader, long timeoutMs, String label) {
+        try {
+            reader.join(timeoutMs);
+            if (reader.isAlive()) {
+                log.warn("Reader '{}' still alive after {}ms — orphaned process keeping pipe open?", label, timeoutMs);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /**
