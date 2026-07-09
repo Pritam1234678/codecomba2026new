@@ -114,11 +114,15 @@ public class ProctoredContestController {
         Contest contest = contestRepository.findById(contestId)
                 .orElseThrow(() -> new ProctoringNotFoundException("Contest not found: " + contestId));
 
-        if (contest.getStatus() != Contest.ContestStatus.UPCOMING
-                && !proctoringSessionRepository.findByContestIdAndEndedAtIsNull(contestId).isEmpty()) {
+        if (contest.getStatus() != Contest.ContestStatus.UPCOMING) {
+            throw new ProctoringStateConflictException(
+                    "CONTEST_NOT_UPCOMING",
+                    "Proctoring can only be toggled while the contest is UPCOMING");
+        }
+        if (!proctoringSessionRepository.findByContestIdAndEndedAtIsNull(contestId).isEmpty()) {
             throw new ProctoringStateConflictException(
                     "ACTIVE_SESSIONS_EXIST",
-                    "Cannot toggle proctoring while candidates have active sessions");
+                    "Cannot enable proctoring while candidates have active sessions");
         }
 
         int consentVersion = (body != null && body.consentVersion() != null)
@@ -131,18 +135,6 @@ public class ProctoredContestController {
         row.setConsentVersion(consentVersion);
 
         ProctoredContest saved = proctoredContestRepository.save(row);
-
-        // Post-insert re-check: a candidate may have created a session
-        // between our pre-insert guard and the INSERT. The active-session
-        // list is now guarded inside the transaction, so a concurrent
-        // session-create will be serialized after this commit.
-        if (contest.getStatus() != Contest.ContestStatus.UPCOMING) {
-            if (!proctoringSessionRepository.findByContestIdAndEndedAtIsNull(contestId).isEmpty()) {
-                throw new ProctoringStateConflictException(
-                        "ACTIVE_SESSIONS_EXIST",
-                        "Candidate session started between check and commit — cannot enable proctoring");
-            }
-        }
 
         return ResponseEntity.ok(ProctoredContestView.of(saved));
     }
@@ -171,22 +163,18 @@ public class ProctoredContestController {
         Contest contest = contestRepository.findById(contestId)
                 .orElseThrow(() -> new ProctoringNotFoundException("Contest not found: " + contestId));
 
-        if (contest.getStatus() != Contest.ContestStatus.UPCOMING
-                && !proctoringSessionRepository.findByContestIdAndEndedAtIsNull(contestId).isEmpty()) {
+        if (contest.getStatus() != Contest.ContestStatus.UPCOMING) {
+            throw new ProctoringStateConflictException(
+                    "CONTEST_NOT_UPCOMING",
+                    "Proctoring can only be toggled while the contest is UPCOMING");
+        }
+        if (!proctoringSessionRepository.findByContestIdAndEndedAtIsNull(contestId).isEmpty()) {
             throw new ProctoringStateConflictException(
                     "ACTIVE_SESSIONS_EXIST",
-                    "Cannot toggle proctoring while candidates have active sessions");
+                    "Cannot disable proctoring while candidates have active sessions");
         }
 
         proctoredContestRepository.delete(existing.get());
-
-        if (contest.getStatus() != Contest.ContestStatus.UPCOMING) {
-            if (!proctoringSessionRepository.findByContestIdAndEndedAtIsNull(contestId).isEmpty()) {
-                throw new ProctoringStateConflictException(
-                        "ACTIVE_SESSIONS_EXIST",
-                        "Candidate session started between check and commit — cannot disable proctoring");
-            }
-        }
 
         return ResponseEntity.noContent().build();
     }

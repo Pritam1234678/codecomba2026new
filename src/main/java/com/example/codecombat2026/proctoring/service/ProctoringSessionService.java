@@ -157,6 +157,26 @@ public class ProctoringSessionService {
                                     (active.getResumeCount() == null ? 0 : active.getResumeCount()) >= MAX_RESUMES));
                 });
 
+        // Distributed lock to close the TOCTOU window between the SELECT
+        // above and the INSERT below. Two concurrent createSession calls
+        // could both pass the endedAtIsNull check otherwise.
+        String lockKey = "proctoring:session:create:" + contestId + ":" + userId;
+        Boolean locked = redis.opsForValue().setIfAbsent(lockKey, "1", Duration.ofSeconds(10));
+        if (!Boolean.TRUE.equals(locked)) {
+            // Re-check — the concurrent create may have finished by now
+            sessionRepo.findByContestIdAndUserIdAndEndedAtIsNull(contestId, userId)
+                    .ifPresent(active -> {
+                        throw new ProctoringStateConflictException(
+                                "ALREADY_ACTIVE",
+                                "An active proctoring session already exists",
+                                Map.of("sessionId", active.getId()));
+                    });
+            throw new ProctoringStateConflictException(
+                    "CONCURRENT_CREATE",
+                    "Another session creation is in progress — please retry.");
+        }
+        try {
+
         ProctoringSession session = new ProctoringSession();
         session.setContestId(contestId);
         session.setUserId(userId);
@@ -187,6 +207,9 @@ public class ProctoringSessionService {
         }
 
         return saved;
+        } finally {
+            redis.delete(lockKey);
+        }
     }
 
     /**
@@ -438,6 +461,18 @@ public class ProctoringSessionService {
     }
 
     // ── Internals ──────────────────────────────────────────────────────────
+
+    /**
+     * Public ownership check — used by the WebSocket handler for defense-in-depth
+     * on every EVENT frame. Returns true if the session exists and belongs to
+     * the given userId, false otherwise (session not found, wrong owner, ended).
+     */
+    public boolean isOwnedBy(Long sessionId, Long userId) {
+        return sessionRepo.findById(sessionId)
+                .map(s -> s.getUserId() != null && s.getUserId().equals(userId)
+                        && s.getEndedAt() == null)
+                .orElse(false);
+    }
 
     /**
      * Resolve a session by id, validating ownership in one place so the

@@ -339,6 +339,27 @@ public class ProctoringWebSocketHandler extends TextWebSocketHandler {
     // ── Dispatch ───────────────────────────────────────────────────────────
 
     private void dispatchEvent(WebSocketSession ws, Long sessionId, JsonNode root) {
+        // Defense-in-depth: verify the WS is bound to the correct user.
+        // The handshake interceptor already validates ownership, but a
+        // double-check here protects against future refactors that might
+        // bypass the interceptor or corrupt WS attributes.
+        Long userId = userIdOf(ws);
+        if (userId == null) {
+            closeQuietly(ws, CLOSE_CODE_FORBIDDEN, "missing user binding");
+            return;
+        }
+        try {
+            if (!sessionService.isOwnedBy(sessionId, userId)) {
+                log.warn("Proctoring: EVENT rejected — session {} does not belong to user {}",
+                        sessionId, userId);
+                closeQuietly(ws, CLOSE_CODE_FORBIDDEN, "session ownership mismatch");
+                return;
+            }
+        } catch (RuntimeException e) {
+            log.debug("Proctoring: EVENT ownership check failed for session {}: {}", sessionId, e.getMessage());
+            return;
+        }
+
         // Per-session sliding-window rate limit (Req 17.1, 17.2). On
         // rejection we drop the frame entirely — no INSERT, no risk-engine
         // delta — and emit at most one RATE_LIMIT_EXCEEDED frame per 10-s
@@ -484,14 +505,36 @@ public class ProctoringWebSocketHandler extends TextWebSocketHandler {
      */
     private void scheduleHeartbeatTimeout(Long sessionId) {
         long delay = Math.max(1, config.getHeartbeatTimeoutSeconds());
+        // Use a single-element array as a mutable holder so the scheduled
+        // lambda can capture a reference to its own future and skip the
+        // timeout if it was already replaced by a newer schedule.
+        ScheduledFuture<?>[] holder = new ScheduledFuture<?>[1];
         ScheduledFuture<?> next = heartbeatScheduler.schedule(
-                () -> fireHeartbeatTimeout(sessionId),
+                () -> fireHeartbeatTimeoutIfCurrent(sessionId, holder[0]),
                 delay,
                 TimeUnit.SECONDS);
+        holder[0] = next;
+        // Cancel old task AFTER storing the new reference — if the old
+        // task fires between put and cancel, fireHeartbeatTimeoutIfCurrent
+        // will skip because holder[0] is already the new future.
         ScheduledFuture<?> prev = heartbeatTasks.put(sessionId, next);
         if (prev != null) {
             prev.cancel(false);
         }
+    }
+
+    /**
+     * Only proceed with the heartbeat-timeout termination if the provided
+     * future is still the one registered for this session. This closes the
+     * race where a fast HEARTBEAT reschedules and {@link #fireHeartbeatTimeout}
+     * fires the old task AFTER the new future was already deposited into
+     * {@link #heartbeatTasks}.
+     */
+    private void fireHeartbeatTimeoutIfCurrent(Long sessionId, ScheduledFuture<?> me) {
+        if (me != null && !me.equals(heartbeatTasks.get(sessionId))) {
+            return; // replaced — a newer schedule is in effect
+        }
+        fireHeartbeatTimeout(sessionId);
     }
 
     /** Cancel and remove the per-session heartbeat-timeout task. */

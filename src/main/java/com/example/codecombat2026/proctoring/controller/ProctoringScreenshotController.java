@@ -130,6 +130,18 @@ public class ProctoringScreenshotController {
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) throws IOException {
 
+        // Rate-limit BEFORE consuming the multipart body — an attacker
+        // could otherwise exhaust server memory by uploading large files
+        // that are rejected post-read.
+        if (!rateLimiter.allowScreenshotUpload(sessionId)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", "60")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of(
+                            "error", "RATE_LIMITED",
+                            "message", "screenshot upload rate limit exceeded"));
+        }
+
         LocalDateTime capturedAt = LocalDateTime.parse(capturedAtIso.trim());
         String mimeType = file.getContentType();
         byte[] bytes = file.getBytes();
@@ -141,15 +153,6 @@ public class ProctoringScreenshotController {
         if (eventIdRaw != null && !eventIdRaw.isBlank()) {
             try { eventId = Long.parseLong(eventIdRaw.trim()); }
             catch (NumberFormatException ignored) { /* correlation-id, not numeric */ }
-        }
-
-        if (!rateLimiter.allowScreenshotUpload(sessionId)) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .header("Retry-After", "60")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of(
-                            "error", "RATE_LIMITED",
-                            "message", "screenshot upload rate limit exceeded"));
         }
 
         Long screenshotId = screenshotService.upload(

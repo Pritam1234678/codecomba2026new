@@ -163,6 +163,12 @@ public class RiskScoringEngine {
             return new RiskUpdate(score, band, band, false);
         }
 
+        // Read the old band BEFORE INCRBY — a concurrent delta could cross
+        // a band boundary and write the new band between our INCRBY and
+        // our read, causing us to see the post-transition band as oldBand
+        // and silently drop the band-change event.
+        RiskBand oldBand = readBand(sessionId, bandKey);
+
         Long incremented;
         try {
             incremented = redis.opsForValue().increment(scoreKey, delta);
@@ -180,7 +186,6 @@ public class RiskScoringEngine {
         }
 
         int newScore = (incremented > Integer.MAX_VALUE) ? Integer.MAX_VALUE : incremented.intValue();
-        RiskBand oldBand = readBand(sessionId, bandKey);
         RiskBand newBand = bandFor(newScore);
 
         if (newBand != oldBand) {
@@ -234,8 +239,14 @@ public class RiskScoringEngine {
         List<ProctoringEvent> events = eventRepo.findBySessionIdOrderByServerTimestampAsc(sessionId);
         int sum = 0;
         for (ProctoringEvent e : events) {
-            sum += weightFor(e.getEventType());
+            // Use the stored scoreDelta so soft-deduped replays (scoreDelta=0)
+            // don't get re-counted at full weight. Fall back to weightFor for
+            // legacy rows where scoreDelta may be null.
+            Integer delta = e.getScoreDelta();
+            sum += (delta != null) ? delta : weightFor(e.getEventType());
         }
+        // Clamp negatives — live path does this, rescore should too
+        sum = Math.max(0, sum);
         RiskBand newBand = bandFor(sum);
         int updated = sessionRepo.updateScoreBandAndFlag(sessionId, sum, newBand, newBand == RiskBand.HIGH);
         if (updated == 0) {
