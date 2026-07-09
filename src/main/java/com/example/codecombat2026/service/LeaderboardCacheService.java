@@ -75,7 +75,7 @@ public class LeaderboardCacheService {
                 if (entry.getValue() == null || entry.getScore() == null) continue;
                 Long userId = Long.parseLong(entry.getValue());
                 result.add(new LeaderboardEntry(userId, null, null,
-                    entry.getScore(), 0, rank++));
+                    entry.getScore(), 0, rank++, null));
             }
             return result;
         } catch (Exception e) {
