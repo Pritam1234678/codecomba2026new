@@ -2,6 +2,7 @@ package com.example.codecombat2026.repository;
 
 import com.example.codecombat2026.entity.Submission;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
-public interface SubmissionRepository extends JpaRepository<Submission, Long> {
+public interface SubmissionRepository extends JpaRepository<Submission, Long>, JpaSpecificationExecutor<Submission> {
     // Real submissions only — test runs are excluded from all user-facing reads.
     @Query("SELECT s FROM Submission s WHERE s.user.id = :userId AND s.testRun = false")
     List<Submission> findByUser_Id(@Param("userId") Long userId);
@@ -81,9 +82,24 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     @Query("SELECT COUNT(s) FROM Submission s WHERE s.user.id = :userId AND s.problem.id = :problemId AND s.testRun = false AND s.contest.id IS NOT NULL")
     long countContestSubmitsByUserAndProblem(@Param("userId") Long userId, @Param("problemId") Long problemId);
+    
+    @Query("SELECT COUNT(s) FROM Submission s WHERE s.contest.id = :contestId AND s.testRun = false")
+    long countByContestId(@Param("contestId") Long contestId);
 
     @Query("SELECT s.contest.id, COUNT(DISTINCT s.user.id) FROM Submission s WHERE s.contest.id IN :contestIds AND s.testRun = false GROUP BY s.contest.id")
     List<Object[]> countParticipantsByContestIds(@Param("contestIds") List<Long> contestIds);
+
+    /**
+     * Count total submissions for a contest (excluding test runs).
+     */
+    long countByContest_Id(Long contestId);
+
+    /**
+     * Fetch the N most recent submissions for a contest, ordered by submission time descending.
+     * Used for real-time dashboard updates.
+     */
+    @Query("SELECT s FROM Submission s JOIN FETCH s.user JOIN FETCH s.problem WHERE s.contest.id = :contestId AND s.testRun = false ORDER BY s.submittedAt DESC")
+    List<Submission> findTop10ByContest_IdOrderBySubmittedAtDesc(@Param("contestId") Long contestId);
 
     // ─── Async worker update methods ──────────────────────────────────────────
 

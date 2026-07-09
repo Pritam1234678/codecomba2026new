@@ -15,6 +15,9 @@ public class ProblemDTO {
     private String example2;
     private String example3;
     private String images;
+    private String level;
+    private String visibility;
+    private Long createdBy;
 
     // Constructors
     public ProblemDTO() {
@@ -151,5 +154,29 @@ public class ProblemDTO {
 
     public void setImages(String images) {
         this.images = images;
+    }
+
+    public String getLevel() {
+        return level;
+    }
+
+    public void setLevel(String level) {
+        this.level = level;
+    }
+
+    public String getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
+    }
+
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(Long createdBy) {
+        this.createdBy = createdBy;
     }
 }

@@ -137,7 +137,8 @@ public class SubmissionService {
             problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256,
             false,  // isTestRun = false
             null,   // duelId — practice/contest submissions are not duel-tagged
-            proctoringSessionId  // null for non-proctored contests; Req 19.2
+            proctoringSessionId,  // null for non-proctored contests; Req 19.2
+            null    // privateContestId — null for public contests (will be set for private contests)
         );
 
         try {
@@ -190,7 +191,8 @@ public class SubmissionService {
             problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256,
             true,  // isTestRun = true — no leaderboard update
             null,  // duelId — test runs are not duel-tagged
-            null   // proctoringSessionId — test runs are not proctoring-tagged
+            null,  // proctoringSessionId — test runs are not proctoring-tagged
+            null   // privateContestId — test runs are not private contest-tagged
         );
 
         try {

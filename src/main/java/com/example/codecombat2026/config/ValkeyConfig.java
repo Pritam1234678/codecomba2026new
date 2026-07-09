@@ -153,6 +153,26 @@ public class ValkeyConfig {
         return t;
     }
 
+    /**
+     * Generic RedisTemplate<String,Object> — used where a non-string-typed
+     * template is required (e.g. PrivateContestMetricsConfig's queue-length
+     * gauge). Backed by the same fast API connection pool. Keys are strings;
+     * values use JDK serialization (only LLEN/size ops are used today, so the
+     * value serializer choice is not significant).
+     */
+    @Bean(name = "objectRedisTemplate")
+    public org.springframework.data.redis.core.RedisTemplate<String, Object> objectRedisTemplate(
+            @org.springframework.beans.factory.annotation.Qualifier("apiConnectionFactory")
+            LettuceConnectionFactory factory) {
+        org.springframework.data.redis.core.RedisTemplate<String, Object> t =
+                new org.springframework.data.redis.core.RedisTemplate<>();
+        t.setConnectionFactory(factory);
+        t.setKeySerializer(new StringRedisSerializer());
+        t.setHashKeySerializer(new StringRedisSerializer());
+        t.afterPropertiesSet();
+        return t;
+    }
+
     // ─── ObjectMapper ─────────────────────────────────────────────────────────
 
     @Bean

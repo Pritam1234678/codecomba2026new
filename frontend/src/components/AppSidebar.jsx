@@ -19,6 +19,7 @@ const C = {
 const ADMIN_NAV = [
     { label: 'Dashboard', icon: 'admin_panel_settings', to: '/admin/dashboard' },
     { label: 'Contests', icon: 'military_tech', to: '/admin/contests' },
+    { label: 'Private Contests', icon: 'lock', to: '/admin/private-contests' },
     { label: 'Problems', icon: 'code', to: '/admin/problems' },
     { label: 'Duel', icon: 'swords', to: '/admin/duels' },
     { label: 'Into the Web', icon: 'public', to: '/admin/web-contest' },
@@ -35,6 +36,7 @@ const ADMIN_NAV = [
 const USER_NAV = [
     { label: 'Dashboard', icon: 'dashboard', to: '/dashboard' },
     { label: 'Contests', icon: 'emoji_events', to: '/contests' },
+    { label: 'Private Contests', icon: 'lock', to: '/contests/private/my-contests' },
     { label: 'Practice', icon: 'fitness_center', to: '/practice' },
     { label: 'Duel', icon: 'swords', to: '/duel' },
     { label: 'Into the Web', icon: 'public', to: '/web-contest' },

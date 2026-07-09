@@ -9,6 +9,8 @@ import java.util.List;
 @Repository
 public interface ContestRepository extends JpaRepository<Contest, Long> {
     List<Contest> findByStatus(Contest.ContestStatus status);
+    
+    long countByStatus(Contest.ContestStatus status);
 
     List<Contest> findByActiveTrue();
 

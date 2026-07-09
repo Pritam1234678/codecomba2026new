@@ -76,23 +76,47 @@ public class StartupRecoveryConfig {
         }
     }
 
-    /** Move all jobs from registered processing lists back to the main queue. */
+    /** Move all jobs from registered processing lists back to the appropriate queue (public or private). */
     private int requeueOrphanedProcessingLists() {
         Set<String> keys = redis.opsForSet().members(SubmissionWorkerPool.PROCESSING_REGISTRY);
         if (keys == null || keys.isEmpty()) return 0;
 
-        int total = 0;
+        int totalPublic = 0;
+        int totalPrivate = 0;
+        
         for (String procKey : keys) {
             try {
                 Long size = redis.opsForList().size(procKey);
                 if (size == null || size == 0) continue;
 
-                // Pop until empty, push to main queue
+                // Pop until empty, push to appropriate queue based on job type
                 while (true) {
-                    String job = redis.opsForList().rightPop(procKey);
-                    if (job == null) break;
-                    redis.opsForList().leftPush(SubmissionWorkerPool.QUEUE_KEY, job);
-                    total++;
+                    String jobJson = redis.opsForList().rightPop(procKey);
+                    if (jobJson == null) break;
+                    
+                    // Determine target queue from job content
+                    try {
+                        com.example.codecombat2026.dto.SubmissionJob job = 
+                            new com.fasterxml.jackson.databind.ObjectMapper().readValue(
+                                jobJson, com.example.codecombat2026.dto.SubmissionJob.class);
+                        
+                        String targetQueue = (job.getPrivateContestId() != null) 
+                            ? SubmissionWorkerPool.PRIVATE_QUEUE_KEY 
+                            : SubmissionWorkerPool.QUEUE_KEY;
+                        
+                        redis.opsForList().leftPush(targetQueue, jobJson);
+                        
+                        if (job.getPrivateContestId() != null) {
+                            totalPrivate++;
+                        } else {
+                            totalPublic++;
+                        }
+                    } catch (Exception e) {
+                        // Fallback: if we can't parse, route to public queue
+                        redis.opsForList().leftPush(SubmissionWorkerPool.QUEUE_KEY, jobJson);
+                        totalPublic++;
+                        log.warn("Could not parse job, routed to public queue: {}", e.getMessage());
+                    }
                 }
                 // Done with this list — drop it from the registry
                 redis.opsForSet().remove(SubmissionWorkerPool.PROCESSING_REGISTRY, procKey);
@@ -100,6 +124,11 @@ public class StartupRecoveryConfig {
                 log.warn("Failed to drain processing list {}: {}", procKey, e.getMessage());
             }
         }
-        return total;
+        
+        if (totalPublic > 0 || totalPrivate > 0) {
+            log.info("Requeued {} public + {} private orphan job(s)", totalPublic, totalPrivate);
+        }
+        
+        return totalPublic + totalPrivate;
     }
 }

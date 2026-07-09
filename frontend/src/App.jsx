@@ -42,6 +42,14 @@ const UserSearch = lazy(() => import('./pages/UserSearch'));
 const PlayerProfile = lazy(() => import('./pages/PlayerProfile'));
 const Socials = lazy(() => import('./pages/Socials'));
 
+// Private Contest pages
+const HostingRequest = lazy(() => import('./pages/HostingRequest'));
+const CreatePrivateContest = lazy(() => import('./pages/CreatePrivateContest'));
+const PrivateContestList = lazy(() => import('./pages/PrivateContestList'));
+const JoinPrivateContest = lazy(() => import('./pages/JoinPrivateContest'));
+const ManagePrivateContest = lazy(() => import('./pages/ManagePrivateContest'));
+const PrivateContestArena = lazy(() => import('./pages/PrivateContestArena'));
+
 // Admin pages — heaviest, load only when admin navigates there
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const AdminUserManagement = lazy(() => import('./pages/AdminUserManagement'));
@@ -164,6 +172,15 @@ function App() {
       {/* User Routes */}
       <Route path="/dashboard" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><UserDashboard /></UserRoute>)}</div>} />
       <Route path="/profile/edit" element={<Navigate to="/socials" replace />} />
+
+      {/* Private Contests */}
+      <Route path="/hosting-request" element={<div className="flex-1">{lazyWrap(<UserRoute><HostingRequest /></UserRoute>)}</div>} />
+      <Route path="/contests/private/create" element={<div className="flex-1">{lazyWrap(<UserRoute><CreatePrivateContest /></UserRoute>)}</div>} />
+      <Route path="/contests/private/my-contests" element={<div className="flex-1">{lazyWrap(<UserRoute><PrivateContestList /></UserRoute>)}</div>} />
+      <Route path="/contests/private/:contestId/manage" element={<div className="flex-1">{lazyWrap(<UserRoute><ManagePrivateContest /></UserRoute>)}</div>} />
+      <Route path="/contests/private/:contestId/arena" element={<div className="flex-1">{lazyWrap(<UserRoute><PrivateContestArena /></UserRoute>)}</div>} />
+      <Route path="/contests/private/join" element={<div className="flex-1">{lazyWrap(<JoinPrivateContest />)}</div>} />
+
       <Route path="/contests" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><ContestList /></UserRoute>)}</div>} />
       <Route path="/contests/:id" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><ContestDetail /></UserRoute>)}</div>} />
       <Route path="/problems/:id" element={<div className="flex-1 px-14 py-8">{lazyWrap(<UserRoute><ProblemSolve /></UserRoute>)}</div>} />

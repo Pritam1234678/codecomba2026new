@@ -39,18 +39,22 @@ public class WelcomeController {
 
     /**
      * Queue status — useful during a live contest to monitor load.
+     * Returns stats for both public and private submission queues.
      * GET /api/queue-status
      */
     @GetMapping("/api/queue-status")
     public Map<String, Object> queueStatus() {
         Map<String, Object> status = new HashMap<>();
-        status.put("queueDepth", workerPool.getQueueDepth());
+        Long publicDepth = workerPool.getQueueDepth();
+        Long privateDepth = workerPool.getPrivateQueueDepth();
+        Long totalDepth = (publicDepth != null ? publicDepth : 0L) + (privateDepth != null ? privateDepth : 0L);
+        
+        status.put("publicQueueDepth", publicDepth);
+        status.put("privateQueueDepth", privateDepth);
+        status.put("totalQueueDepth", totalDepth);
         status.put("activeJobs", workerPool.getActiveJobs());
         status.put("totalProcessed", workerPool.getTotalProcessed());
-        status.put("estimatedWaitSeconds",
-            workerPool.getQueueDepth() != null
-                ? (workerPool.getQueueDepth() * 5) // ~5s avg per job
-                : 0);
+        status.put("estimatedWaitSeconds", totalDepth * 5); // ~5s avg per job
         return status;
     }
 }

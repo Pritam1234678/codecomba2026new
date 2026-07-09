@@ -38,4 +38,19 @@ public class SubmissionJob {
      * already on submission:queue at deploy time deserialize cleanly.
      */
     private Long proctoringSessionId;
+    /**
+     * Private contest id (from private_contests table) when this submission
+     * is for a private contest. Null for public contests, practice problems,
+     * and duels. Used to route job to private:submission:queue.
+     * Defaults to null for backward compatibility with existing queue jobs.
+     */
+    private Long privateContestId;
+
+    /**
+     * Helper method to check if this submission is for a private contest.
+     * @return true if privateContestId is not null, false otherwise
+     */
+    public boolean isPrivateContest() {
+        return privateContestId != null;
+    }
 }

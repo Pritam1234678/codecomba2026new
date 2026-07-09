@@ -25,6 +25,33 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(new MessageResponse(ex.getMessage()), HttpStatus.NOT_FOUND);
     }
 
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<MessageResponse> handleBadRequestException(BadRequestException ex) {
+        return new ResponseEntity<>(new MessageResponse(ex.getMessage()), HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<MessageResponse> handleConflictException(ConflictException ex) {
+        return new ResponseEntity<>(new MessageResponse(ex.getMessage()), HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<MessageResponse> handleTooManyRequestsException(TooManyRequestsException ex) {
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS);
+        
+        // Add Retry-After header if available (requirement 24.5)
+        if (ex.getRetryAfterSeconds() != null) {
+            builder.header("Retry-After", ex.getRetryAfterSeconds().toString());
+        }
+        
+        return builder.body(new MessageResponse(ex.getMessage()));
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<MessageResponse> handleForbiddenException(ForbiddenException ex) {
+        return new ResponseEntity<>(new MessageResponse(ex.getMessage()), HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();

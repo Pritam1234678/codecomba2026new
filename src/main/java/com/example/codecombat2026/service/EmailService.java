@@ -269,4 +269,47 @@ public class EmailService {
             log.error("Failed to send password-changed notification to {}: {}", userEmail, e.getMessage());
         }
     }
+
+    /**
+     * Notification sent to contest host when the first participant joins their private contest.
+     * Uses SendPulse via {@code noreply@codecoder.in}.
+     * Non-fatal — participant join has already succeeded before this is called.
+     * 
+     * @param hostEmail Email address of the contest host
+     * @param hostName Full name or username of the contest host
+     * @param contestName Name of the private contest
+     * @param contestId ID of the contest
+     * @param participantUsername Username of the first participant who joined
+     * @param joinedAt Timestamp when participant joined
+     * 
+     * Requirement: 17.2
+     */
+    public void sendFirstParticipantJoinedEmail(String hostEmail, String hostName, 
+                                                 String contestName, Long contestId,
+                                                 String participantUsername, String joinedAt) {
+        try {
+            String safeHostName = org.springframework.web.util.HtmlUtils.htmlEscape(
+                hostName == null ? "Host" : hostName);
+            String safeContestName = org.springframework.web.util.HtmlUtils.htmlEscape(
+                contestName == null ? "Your Contest" : contestName);
+            String safeParticipantUsername = org.springframework.web.util.HtmlUtils.htmlEscape(
+                participantUsername == null ? "A participant" : participantUsername);
+            String manageUrl = appUrl + "/contests/private/" + contestId + "/manage";
+
+            String html = loadTemplate("first-participant-joined",
+                "HOST_NAME", safeHostName,
+                "CONTEST_NAME", safeContestName,
+                "PARTICIPANT_USERNAME", safeParticipantUsername,
+                "JOINED_AT", joinedAt,
+                "MANAGE_URL", manageUrl,
+                "HOST_EMAIL", hostEmail
+            );
+
+            sendNoreplyHtml(hostEmail, "First Registration - " + safeContestName + " | CodeCoder", html);
+            log.info("First participant notification sent to host {}", hostEmail);
+        } catch (Exception e) {
+            log.error("Failed to send first participant notification to {}: {}", hostEmail, e.getMessage());
+            // Non-fatal — don't throw exception
+        }
+    }
 }

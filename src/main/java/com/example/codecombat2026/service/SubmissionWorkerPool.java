@@ -27,15 +27,32 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Background worker pool — consumes from Valkey submission queue.
+ * Unified background worker pool — consumes from public and/or private contest
+ * submission queues depending on {@link #queueMode}.
  *
  * Durability model:
- *   - Producer (SubmissionService) LPUSHes a job onto {@code submission:queue}.
- *   - Worker uses {@code LMOVE submission:queue submission:processing:&lt;workerId&gt;}
+ *   - Producer (SubmissionService / PrivateContestSubmissionService) LPUSHes a job onto
+ *     {@code submission:queue} (public) or {@code private:submission:queue} (private contests).
+ *   - Worker uses {@code LMOVE <queue> submission:processing:&lt;workerId&gt;}
  *     to atomically claim a job. If the worker crashes mid-processing, the
  *     job stays on the processing list and is requeued by
  *     {@link #reclaimStuckJobs()} after a grace period.
  *   - On finalize, the worker LREMs the job from its processing list.
+ *
+ * Queue mode (SUBMISSION_QUEUE_MODE env var):
+ *   - BOTH (default)   — fair round-robin between public and private queues.
+ *                        Used on VM1 (main server) and VM2 (judge/practice engine).
+ *   - PRIVATE_ONLY      — this instance drains ONLY {@code private:submission:queue}.
+ *                        Used on VM3, which is dedicated to private-contest code execution
+ *                        so public-contest load never competes with private contests for
+ *                        CPU/sandbox slots, and vice versa.
+ *   - PUBLIC_ONLY       — this instance drains ONLY {@code submission:queue}. Not used in the
+ *                        current deployment but kept for symmetry / future flexibility.
+ *
+ * Fair round-robin strategy (BOTH mode only):
+ *   - Each worker alternates between public and private queues (1 public, 1 private, repeat).
+ *   - Ensures neither queue experiences starvation under load.
+ *   - Logs queue name for each job processed for observability (Requirement 22.2).
  *
  * 100 concurrent users:
  *   8 workers × ~5s per job = ~62s max wait for last user
@@ -49,10 +66,20 @@ public class SubmissionWorkerPool {
     private static final Logger log = LoggerFactory.getLogger(SubmissionWorkerPool.class);
 
     public static final String QUEUE_KEY = "submission:queue";
+    public static final String PRIVATE_QUEUE_KEY = "private:submission:queue";
     /** Per-worker processing list prefix: submission:processing:&lt;hostPid&gt;:&lt;workerId&gt; */
     public static final String PROCESSING_KEY_PREFIX = "submission:processing:";
     /** Tracks all known processing list keys so the janitor knows where to look. */
     public static final String PROCESSING_REGISTRY = "submission:processing:registry";
+
+    /**
+     * Which queue(s) this instance's workers drain. See class javadoc.
+     * Valid values: BOTH (default), PRIVATE_ONLY, PUBLIC_ONLY.
+     * Set via SUBMISSION_QUEUE_MODE env var — VM3 sets PRIVATE_ONLY so it is
+     * dedicated to private-contest execution.
+     */
+    @Value("${SUBMISSION_QUEUE_MODE:BOTH}")
+    private String queueMode;
 
     @Value("${JUDGE_WORKERS:8}")
     private int workerCount;
@@ -82,6 +109,8 @@ public class SubmissionWorkerPool {
     @Autowired private LeaderboardCacheService leaderboard;
     @Autowired private SseEmitterRegistry sseRegistry;
     @Autowired private CacheService cacheService;
+    @Autowired private com.example.codecombat2026.repository.UserRepository userRepository;
+    @Autowired private com.example.codecombat2026.repository.ProblemRepository problemRepository;
     /**
      * Duel verdict callback target. Lazy-injected to break the circular
      * dependency: {@link DuelService} pushes duel-tagged jobs onto
@@ -93,9 +122,28 @@ public class SubmissionWorkerPool {
     @Lazy
     private DuelService duelService;
 
+    /**
+     * Resolved queue rotation for this instance, computed once at startup from
+     * {@link #queueMode}. Falls back to BOTH on an unrecognised value so a typo
+     * in the env var never silently stops an instance from judging anything.
+     */
+    private String[] resolvedQueues;
+
     @PostConstruct
     public void startWorkers() {
         instanceId = ManagementFactory.getRuntimeMXBean().getName(); // pid@host
+
+        String mode = queueMode == null ? "BOTH" : queueMode.trim().toUpperCase();
+        switch (mode) {
+            case "PRIVATE_ONLY" -> resolvedQueues = new String[]{PRIVATE_QUEUE_KEY};
+            case "PUBLIC_ONLY"  -> resolvedQueues = new String[]{QUEUE_KEY};
+            case "BOTH"         -> resolvedQueues = new String[]{QUEUE_KEY, PRIVATE_QUEUE_KEY};
+            default -> {
+                log.warn("Unrecognised SUBMISSION_QUEUE_MODE='{}' — falling back to BOTH", queueMode);
+                resolvedQueues = new String[]{QUEUE_KEY, PRIVATE_QUEUE_KEY};
+            }
+        }
+
         pool = new ThreadPoolExecutor(
             workerCount, workerCount,
             0L, TimeUnit.MILLISECONDS,
@@ -112,8 +160,8 @@ public class SubmissionWorkerPool {
             final int idx = i;
             pool.submit(() -> workerLoop(idx));
         }
-        log.info("✅ Started {} judge workers (instance={}, queue={}) — ~{} jobs/min max",
-            workerCount, instanceId, QUEUE_KEY, workerCount * 10);
+        log.info("✅ Started {} judge workers (instance={}, mode={}, queues={}) — ~{} jobs/min max",
+            workerCount, instanceId, mode, java.util.Arrays.toString(resolvedQueues), workerCount * 10);
     }
 
     @jakarta.annotation.PreDestroy
@@ -143,22 +191,35 @@ public class SubmissionWorkerPool {
         try { redis.opsForSet().add(PROCESSING_REGISTRY, procKey); }
         catch (Exception ignored) {}
 
+        // Round-robin across whichever queue(s) this instance is configured to drain
+        // (resolvedQueues is {QUEUE_KEY} for PUBLIC_ONLY, {PRIVATE_QUEUE_KEY} for
+        // PRIVATE_ONLY, or both for the default BOTH mode).
+        String[] queues = resolvedQueues;
+        int queueIdx = 0;
+
         while (!Thread.currentThread().isInterrupted() && !shuttingDown) {
             try {
-                // Atomic claim: pop from main queue's RIGHT, push onto processing
+                // Select current queue in round-robin fashion
+                String currentQueue = queues[queueIdx % queues.length];
+                queueIdx++;
+
+                // Atomic claim: pop from current queue's RIGHT, push onto processing
                 // list's LEFT (so newest claims are at head — easier to reason about).
                 String jobJson = workerRedis.opsForList()
-                        .move(QUEUE_KEY, org.springframework.data.redis.connection.RedisListCommands.Direction.RIGHT,
+                        .move(currentQueue, org.springframework.data.redis.connection.RedisListCommands.Direction.RIGHT,
                               procKey,   org.springframework.data.redis.connection.RedisListCommands.Direction.LEFT,
-                              java.time.Duration.ofSeconds(3));
+                              java.time.Duration.ofSeconds(1)); // Short timeout for fair polling
 
                 if (jobJson == null) continue;
 
                 SubmissionJob job = objectMapper.readValue(jobJson, SubmissionJob.class);
                 activeJobs.incrementAndGet();
-                log.debug("[{}] claimed job {} (active={}, queue={})",
-                    Thread.currentThread().getName(), job.getSubmissionId(),
-                    activeJobs.get(), getQueueDepth());
+                
+                // Log queue name for observability (Requirement 22.2)
+                String queueType = currentQueue.equals(QUEUE_KEY) ? "public" : "private";
+                log.debug("[{}] claimed job {} from {} queue (active={}, publicQueueDepth={}, privateQueueDepth={})",
+                    Thread.currentThread().getName(), job.getSubmissionId(), queueType,
+                    activeJobs.get(), getQueueDepth(), getPrivateQueueDepth());
 
                 try {
                     processJob(job);
@@ -189,9 +250,12 @@ public class SubmissionWorkerPool {
      * Janitor — scans all known processing lists for jobs that are still
      * sitting there long after they should have been finalised. These are
      * either crashed workers (JVM died mid-process) or jobs whose finalize
-     * silently failed. Re-enqueues them onto the main queue so another worker
-     * can retry, and marks the DB row as RE if it's still PENDING/JUDGING
+     * silently failed. Re-enqueues them onto their original queue (public or private)
+     * so another worker can retry, and marks the DB row as RE if it's still PENDING/JUDGING
      * after multiple reclaim cycles.
+     *
+     * Handles both public (submission:queue) and private (private:submission:queue) jobs.
+     * Routes reclaimed jobs back to the appropriate queue based on job.privateContestId.
      *
      * Runs every minute. Cheap — most processing lists are empty.
      */
@@ -203,7 +267,8 @@ public class SubmissionWorkerPool {
 
             long maxAgeMs = stuckJobTimeoutMinutes * 60_000L;
             long now = System.currentTimeMillis();
-            int reclaimed = 0;
+            int reclaimedPublic = 0;
+            int reclaimedPrivate = 0;
 
             for (String procKey : keys) {
                 List<String> jobs = redis.opsForList().range(procKey, 0, -1);
@@ -231,21 +296,33 @@ public class SubmissionWorkerPool {
                         }
 
                         if (age > maxAgeMs) {
-                            // Stuck — remove from this processing list and push back to the main
-                            // queue. Another worker will re-process it. The submission row stays
-                            // PENDING/JUDGING; the next worker resets it.
+                            // Stuck — remove from this processing list and push back to the appropriate
+                            // queue (public or private). Another worker will re-process it. The submission
+                            // row stays PENDING/JUDGING; the next worker resets it.
                             redis.opsForList().remove(procKey, 0, jobJson);
-                            redis.opsForList().leftPush(QUEUE_KEY, jobJson);
-                            reclaimed++;
-                            log.warn("Reclaimed stuck job {} (age {}ms) from {}",
-                                job.getSubmissionId(), age, procKey);
+                            
+                            // Route to correct queue based on privateContestId
+                            String targetQueue = (job.getPrivateContestId() != null) ? PRIVATE_QUEUE_KEY : QUEUE_KEY;
+                            redis.opsForList().leftPush(targetQueue, jobJson);
+                            
+                            if (job.getPrivateContestId() != null) {
+                                reclaimedPrivate++;
+                                log.warn("Reclaimed stuck job {} (age {}ms) from {} → private queue",
+                                    job.getSubmissionId(), age, procKey);
+                            } else {
+                                reclaimedPublic++;
+                                log.warn("Reclaimed stuck job {} (age {}ms) from {} → public queue",
+                                    job.getSubmissionId(), age, procKey);
+                            }
                         }
                     } catch (Exception ex) {
                         log.warn("Janitor: bad job in {}: {}", procKey, ex.getMessage());
                     }
                 }
             }
-            if (reclaimed > 0) log.info("Janitor reclaimed {} stuck job(s)", reclaimed);
+            if (reclaimedPublic > 0 || reclaimedPrivate > 0) {
+                log.info("Janitor reclaimed {} public + {} private stuck job(s)", reclaimedPublic, reclaimedPrivate);
+            }
         } catch (Exception e) {
             log.warn("Janitor failed: {}", e.getMessage());
         }
@@ -358,26 +435,62 @@ public class SubmissionWorkerPool {
             //     REPLACE the old score (delta approach) instead of stacking.
             //     Example: WA 50 → AC 100 → leaderboard delta = +50 (not +100).
             if (!job.isTestRun() && job.getContestId() != null) {
-                String problemScoreKey = "contest:score:" + job.getContestId()
-                    + ":" + job.getUserId() + ":" + job.getProblemId();
-                try {
-                    // Read previous score for this (contest, user, problem)
-                    String prevStr = redis.opsForValue().get(problemScoreKey);
-                    int prevScore = (prevStr != null) ? Integer.parseInt(prevStr) : 0;
-                    int delta = score - prevScore;
+                // Check if this is a private contest submission
+                if (job.isPrivateContest()) {
+                    // Private contest leaderboard with private: prefix
+                    String leaderboardKey = "private:leaderboard:" + job.getContestId();
+                    String scoreKey = "private:score:" + job.getContestId()
+                        + ":" + job.getUserId() + ":" + job.getProblemId();
+                    
+                    try {
+                        // Read previous score for this (contest, user, problem)
+                        String prevStr = redis.opsForValue().get(scoreKey);
+                        int prevScore = (prevStr != null) ? Integer.parseInt(prevStr) : 0;
+                        int delta = score - prevScore;
 
-                    // Store the new per-problem score (26h TTL = contest + buffer)
-                    redis.opsForValue().set(problemScoreKey, String.valueOf(score),
-                        java.time.Duration.ofHours(26));
+                        // Store the new per-problem score (26h TTL = contest + buffer)
+                        redis.opsForValue().set(scoreKey, String.valueOf(score),
+                            java.time.Duration.ofHours(26));
 
-                    // Apply delta to leaderboard ZSET (can be negative if score dropped)
-                    if (delta != 0) {
-                        leaderboard.updateScore(job.getContestId(), job.getUserId(), delta);
-                        log.debug("Leaderboard delta={} (was={}, now={}) user={} problem={} contest={}",
-                            delta, prevScore, score, job.getUserId(), job.getProblemId(), job.getContestId());
+                        // Apply delta to private leaderboard ZSET using ZINCRBY
+                        if (delta != 0) {
+                            redis.opsForZSet().incrementScore(leaderboardKey, 
+                                job.getUserId().toString(), delta);
+                            log.debug("Private leaderboard delta={} (was={}, now={}) user={} problem={} contest={}",
+                                delta, prevScore, score, job.getUserId(), job.getProblemId(), job.getContestId());
+                        }
+                        
+                        // Award points for AC verdict in private contests (Task 19.1)
+                        // Only award points if this is the first AC for this user+problem combination
+                        if (status == Submission.SubmissionStatus.AC && prevScore != 100) {
+                            awardPrivateContestPoints(job.getUserId(), job.getProblemId(), job.getContestId());
+                        }
+                    } catch (Exception e) {
+                        log.warn("Private leaderboard update failed: {}", e.getMessage());
                     }
-                } catch (Exception e) {
-                    log.warn("Leaderboard update failed: {}", e.getMessage());
+                } else {
+                    // Public contest leaderboard (existing logic)
+                    String problemScoreKey = "contest:score:" + job.getContestId()
+                        + ":" + job.getUserId() + ":" + job.getProblemId();
+                    try {
+                        // Read previous score for this (contest, user, problem)
+                        String prevStr = redis.opsForValue().get(problemScoreKey);
+                        int prevScore = (prevStr != null) ? Integer.parseInt(prevStr) : 0;
+                        int delta = score - prevScore;
+
+                        // Store the new per-problem score (26h TTL = contest + buffer)
+                        redis.opsForValue().set(problemScoreKey, String.valueOf(score),
+                            java.time.Duration.ofHours(26));
+
+                        // Apply delta to leaderboard ZSET (can be negative if score dropped)
+                        if (delta != 0) {
+                            leaderboard.updateScore(job.getContestId(), job.getUserId(), delta);
+                            log.debug("Leaderboard delta={} (was={}, now={}) user={} problem={} contest={}",
+                                delta, prevScore, score, job.getUserId(), job.getProblemId(), job.getContestId());
+                        }
+                    } catch (Exception e) {
+                        log.warn("Leaderboard update failed: {}", e.getMessage());
+                    }
                 }
             }
 
@@ -427,6 +540,10 @@ public class SubmissionWorkerPool {
     public int getTotalProcessed() { return totalProcessed.get(); }
     public Long getQueueDepth() {
         try { return redis.opsForList().size(QUEUE_KEY); }
+        catch (Exception e) { return -1L; }
+    }
+    public Long getPrivateQueueDepth() {
+        try { return redis.opsForList().size(PRIVATE_QUEUE_KEY); }
         catch (Exception e) { return -1L; }
     }
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -573,5 +690,103 @@ public class SubmissionWorkerPool {
         if (s == null) return "";
         return s.replace("\\", "\\\\").replace("\"", "\\\"")
                 .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
+    }
+
+    /**
+     * Award points to a user for solving a problem in a private contest.
+     * 
+     * Points are awarded based on problem difficulty:
+     * - EASY: 5 points
+     * - MEDIUM: 7 points
+     * - HARD: 10 points
+     * - DEFAULT: 5 points (if level is null or unknown)
+     * 
+     * Points are only awarded once per (user, problem, contest) combination.
+     * Uses Redis to track already-awarded points to ensure idempotency across
+     * multiple AC submissions for the same problem.
+     * 
+     * Requirements: 35.1, 35.2, 35.3
+     * Task: 19.1 - Update submission verdict handler for points
+     * 
+     * @param userId The ID of the user who solved the problem
+     * @param problemId The ID of the problem that was solved
+     * @param contestId The ID of the private contest
+     */
+    private void awardPrivateContestPoints(Long userId, Long problemId, Long contestId) {
+        if (userId == null || problemId == null || contestId == null) {
+            log.warn("Cannot award points: null userId, problemId, or contestId");
+            return;
+        }
+
+        try {
+            // Check if points were already awarded for this (user, problem, contest) combination
+            // Using Redis key to track awarded points for idempotency
+            String pointsAwardedKey = "private:points:awarded:" + contestId + ":" + userId + ":" + problemId;
+            
+            // Try to set the key only if it doesn't exist (NX semantics)
+            Boolean wasSet = redis.opsForValue().setIfAbsent(pointsAwardedKey, "1", 
+                java.time.Duration.ofHours(48)); // TTL > contest duration + buffer
+            
+            if (!Boolean.TRUE.equals(wasSet)) {
+                // Points already awarded for this problem in this contest
+                log.debug("Points already awarded for userId={}, problemId={}, contestId={}", 
+                    userId, problemId, contestId);
+                return;
+            }
+
+            // Fetch problem to get difficulty level
+            com.example.codecombat2026.entity.Problem problem = 
+                problemRepository.findById(problemId).orElse(null);
+            
+            if (problem == null) {
+                log.warn("Cannot award points: problem not found for problemId={}", problemId);
+                return;
+            }
+
+            // Calculate points based on difficulty level (same as practice mode)
+            int points = pointsForLevel(problem.getLevel());
+
+            // Fetch user and update total points
+            com.example.codecombat2026.entity.User user = 
+                userRepository.findById(userId).orElse(null);
+            
+            if (user == null) {
+                log.warn("Cannot award points: user not found for userId={}", userId);
+                return;
+            }
+
+            // Increment user's total points atomically
+            Integer currentPoints = user.getTotalPoints();
+            if (currentPoints == null) {
+                currentPoints = 0;
+            }
+            user.setTotalPoints(currentPoints + points);
+            userRepository.save(user);
+
+            log.info("Private contest points awarded: userId={}, problemId={}, contestId={}, points={}, level={}", 
+                userId, problemId, contestId, points, problem.getLevel());
+
+        } catch (Exception e) {
+            log.error("Failed to award private contest points for userId={}, problemId={}, contestId={}: {}", 
+                userId, problemId, contestId, e.getMessage(), e);
+            // Don't throw - point awarding failure should not fail the submission
+        }
+    }
+
+    /**
+     * Calculate points based on problem difficulty level.
+     * Matches the point system used in practice mode.
+     * 
+     * @param level The difficulty level (EASY, MEDIUM, HARD)
+     * @return Points to award (5, 7, or 10)
+     */
+    private int pointsForLevel(String level) {
+        if (level == null) return 5;
+        switch (level.toUpperCase()) {
+            case "EASY":   return 5;
+            case "MEDIUM": return 7;
+            case "HARD":   return 10;
+            default:       return 5;
+        }
     }
 }

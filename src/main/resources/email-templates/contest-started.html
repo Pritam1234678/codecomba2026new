@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Your Contest Has Started | CodeCoder</title>
+</head>
+
+<body
+    style="margin:0;padding:0;background-color:#131313;font-family:'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+    <div style="max-width:600px;margin:0 auto;background-color:#131313;">
+
+        <!-- Header / Logo -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td style="padding:48px 32px;text-align:center;border-bottom:1px solid #50453b;">
+                    <img src="https://codecoder.in/logo.png" alt="CodeCoder" height="48"
+                        style="height:48px;width:auto;" />
+                </td>
+            </tr>
+        </table>
+
+        <!-- Hero Section -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td style="padding:48px 32px 32px;text-align:center;">
+                    <p
+                        style="margin:0 0 16px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.3em;color:#f1bc8b;text-transform:uppercase;">
+                        Status: Live</p>
+                    <h1
+                        style="margin:0 0 24px;font-family:Georgia,'Times New Roman',serif;font-size:40px;font-weight:700;color:#e5e2e1;line-height:1.1;letter-spacing:-0.02em;">
+                        Contest Is Live</h1>
+                    <div style="width:48px;height:1px;background-color:#50453b;margin:0 auto 32px;"></div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Body Content -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td style="padding:0 48px 32px;">
+                    <p style="margin:0 0 20px;font-size:17px;line-height:1.7;color:#d4c4b7;">
+                        Hello, <strong style="color:#f1bc8b;">{{HOST_NAME}}</strong>.
+                    </p>
+                    <p style="margin:0 0 20px;font-size:17px;line-height:1.7;color:#d4c4b7;">
+                        Your private contest <span style="color:#f1bc8b;font-weight:600;">{{CONTEST_NAME}}</span> is now
+                        <strong style="color:#f1bc8b;">LIVE</strong>!
+                    </p>
+
+                    <div style="background-color:#1c1b1b;padding:24px;border-left:3px solid #f1bc8b;margin:24px 0;">
+                        <p style="margin:0 0 12px;font-size:15px;color:#d4c4b7;">
+                            <strong style="color:#f1bc8b;">Contest ID:</strong> #{{CONTEST_ID}}
+                        </p>
+                        <p style="margin:0 0 12px;font-size:15px;color:#d4c4b7;">
+                            <strong style="color:#f1bc8b;">Started At:</strong> {{START_TIME}}
+                        </p>
+                        <p style="margin:0 0 12px;font-size:15px;color:#d4c4b7;">
+                            <strong style="color:#f1bc8b;">Ends At:</strong> {{END_TIME}}
+                        </p>
+                        <p style="margin:0;font-size:15px;color:#d4c4b7;">
+                            <strong style="color:#f1bc8b;">Registered Participants:</strong> {{PARTICIPANT_COUNT}}
+                        </p>
+                    </div>
+
+                    <p style="margin:24px 0 20px;font-size:15px;line-height:1.7;color:#d4c4b7;">
+                        Participants can now submit solutions. Monitor real-time progress, submissions, and leaderboard
+                        updates from your live dashboard.
+                    </p>
+                </td>
+            </tr>
+        </table>
+
+        <!-- CTA Button -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td style="padding:16px 48px 48px;text-align:center;">
+                    <a href="{{DASHBOARD_URL}}"
+                        style="display:inline-block;padding:16px 40px;border:1px solid #f1bc8b;color:#f1bc8b;text-decoration:none;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;font-weight:500;">View
+                        Live Dashboard</a>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Separator -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td style="padding:0 48px;">
+                    <div style="height:1px;background-color:#50453b;"></div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Footer -->
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+                <td style="padding:40px 32px;text-align:center;border-top:1px solid #50453b;background-color:#0e0e0e;">
+                    <p
+                        style="margin:0 0 8px;font-family:'Courier New',monospace;font-size:11px;color:#9d8e83;letter-spacing:0.1em;">
+                        This is an automated email. Please do not reply.</p>
+                    <p style="margin:0 0 8px;"><a href="{{APP_URL}}"
+                            style="font-family:'Courier New',monospace;font-size:12px;color:#f1bc8b;text-decoration:none;">{{APP_URL}}</a>
+                    </p>
+                    <p style="margin:16px 0 8px;font-family:'Courier New',monospace;font-size:10px;color:#9d8e83;">
+                        <a href="{{APP_URL}}/unsubscribe?email={{HOST_EMAIL}}&type=contest_notifications"
+                            style="color:#9d8e83;text-decoration:underline;">Unsubscribe from contest notifications</a>
+                    </p>
+                    <p
+                        style="margin:8px 0 0;font-family:'Courier New',monospace;font-size:10px;color:#50453b;letter-spacing:0.1em;text-transform:uppercase;">
+                        © 2026 CodeCoder. Architectural Arena. All rights reserved.</p>
+                </td>
+            </tr>
+        </table>
+
+    </div>
+</body>
+
+</html>

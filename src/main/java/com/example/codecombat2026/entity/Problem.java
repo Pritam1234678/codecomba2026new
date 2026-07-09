@@ -90,6 +90,23 @@ public class Problem {
     private String level = "MEDIUM";
 
     /**
+     * Visibility level: PUBLIC, PRIVATE_AVAILABLE, PRIVATE_OWNED, ADMIN_ONLY
+     * - PUBLIC: Available for all contests (public and private)
+     * - PRIVATE_AVAILABLE: Available only for private contests
+     * - PRIVATE_OWNED: Created by a Contest_Host via AI, only visible to the creator
+     * - ADMIN_ONLY: Restricted to admin use only
+     */
+    @Column(nullable = false)
+    private String visibility = "PUBLIC";
+
+    /**
+     * User ID of the Contest_Host who created this problem (via AI generation).
+     * Nullable - only set for PRIVATE_OWNED problems.
+     */
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    /**
      * Code snippets for each language.
      * Each snippet contains:
      *   - starterCode: shown to the user in the editor
