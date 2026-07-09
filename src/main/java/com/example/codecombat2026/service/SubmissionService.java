@@ -48,9 +48,14 @@ public class SubmissionService {
      */
     @Transactional
     public Submission submitCodeAsync(Long userId, Long problemId,
-                                      String code, Submission.ProgrammingLanguage language) {
+                                       String code, Submission.ProgrammingLanguage language) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        // Warm the uid2uname mapping for profile-cache eviction
+        try {
+            redis.opsForValue().set("uid2uname:" + userId, user.getUsername(),
+                java.time.Duration.ofHours(1));
+        } catch (Exception ignored) {}
         Problem problem = problemRepository.findById(problemId)
             .orElseThrow(() -> new ResourceNotFoundException("Problem not found"));
 
@@ -161,6 +166,11 @@ public class SubmissionService {
                                      String code, Submission.ProgrammingLanguage language) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        // Warm the uid2uname mapping for profile-cache eviction
+        try {
+            redis.opsForValue().set("uid2uname:" + userId, user.getUsername(),
+                java.time.Duration.ofHours(1));
+        } catch (Exception ignored) {}
         Problem problem = problemRepository.findById(problemId)
             .orElseThrow(() -> new ResourceNotFoundException("Problem not found"));
 

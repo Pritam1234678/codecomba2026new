@@ -60,6 +60,8 @@ public class UserController {
     }
 
     private static final Duration PROFILE_TTL = Duration.ofMinutes(5);
+    /** Shorter TTL for public profile — evicted on submission completion anyway. */
+    private static final Duration PUBLIC_PROFILE_TTL = Duration.ofSeconds(10);
 
     // ─── GET /api/user/profile ────────────────────────────────────────────────
     @GetMapping("/profile")
@@ -331,6 +333,12 @@ public class UserController {
             return ResponseEntity.notFound().build();
         }
 
+        // Cache username → userId mapping for cache eviction on submission completion
+        try {
+            redis.opsForValue().set("uid2uname:" + user.getId(), user.getUsername(),
+                java.time.Duration.ofHours(1));
+        } catch (Exception ignored) {}
+
         String photoUrl = resolvePhotoUrl(userPhotoRepository.findByUserId(user.getId())
                 .map(UserPhoto::getPhotoUrl).orElse(null));
 
@@ -395,7 +403,7 @@ public class UserController {
         response.put("websiteUrl", user.getWebsiteUrl());
 
         try {
-            redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(response), PROFILE_TTL);
+            redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(response), PUBLIC_PROFILE_TTL);
         } catch (Exception ignored) {}
 
         return ResponseEntity.ok(response);

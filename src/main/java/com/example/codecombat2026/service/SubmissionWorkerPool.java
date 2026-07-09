@@ -484,6 +484,17 @@ public class SubmissionWorkerPool {
         } catch (Exception e) {
             log.warn("SSE push failed for user {}: {}", job.getUserId(), e.getMessage());
         }
+
+        // 6. Evict public profile cache so Socials page shows fresh stats.
+        //    The profile is keyed by username; keep a Valkey mapping for lookup.
+        if (submissionId != null && submissionId > 0) {
+            try {
+                String uname = redis.opsForValue().get("uid2uname:" + job.getUserId());
+                if (uname != null) {
+                    redis.delete("public-profile:" + uname);
+                }
+            } catch (Exception ignored) {}
+        }
     }
 
     // ─── Monitoring ───────────────────────────────────────────────────────────
