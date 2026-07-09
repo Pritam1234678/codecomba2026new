@@ -453,7 +453,7 @@ public class SubmissionWorkerPool {
             if (job.isPractice() && !job.isTestRun() && status == Submission.SubmissionStatus.AC && updated > 0) {
                 try {
                     practiceAwarded = practiceService.awardPointsIfFirstSolve(job.getUserId(), job.getProblemId());
-                    practiceAlreadySolved = (practiceAwarded == 0);
+                    practiceSolved = (practiceAwarded == 0);
                 } catch (Exception e) {
                     log.warn("Practice points award failed for user {} problem {}: {}",
                         job.getUserId(), job.getProblemId(), e.getMessage());

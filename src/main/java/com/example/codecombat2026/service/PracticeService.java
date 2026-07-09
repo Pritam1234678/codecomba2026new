@@ -74,10 +74,13 @@ public class PracticeService {
         }
 
         // Create a PENDING submission row in DB so the user can poll / track history
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
         Submission sub = new Submission();
-        sub.setUserId(userId);
-        sub.setProblemId(problemId);
-        sub.setContestId(problem.getContestId());
+        sub.setUser(user);
+        sub.setProblem(problem);
+        sub.setContest(null);
         sub.setCode(code);
         sub.setLanguage(lang);
         sub.setSubmittedAt(TimeUtil.now());
