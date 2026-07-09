@@ -378,12 +378,11 @@ export default function Socials() {
                         <div style={{ width: '40px', height: '1px', background: C.border, alignSelf: 'center' }} />
                         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>arena</span>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : 5}, 1fr)`, gap: '2px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : 4}, 1fr)`, gap: '2px' }}>
                         <StatCard label="Problems Solved" value={stats?.contestProblemsSolved ?? stats?.problemsSolved ?? 0} accent={C.success} icon="check_circle" delay={0.05} />
                         <StatCard label="Submissions" value={stats?.contestTotalSubmissions ?? stats?.totalSubmissions ?? 0} accent={C.secondary} icon="send" delay={0.1} />
                         <StatCard label="Accept Rate" value={stats?.contestSuccessRate != null ? `${stats.contestSuccessRate}%` : (stats?.successRate != null ? `${stats.successRate}%` : '0%')} accent={C.primary} icon="trending_up" delay={0.15} />
                         <StatCard label="Contests Joined" value={stats?.contestsJoined ?? 0} accent={C.warning} icon="emoji_events" delay={0.2} />
-                        <StatCard label="Total Points" value={stats?.totalPoints ?? profile?.totalPoints ?? 0} accent="#ff8c00" icon="stars" delay={0.25} />
                     </div>
                 </div>
 
@@ -397,7 +396,7 @@ export default function Socials() {
                     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : 3}, 1fr)`, gap: '2px' }}>
                         <StatCard label="Problems Solved" value={stats?.practiceProblemsSolved ?? 0} accent="#4ade80" icon="fitness_center" delay={0.05} />
                         <StatCard label="Points Earned"   value={stats?.practicePointsEarned ?? 0}   accent="#facc15" icon="workspace_premium" delay={0.1} />
-                        <StatCard label="Total Points"    value={stats?.totalPoints ?? profile?.totalPoints ?? 0} accent="#60a5fa" icon="stars" delay={0.15} />
+                        <StatCard label="Total Points"    value={stats?.maxPracticePoints ?? 0} accent="#60a5fa" icon="stars" delay={0.15} />
                     </div>
                 </div>
             </div>

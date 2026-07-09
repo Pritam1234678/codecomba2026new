@@ -4,7 +4,9 @@ import com.example.codecombat2026.entity.Submission;
 import com.example.codecombat2026.entity.User;
 import com.example.codecombat2026.entity.UserPhoto;
 import com.example.codecombat2026.entity.UserProblemSolved;
+import com.example.codecombat2026.entity.Problem;
 import com.example.codecombat2026.repository.ContestRegistrationRepository;
+import com.example.codecombat2026.repository.ProblemRepository;
 import com.example.codecombat2026.repository.SubmissionRepository;
 import com.example.codecombat2026.repository.UserPhotoRepository;
 import com.example.codecombat2026.repository.UserProblemSolvedRepository;
@@ -47,6 +49,7 @@ public class UserController {
     @Autowired private UserProblemSolvedRepository userProblemSolvedRepository;
     @Autowired private StringRedisTemplate redis;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private ProblemRepository problemRepository;
 
     /** Resolve a stored photo URL to a full URL if APP_BASE_URL is configured. */
     private String resolvePhotoUrl(String photoUrl) {
@@ -62,6 +65,17 @@ public class UserController {
     private static final Duration PROFILE_TTL = Duration.ofMinutes(5);
     /** Shorter TTL for public profile — evicted on submission completion anyway. */
     private static final Duration PUBLIC_PROFILE_TTL = Duration.ofSeconds(10);
+
+    /** Points awarded for solving a practice problem of the given difficulty. */
+    private static int pointsForLevel(String level) {
+        if (level == null) return 5;
+        switch (level.toUpperCase()) {
+            case "EASY":   return 5;
+            case "MEDIUM": return 7;
+            case "HARD":   return 10;
+            default:       return 5;
+        }
+    }
 
     // ─── GET /api/user/profile ────────────────────────────────────────────────
     @GetMapping("/profile")
@@ -386,6 +400,13 @@ public class UserController {
         // Practice stats
         response.put("practiceProblemsSolved", practiceSolved);
         response.put("practicePointsEarned", practicePointsEarned);
+        // Max possible practice points across all active problems
+        List<Problem> allProblems = problemRepository.findAll();
+        int maxPracticePoints = allProblems.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getActive()))
+                .mapToInt(p -> pointsForLevel(p.getLevel()))
+                .sum();
+        response.put("maxPracticePoints", maxPracticePoints);
         // Legacy flat keys (backwards compat)
         response.put("totalSubmissions", contestTotalSubmissions);
         response.put("acceptedSubmissions", contestAcceptedSubmissions);
