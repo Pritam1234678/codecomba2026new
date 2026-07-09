@@ -325,7 +325,7 @@ public class ProctoringEventService {
             // that Jackson refuses to serialise we'd rather persist an
             // empty object than abort ingest — the event still counts
             // for scoring and the upstream validation can be tightened.
-            log.warn("Proctoring: failed to serialise payload for event_type={}; persisting empty object.",
+            log.warn("Proctoring: failed to serialise event payload={}; persisting empty object.",
                     payload, ex);
             return EMPTY_JSON_OBJECT;
         }

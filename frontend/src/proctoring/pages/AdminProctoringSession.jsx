@@ -1211,7 +1211,7 @@ export default function AdminProctoringSession() {
         <div
           role="dialog"
           aria-modal="true"
-          onClick={() => setPreviewSrc(null)}
+          onClick={() => { URL.revokeObjectURL(previewSrc); setPreviewSrc(null); }}
           style={{
             position: 'fixed',
             inset: 0,

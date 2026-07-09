@@ -271,7 +271,7 @@ export default function ConsentDialog({
         </ul>
 
         <p style={styles.versionLine}>
-          Consent version: v{consentVersion}
+          Consent version: v{consentVersion ?? '1'}
         </p>
 
         <label style={styles.ackRow}>

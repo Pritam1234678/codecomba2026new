@@ -293,6 +293,16 @@ export default function ProctoredContestEntry() {
     loadEligibility();
   }, [loadEligibility]);
 
+  // Cleanup leaked screen-capture stream on unmount (bug: the stream was
+  // attached to window.__proctoringScreenStream and never stopped).
+  useEffect(() => () => {
+    const stream = window.__proctoringScreenStream;
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      delete window.__proctoringScreenStream;
+    }
+  }, []);
+
   // ── Consent submit ──────────────────────────────────────────────
   const handleAcceptConsent = async () => {
     if (!eligibility) return;

@@ -357,11 +357,16 @@ public class ProctoringSessionService {
         List<ProctoringSession> active = sessionRepo.findByContestIdAndEndedAtIsNull(contestId);
         int closedCount = 0;
         for (ProctoringSession s : active) {
-            // Reuse the same conditional-UPDATE-plus-projection helper so
-            // the SESSION_ENDED event fans out exactly once per session
-            // even on concurrent contest-end vs candidate-finish races.
-            if (closeAndProject(contestId, s.getId(), EndReason.CONTEST_ENDED)) {
-                closedCount++;
+            // Close each session independently — a single failure must not
+            // roll back the previous closes. closeAndProject is already
+            // transactional at the individual session level.
+            try {
+                if (closeAndProject(contestId, s.getId(), EndReason.CONTEST_ENDED)) {
+                    closedCount++;
+                }
+            } catch (RuntimeException e) {
+                log.warn("Failed to close session {} during contest-end sweep for contest {}: {}",
+                        s.getId(), contestId, e.getMessage());
             }
         }
         if (closedCount > 0) {

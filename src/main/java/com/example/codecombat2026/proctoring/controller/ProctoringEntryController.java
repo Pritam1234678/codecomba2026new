@@ -170,8 +170,9 @@ public class ProctoringEntryController {
         // is ENDED. This lets the frontend show a "contest has ended" screen
         // rather than a confused state where everything looks normal but
         // sessions can't be created (fixes Bug 3).
-        boolean contestEnded = contest.getEndTime() != null
-                && contest.getEndTime().isBefore(com.example.codecombat2026.util.TimeUtil.now());
+        boolean contestEnded = (contest.getEndTime() != null
+                && contest.getEndTime().isBefore(com.example.codecombat2026.util.TimeUtil.now()))
+                || contest.getStatus() == Contest.ContestStatus.ENDED;
 
         return ResponseEntity.ok(new EligibilityResponse(
                 registered, proctored, consentAccepted, locked, lockReason,

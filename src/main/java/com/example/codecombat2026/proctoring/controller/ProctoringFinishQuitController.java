@@ -8,6 +8,8 @@ import com.example.codecombat2026.proctoring.repository.ProctoringSessionReposit
 import com.example.codecombat2026.proctoring.service.ProctoringSessionService;
 import com.example.codecombat2026.proctoring.ws.ProctoringSessionRegistry;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -63,6 +65,8 @@ import java.time.LocalDateTime;
 @RequestMapping("/api/proctoring/sessions")
 public class ProctoringFinishQuitController {
 
+    private static final Logger log = LoggerFactory.getLogger(ProctoringFinishQuitController.class);
+
     private final ProctoringSessionService sessionService;
     private final ProctoringSessionRepository sessionRepo;
     private final ProctoringSessionRegistry registry;
@@ -102,7 +106,11 @@ public class ProctoringFinishQuitController {
         // frame will observe `closed == false` but is harmless. Close code 1000
         // matches the WS-path dispatchFinish behaviour so the frontend treats
         // it as a clean normal close and does not attempt to reconnect.
-        registry.terminate(id, "completed", EndReason.SELF_FINISHED, 1000);
+        try {
+            registry.terminate(id, "completed", EndReason.SELF_FINISHED, 1000);
+        } catch (Exception e) {
+            log.warn("WS terminate failed for FINISH on session {}: {}", id, e.getMessage());
+        }
 
         return ResponseEntity.ok(loadEndedView(id));
     }
@@ -128,7 +136,11 @@ public class ProctoringFinishQuitController {
                     "ALREADY_ENDED", "Session has already ended");
         }
 
-        registry.terminate(id, "quit", EndReason.SELF_QUIT, 1000);
+        try {
+            registry.terminate(id, "quit", EndReason.SELF_QUIT, 1000);
+        } catch (Exception e) {
+            log.warn("WS terminate failed for QUIT on session {}: {}", id, e.getMessage());
+        }
 
         return ResponseEntity.ok(loadEndedView(id));
     }
