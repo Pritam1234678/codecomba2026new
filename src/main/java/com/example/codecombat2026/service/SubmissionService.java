@@ -9,6 +9,7 @@ import com.example.codecombat2026.proctoring.entity.ProctoringSession;
 import com.example.codecombat2026.proctoring.exception.ProctoringForbiddenException;
 import com.example.codecombat2026.proctoring.repository.ProctoringSessionRepository;
 import com.example.codecombat2026.proctoring.service.ProctoringSessionService;
+import com.example.codecombat2026.repository.ContestRegistrationRepository;
 import com.example.codecombat2026.repository.ProblemRepository;
 import com.example.codecombat2026.repository.SubmissionRepository;
 import com.example.codecombat2026.repository.UserRepository;
@@ -36,6 +37,7 @@ public class SubmissionService {
     @Autowired private RateLimiterService rateLimiter;
     @Autowired private ProctoringSessionService proctoringSessionService;
     @Autowired private ProctoringSessionRepository proctoringSessionRepository;
+    @Autowired private ContestRegistrationRepository contestRegistrationRepository;
 
     /**
      * Async submit — saves PENDING to MySQL, pushes job to Valkey queue,
@@ -51,6 +53,10 @@ public class SubmissionService {
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         Problem problem = problemRepository.findById(problemId)
             .orElseThrow(() -> new ResourceNotFoundException("Problem not found"));
+
+        // Contest liveness + registration gates — checked BEFORE the PENDING
+        // row is written so a rejected request doesn't leave an orphan row.
+        validateContestAccess(problem, userId, true);
 
         // Look at the latest submission for this user+problem.
         // If it's a finished real submission → reuse the row.
@@ -104,23 +110,14 @@ public class SubmissionService {
         Long contestId = problem.getContest() != null ? problem.getContest().getId() : null;
 
         // Req 19.2 / 19.3 — proctoring lockout + session tagging.
-        // Gate 1: Contest time window — once endTime has passed, no
-        // submissions are accepted regardless of proctoring state.
-        // Gate 2: Proctoring terminal-state lockout from a previous
-        // attempt (SELF_QUIT / ADMIN_FORCED / HEARTBEAT_TIMEOUT).
-        // Gate 3: Tag the job with the candidate's currently-active
-        // proctoring session id for verdict-session correlation.
+        // Contest liveness + registration are validated earlier via
+        // validateContestAccess(). Here we only handle proctoring:
+        //   - terminal-state lockout from a previous attempt
+        //     (SELF_QUIT / ADMIN_FORCED / HEARTBEAT_TIMEOUT)
+        //   - tag the job with the candidate's currently-active
+        //     proctoring session id for verdict-session correlation.
         Long proctoringSessionId = null;
         if (contestId != null) {
-            com.example.codecombat2026.entity.Contest contest =
-                problem.getContest() != null ? problem.getContest() : null;
-            if (contest != null
-                    && contest.getEndTime() != null
-                    && contest.getEndTime().isBefore(TimeUtil.now())) {
-                throw new ProctoringForbiddenException(
-                    "CONTEST_ENDED",
-                    "Contest has ended — submissions are no longer accepted");
-            }
             if (proctoringSessionService.isLocked(contestId, userId)) {
                 throw new ProctoringForbiddenException("LOCKED_OUT");
             }
@@ -158,13 +155,17 @@ public class SubmissionService {
      * Test run — saves to DB with isTestRun flag, pushes job to queue.
      * Verdict arrives via polling on /submissions/{id}/status.
      */
-    @Transactional
+@Transactional
     public Submission testCodeAsync(Long userId, Long problemId,
-                                    String code, Submission.ProgrammingLanguage language) {
+                                     String code, Submission.ProgrammingLanguage language) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         Problem problem = problemRepository.findById(problemId)
             .orElseThrow(() -> new ResourceNotFoundException("Problem not found"));
+
+        // Contest liveness gates — test runs must also respect active/start/end
+        // (but not registration — a user may test-run before registering).
+        validateContestAccess(problem, userId, false);
 
         // Create a temporary submission for test run (separate from real submission)
         // We use a new submission each time so it doesn't overwrite the real one
@@ -228,5 +229,46 @@ public class SubmissionService {
 
     public long countContestSubmits(Long userId, Long problemId) {
         return submissionRepository.countContestSubmitsByUserAndProblem(userId, problemId);
+    }
+
+    /**
+     * Validate that the calling user may submit/run against this problem in its
+     * contest. Throws ProctoringForbiddenException (→ 403) on violation so the
+     * GlobalExceptionHandler surfaces a clean code+message.
+     *
+     * Gates (only applied when the problem belongs to a contest):
+     *   1. Contest must be active (admin has not deactivated it).
+     *   2. Contest must have started (startTime not in the future).
+     *   3. Contest must not have ended (endTime not in the past).
+     *   4. requireRegistration: the calling user must have a row in
+     *      contest_registrations for this contest.
+     */
+    private void validateContestAccess(Problem problem, Long userId, boolean requireRegistration) {
+        com.example.codecombat2026.entity.Contest contest = problem.getContest();
+        if (contest == null) return; // standalone / practice problem — no gates
+        Long contestId = contest.getId();
+
+        if (!Boolean.TRUE.equals(contest.getActive())) {
+            throw new ProctoringForbiddenException(
+                "CONTEST_INACTIVE",
+                "This contest is not currently active.");
+        }
+        var now = TimeUtil.now();
+        if (contest.getStartTime() != null && contest.getStartTime().isAfter(now)) {
+            throw new ProctoringForbiddenException(
+                "CONTEST_NOT_STARTED",
+                "This contest has not started yet.");
+        }
+        if (contest.getEndTime() != null && contest.getEndTime().isBefore(now)) {
+            throw new ProctoringForbiddenException(
+                "CONTEST_ENDED",
+                "Contest has ended — submissions are no longer accepted");
+        }
+        if (requireRegistration && contestId != null
+                && !contestRegistrationRepository.existsByContestIdAndUserId(contestId, userId)) {
+            throw new ProctoringForbiddenException(
+                "NOT_REGISTERED",
+                "You must register for this contest before submitting.");
+        }
     }
 }

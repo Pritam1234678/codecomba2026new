@@ -25,6 +25,7 @@ const ADMIN_NAV = [
     { label: 'Proctoring', icon: 'shield', to: '/admin/proctoring' },
     { label: 'Users', icon: 'group', to: '/admin/users' },
     { label: 'Rankings', icon: 'leaderboard', to: '/admin/leaderboard' },
+    { label: 'Edit Profile', icon: 'person', to: '/profile/edit' },
     { label: 'Compiler', icon: 'terminal', to: '/compiler' },
     { label: 'Platform', icon: 'tune', to: '/admin/platform-details' },
     { label: 'Support', icon: 'help_outline', to: '/support' },

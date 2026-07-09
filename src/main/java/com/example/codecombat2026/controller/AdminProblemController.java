@@ -150,6 +150,7 @@ public class AdminProblemController {
         problem.setActive(!Boolean.TRUE.equals(problem.getActive()));
         Problem saved = problemRepository.save(problem);
         problemService.evictProblem(id);
+        problemService.evictAllProblems(); // clear "problems:all" — admin list cache reads this
         cacheService.evictProblem(id);
         if (problem.getContestId() != null) {
             problemService.evictContestProblems(problem.getContestId());
@@ -167,6 +168,7 @@ public class AdminProblemController {
 
         // Evict all caches
         problemService.evictProblem(id);
+        problemService.evictAllProblems(); // clear "problems:all" — admin list cache reads this
         cacheService.evictProblem(id);
         contestProblemService.evictContestsForProblem(id);
         if (contestId != null) {

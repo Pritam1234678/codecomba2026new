@@ -58,6 +58,7 @@ const ManageTestCases = lazy(() => import('./pages/ManageTestCases'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const Duel = lazy(() => import('./pages/Duel'));
 const DuelArena = lazy(() => import('./pages/DuelArena'));
+const EditProfile = lazy(() => import('./pages/EditProfile'));
 
 // Proctored contest mode — entry shell, arena placeholder, and terminal
 // screen (task 3.4). Real arena, admin dashboard, and session
@@ -163,7 +164,7 @@ function App() {
 
       {/* User Routes */}
       <Route path="/dashboard" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><UserDashboard /></UserRoute>)}</div>} />
-      <Route path="/profile/edit" element={<Navigate to="/socials" replace />} />
+      <Route path="/profile/edit" element={lazyWrap(<UserRoute><EditProfile /></UserRoute>)} />
       <Route path="/contests" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><ContestList /></UserRoute>)}</div>} />
       <Route path="/contests/:id" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><ContestDetail /></UserRoute>)}</div>} />
       <Route path="/problems/:id" element={<div className="flex-1 px-14 py-8">{lazyWrap(<UserRoute><ProblemSolve /></UserRoute>)}</div>} />

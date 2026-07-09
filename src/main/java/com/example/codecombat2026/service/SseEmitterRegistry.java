@@ -94,8 +94,11 @@ public class SseEmitterRegistry {
             try {
                 e.getValue().send(SseEmitter.event().name("verdict").data(json));
                 delivered++;
-            } catch (IOException ex) {
-                // Subscription is broken — drop it
+            } catch (Exception ex) {
+                // Subscription is broken or already completed — drop it.
+                // Catching Exception (not just IOException) so an
+                // IllegalStateException from an already-completed emitter
+                // doesn't abort the fan-out to remaining subscriptions.
                 it.remove();
                 log.debug("SSE send failed for user {} sub {}: {}", userId, e.getKey(), ex.getMessage());
             }

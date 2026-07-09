@@ -104,14 +104,15 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
            "s.score = :score, " +
            "s.testCaseDetails = :details, " +
            "s.submittedAt = :at " +
-           "WHERE s.id = :id")
-    void updateResult(@Param("id") Long id,
-                      @Param("status") Submission.SubmissionStatus status,
-                      @Param("err") String err,
-                      @Param("passed") int passed,
-                      @Param("total") int total,
-                      @Param("time") Double time,
-                      @Param("score") int score,
-                      @Param("details") String details,
-                      @Param("at") LocalDateTime at);
+           "WHERE s.id = :id AND s.status IN :inflight")
+int updateResult(@Param("id") Long id,
+                       @Param("inflight") java.util.List<Submission.SubmissionStatus> inflight,
+                       @Param("status") Submission.SubmissionStatus status,
+                       @Param("err") String err,
+                       @Param("passed") int passed,
+                       @Param("total") int total,
+                       @Param("time") Double time,
+                       @Param("score") int score,
+                       @Param("details") String details,
+                       @Param("at") LocalDateTime at);
 }

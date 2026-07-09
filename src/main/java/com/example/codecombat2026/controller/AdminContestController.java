@@ -6,6 +6,7 @@ import com.example.codecombat2026.entity.ContestProblem;
 import com.example.codecombat2026.entity.Problem;
 import com.example.codecombat2026.proctoring.repository.ProctoredContestRepository;
 import com.example.codecombat2026.repository.ContestRepository;
+import com.example.codecombat2026.repository.ProblemRepository;
 import com.example.codecombat2026.service.ContestProblemService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
@@ -35,6 +37,7 @@ public class AdminContestController {
     @Autowired private AdminDashboardController adminDashboardController;
     @Autowired private com.example.codecombat2026.service.ContestService contestService;
     @Autowired private ContestProblemService contestProblemService;
+    @Autowired private ProblemRepository problemRepository;
     @Autowired private ProctoredContestRepository proctoredContestRepository;
     @Autowired private StringRedisTemplate redis;
     @Autowired private ObjectMapper objectMapper;
@@ -144,8 +147,12 @@ public class AdminContestController {
         return ResponseEntity.ok(new MessageResponse("Contest deactivated successfully"));
     }
 
+    @Transactional
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteContest(@PathVariable Long id) {
+        // Null out legacy contest_id FK in problems table (no ON DELETE CASCADE).
+        // contest_problems, contest_registrations, proctored_* all have CASCADE.
+        problemRepository.nullOutContestId(id);
         contestRepository.deleteById(id);
         contestService.evictContest(id);
         evictAdminContestsCache();

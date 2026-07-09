@@ -2,6 +2,7 @@ package com.example.codecombat2026.repository;
 
 import com.example.codecombat2026.entity.Problem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -50,4 +51,9 @@ public interface ProblemRepository extends JpaRepository<Problem, Long> {
         @Param("search")    String search,
         @Param("level")     String level
     );
+
+    /** Null out the legacy {@code contest_id} FK before deleting a contest. */
+    @Modifying
+    @Query(value = "UPDATE problems SET contest_id = NULL WHERE contest_id = :contestId", nativeQuery = true)
+    int nullOutContestId(@Param("contestId") Long contestId);
 }

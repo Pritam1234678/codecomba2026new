@@ -374,8 +374,10 @@ public class WebContestWorkerPool {
         // 1. DB update
         if (submissionId != null && submissionId > 0) {
             try {
+                java.util.List<Submission.SubmissionStatus> inflight =
+                    List.of(Submission.SubmissionStatus.PENDING, Submission.SubmissionStatus.JUDGING);
                 submissionRepository.updateResult(
-                    submissionId, status, errorMessage, passed, total,
+                    submissionId, inflight, status, errorMessage, passed, total,
                     (double) timeMs, score, details, TimeUtil.now()
                 );
             } catch (Exception e) {

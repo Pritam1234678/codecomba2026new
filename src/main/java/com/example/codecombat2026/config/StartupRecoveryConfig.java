@@ -62,9 +62,11 @@ public class StartupRecoveryConfig {
 
             log.warn("⚠️  Found {} stuck submissions older than 10min — marking as RE", stuck.size());
             for (Submission s : stuck) {
+                java.util.List<Submission.SubmissionStatus> inflight =
+                    java.util.List.of(Submission.SubmissionStatus.PENDING, Submission.SubmissionStatus.JUDGING);
                 submissionRepository.updateResult(
-                        s.getId(),
-                        Submission.SubmissionStatus.RE,
+                    s.getId(), inflight,
+                    Submission.SubmissionStatus.RE,
                         "Server restarted while your submission was being judged. Please resubmit.",
                         0, 0, 0.0, 0, "[]",
                         com.example.codecombat2026.util.TimeUtil.now()

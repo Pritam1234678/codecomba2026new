@@ -194,7 +194,7 @@ public class PracticeService {
             log.info("Practice: User {} solved problem {} (+{} pts)", userId, problem.getId(), points);
             return points;
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            // Concurrent solve — another thread won the race. Already counted.
+            
             return 0;
         }
     }

@@ -160,6 +160,17 @@ public class SubmissionWorkerPool {
                     Thread.currentThread().getName(), job.getSubmissionId(),
                     activeJobs.get(), getQueueDepth());
 
+                // Store claim timestamp so the janitor knows how long this
+                // job has actually been processing (not just sitting in the
+                // queue). Without this the janitor's age = submittedAt may
+                // falsely reclaim jobs under queue backlog.
+                String claimKey = "submission:claim:" + job.getSubmissionId();
+                long claimMs = System.currentTimeMillis();
+                try {
+                    redis.opsForValue().set(claimKey, String.valueOf(claimMs),
+                        java.time.Duration.ofMinutes(stuckJobTimeoutMinutes + 5));
+                } catch (Exception ignored) {}
+
                 try {
                     processJob(job);
                 } finally {
@@ -209,7 +220,11 @@ public class SubmissionWorkerPool {
                 List<String> jobs = redis.opsForList().range(procKey, 0, -1);
                 if (jobs == null || jobs.isEmpty()) continue;
 
-                // Inspect each job — its submittedAt is a coarse age proxy
+                // Inspect each job — age is based on the claim timestamp
+
+                // stored in Valkey (falling back to submittedAt for pre-fix
+
+                // legacy processing-list entries that have no claim key).
                 for (String jobJson : new ArrayList<>(jobs)) {
                     try {
                         SubmissionJob job = objectMapper.readValue(jobJson, SubmissionJob.class);
@@ -219,9 +234,21 @@ public class SubmissionWorkerPool {
                             redis.opsForList().remove(procKey, 0, jobJson);
                             continue;
                         }
-                        long submittedMs = sub.getSubmittedAt() != null
-                            ? java.sql.Timestamp.valueOf(sub.getSubmittedAt()).getTime() : now;
-                        long age = now - submittedMs;
+                        // Base age on the claim timestamp stored in Valkey, not
+                        // submittedAt. submittedAt is an enqueue-queue-sit proxy
+                        // and would falsely reclaim jobs under queue backlog.
+                        long claimMs;
+                        try {
+                            String raw = redis.opsForValue().get("submission:claim:" + job.getSubmissionId());
+                            claimMs = (raw != null) ? Long.parseLong(raw) : 0L;
+                        } catch (Exception ex) { claimMs = 0L; }
+                        if (claimMs == 0L) {
+                            // Claim time not found (pre-fix legacy entry or key
+                            // expired) — fall back to submittedAt.
+                            claimMs = sub.getSubmittedAt() != null
+                                ? java.sql.Timestamp.valueOf(sub.getSubmittedAt()).getTime() : now;
+                        }
+                        long age = now - claimMs;
 
                         // Final verdict already written → safe to drop from processing list
                         Submission.SubmissionStatus s = sub.getStatus();
@@ -304,8 +331,10 @@ public class SubmissionWorkerPool {
         } finally {
             if (!finalized && submissionId != null && submissionId > 0) {
                 try {
+                    java.util.List<Submission.SubmissionStatus> inflight =
+                        List.of(Submission.SubmissionStatus.PENDING, Submission.SubmissionStatus.JUDGING);
                     submissionRepository.updateResult(
-                        submissionId, Submission.SubmissionStatus.RE,
+                        submissionId, inflight, Submission.SubmissionStatus.RE,
                         "Judge worker terminated unexpectedly",
                         0, 0, 0.0, 0, "[]", TimeUtil.now()
                     );
@@ -336,10 +365,16 @@ public class SubmissionWorkerPool {
                            int passed, int total, int score, long timeMs, String details) {
 
         // 1. Update DB — needed by polling. Wrap in try so it never throws.
+        // The update is gated on status IN (PENDING,JUDGING) so a duplicate
+        // run (janitor reclaim double-exec) is a no-op: 0 rows affected → the
+        // leaderboard branch below skips the delta and avoids double-counting.
+        int updated = 0;
         if (submissionId != null && submissionId > 0) {
             try {
-                submissionRepository.updateResult(
-                    submissionId, status, errorMessage, passed, total,
+                java.util.List<Submission.SubmissionStatus> inflight =
+                    List.of(Submission.SubmissionStatus.PENDING, Submission.SubmissionStatus.JUDGING);
+                updated = submissionRepository.updateResult(
+                    submissionId, inflight, status, errorMessage, passed, total,
                     (double) timeMs, score, details, TimeUtil.now()
                 );
             } catch (Exception e) {
@@ -357,7 +392,11 @@ public class SubmissionWorkerPool {
             //     Per-problem score is tracked in Valkey so re-submissions
             //     REPLACE the old score (delta approach) instead of stacking.
             //     Example: WA 50 → AC 100 → leaderboard delta = +50 (not +100).
-            if (!job.isTestRun() && job.getContestId() != null) {
+            //     Gated on `updated > 0`: a duplicate run (janitor reclaim
+            //     double-exec) found the row already finalized — 0 rows
+            //     affected — so we must NOT reapply the delta (would
+            //     double-count the score on the leaderboard).
+            if (!job.isTestRun() && job.getContestId() != null && updated > 0) {
                 String problemScoreKey = "contest:score:" + job.getContestId()
                     + ":" + job.getUserId() + ":" + job.getProblemId();
                 try {
@@ -366,9 +405,12 @@ public class SubmissionWorkerPool {
                     int prevScore = (prevStr != null) ? Integer.parseInt(prevStr) : 0;
                     int delta = score - prevScore;
 
-                    // Store the new per-problem score (26h TTL = contest + buffer)
+                    // Store the new per-problem score. 30-day TTL covers any
+                    // realistic contest duration + late resubmissions so the
+                    // key can't expire mid-contest (which would re-apply the
+                    // full score as delta and double-count the leaderboard).
                     redis.opsForValue().set(problemScoreKey, String.valueOf(score),
-                        java.time.Duration.ofHours(26));
+                        java.time.Duration.ofDays(30));
 
                     // Apply delta to leaderboard ZSET (can be negative if score dropped)
                     if (delta != 0) {

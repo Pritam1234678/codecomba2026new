@@ -78,6 +78,7 @@ public class ContestService {
     public void evictContestCache() {
         try {
             redis.delete(ACTIVE_CONTESTS_KEY);
+            redis.delete("admin:contests:all");
         } catch (Exception ignored) {}
     }
 
@@ -85,6 +86,7 @@ public class ContestService {
         try {
             redis.delete(CONTEST_KEY_PREFIX + id);
             redis.delete(ACTIVE_CONTESTS_KEY);
+            redis.delete("admin:contests:all");
         } catch (Exception ignored) {}
     }
 }
