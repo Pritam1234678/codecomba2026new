@@ -54,7 +54,14 @@ public class DockerJudgeService {
      */
     private static int runtimePaddingMB(Submission.ProgrammingLanguage lang) {
         return switch (lang) {
-            case JAVA       -> 4096;
+            // JVM reserves a large amount of VIRTUAL address space at startup
+            // (compressed class space, code cache, GC reserves, thread stacks)
+            // on top of the heap. On a 10 GB host the default max heap alone is
+            // ~2.5 GB, pushing total virtual reservation past 4 GB — so the old
+            // 4096 MB floor caused javac/java to fail with "Could not reserve
+            // enough space for object heap" (exit 1, no output) inside bwrap.
+            // 6 GB gives comfortable headroom for real problems.
+            case JAVA       -> 6144;
             case JAVASCRIPT -> 1024;
             case PYTHON     -> 256;
             case CPP, C     -> 32;
