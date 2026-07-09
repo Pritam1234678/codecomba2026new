@@ -172,10 +172,16 @@ const ContestLeaderboard = () => {
                                                 backgroundColor: C.surfaceMin,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                 marginBottom: '1rem',
+                                                overflow: 'hidden',
                                             }}>
-                                                <span style={{ fontFamily: "'Playfair Display', serif", fontSize: isFirst ? '28px' : '22px', fontWeight: 700, color: rankColor }}>
-                                                    {(entry.userName || 'U').charAt(0).toUpperCase()}
-                                                </span>
+                                                {entry.photoUrl ? (
+                                                    <img src={entry.photoUrl} alt=""
+                                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <span style={{ fontFamily: "'Playfair Display', serif", fontSize: isFirst ? '28px' : '22px', fontWeight: 700, color: rankColor }}>
+                                                        {(entry.userName || 'U').charAt(0).toUpperCase()}
+                                                    </span>
+                                                )}
                                             </div>
                                             <h3 style={{ fontFamily: "'Geist', sans-serif", fontSize: isFirst ? '18px' : '15px', color: C.onBg, marginBottom: '4px' }}>
                                                 {entry.userName || 'Unknown'}

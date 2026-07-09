@@ -2,7 +2,11 @@ package com.example.codecombat2026.service;
 
 import com.example.codecombat2026.dto.LeaderboardEntry;
 import com.example.codecombat2026.entity.Submission;
+import com.example.codecombat2026.entity.User;
+import com.example.codecombat2026.entity.UserPhoto;
 import com.example.codecombat2026.repository.SubmissionRepository;
+import com.example.codecombat2026.repository.UserPhotoRepository;
+import com.example.codecombat2026.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +31,12 @@ public class LeaderboardService {
 
     @Autowired
     private SubmissionRepository submissionRepository;
+
+    @Autowired
+    private UserPhotoRepository userPhotoRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     public List<LeaderboardEntry> getContestLeaderboard(Long contestId) {
         List<Submission> submissions = submissionRepository.findByContestIdWithUser(contestId);
@@ -62,14 +72,32 @@ public class LeaderboardService {
             int solved     = (int) perProblem.values().stream().filter(v -> v == 100).count();
 
             Submission sample = userSamples.get(userId);
-            String userName = sample != null && sample.getUser() != null
-                ? sample.getUser().getFullName() : "Unknown";
-            String userRoll = sample != null && sample.getUser() != null
-                ? sample.getUser().getUsername() : "N/A";
+            String fullName = sample != null && sample.getUser() != null
+                ? sample.getUser().getFullName() : null;
+            String username = sample != null && sample.getUser() != null
+                ? sample.getUser().getUsername() : null;
 
-            leaderboard.add(new LeaderboardEntry(userId, userName, userRoll,
-                (double) totalScore, solved, 0));
+            leaderboard.add(new LeaderboardEntry(userId,
+                fullName != null ? fullName : (username != null ? username : "Unknown"),
+                username != null ? username : "N/A",
+                (double) totalScore, solved, 0, null));
         }
+
+        // Populate photo URLs — batch query avoids N+1
+        try {
+            List<UserPhoto> allPhotos = userPhotoRepository.findAll();
+            Map<Long, String> photoMap = new HashMap<>();
+            for (UserPhoto up : allPhotos) {
+                String url = up.getPhotoUrl();
+                if (url != null && !url.isBlank()) {
+                    photoMap.put(up.getUserId(), url);
+                }
+            }
+            for (LeaderboardEntry le : leaderboard) {
+                String url = photoMap.get(le.getUserId());
+                if (url != null) le.setPhotoUrl(url);
+            }
+        } catch (Exception ignored) {}
 
         // Sort by totalScore desc, tiebreak by problemsSolved desc
         leaderboard.sort((a, b) -> {
@@ -83,5 +111,43 @@ public class LeaderboardService {
         }
 
         return leaderboard;
+    }
+
+    /**
+     * Batch-fetch user display info (name, roll, photo) for fast-path cache enrichment.
+     * Queries both the users and photos tables in bulk to avoid N+1.
+     */
+    public Map<Long, LeaderboardEntry> batchUserInfo(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) return Map.of();
+
+        // Fetch all matching users
+        List<User> users = userRepository.findAllById(userIds);
+        Map<Long, String> nameMap = new HashMap<>();
+        Map<Long, String> rollMap = new HashMap<>();
+        for (com.example.codecombat2026.entity.User u : users) {
+            nameMap.put(u.getId(),
+                u.getFullName() != null ? u.getFullName() : u.getUsername());
+            rollMap.put(u.getId(), u.getUsername());
+        }
+
+        // Fetch photos
+        List<UserPhoto> photos = userPhotoRepository.findAll();
+        Map<Long, String> photoMap = new HashMap<>();
+        for (UserPhoto up : photos) {
+            if (up.getPhotoUrl() != null && !up.getPhotoUrl().isBlank()) {
+                photoMap.put(up.getUserId(), up.getPhotoUrl());
+            }
+        }
+
+        Map<Long, LeaderboardEntry> result = new HashMap<>();
+        for (Long uid : userIds) {
+            LeaderboardEntry e = new LeaderboardEntry();
+            e.setUserId(uid);
+            e.setUserName(nameMap.getOrDefault(uid, "Unknown"));
+            e.setUserRoll(rollMap.getOrDefault(uid, "N/A"));
+            e.setPhotoUrl(photoMap.get(uid));
+            result.put(uid, e);
+        }
+        return result;
     }
 }

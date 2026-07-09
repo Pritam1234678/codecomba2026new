@@ -11,7 +11,8 @@ public class LeaderboardEntry {
     private Long userId;
     private String userName;
     private String userRoll;
-    private Double totalScore; // Changed to Double for average with decimals
+    private Double totalScore;
     private Integer problemsSolved;
     private Integer rank;
+    private String photoUrl;
 }
