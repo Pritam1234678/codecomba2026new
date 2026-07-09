@@ -93,6 +93,10 @@ public class SubmissionWorkerPool {
     @Lazy
     private DuelService duelService;
 
+    @Autowired
+    @Lazy
+    private PracticeService practiceService;
+
     @PostConstruct
     public void startWorkers() {
         instanceId = ManagementFactory.getRuntimeMXBean().getName(); // pid@host
@@ -382,6 +386,11 @@ public class SubmissionWorkerPool {
             }
         }
 
+        // Practice-mode state — computed inside the non-duel branch, read by
+        // the VerdictEvent builder below.
+        int  practiceAwarded       = 0;
+        boolean practiceSolved = false;
+
         // ─── Branch on duelId ──────────────────────────────────────────────
         // Per Property 13: duel-tagged jobs MUST NOT touch leaderboard,
         // user_problem_solved, or users.total_points. The if/else gate is
@@ -436,6 +445,20 @@ public class SubmissionWorkerPool {
                     redis.delete("solved:" + job.getUserId());
                 } catch (Exception ignored) {}
             }
+
+            // 5a. Practice mode — award points on first AC
+            //     contestId is null for practice, so the leaderboard gate above
+            //     already skipped it. Practice scoring uses user_problem_solved
+            //     with points by difficulty (5/7/10), awarded once only.
+            if (job.isPractice() && !job.isTestRun() && status == Submission.SubmissionStatus.AC && updated > 0) {
+                try {
+                    practiceAwarded = practiceService.awardPointsIfFirstSolve(job.getUserId(), job.getProblemId());
+                    practiceAlreadySolved = (practiceAwarded == 0);
+                } catch (Exception e) {
+                    log.warn("Practice points award failed for user {} problem {}: {}",
+                        job.getUserId(), job.getProblemId(), e.getMessage());
+                }
+            }
         } else {
             // 2b/3b/4b. Duel branch — no leaderboard, no caches.
             // Hand off to DuelService for room state + win adjudication.
@@ -456,7 +479,7 @@ public class SubmissionWorkerPool {
         try {
             sseRegistry.sendVerdict(job.getUserId(), new VerdictEvent(
                 submissionId, status.name(), passed, total, score, timeMs, errorMessage, details,
-                job.isTestRun()
+                job.isTestRun(), job.isPractice(), practiceAwarded, practiceSolved
             ));
         } catch (Exception e) {
             log.warn("SSE push failed for user {}: {}", job.getUserId(), e.getMessage());

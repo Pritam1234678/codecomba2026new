@@ -414,7 +414,7 @@ public class WebContestWorkerPool {
         try {
             sseRegistry.sendVerdict(job.getUserId(), new VerdictEvent(
                 submissionId, status.name(), passed, total, score, timeMs, errorMessage, details,
-                job.isTestRun()
+                job.isTestRun(), false, 0, false
             ));
         } catch (Exception e) {
             log.warn("SSE push failed for web contest user {}: {}", job.getUserId(), e.getMessage());

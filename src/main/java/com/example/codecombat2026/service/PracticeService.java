@@ -1,178 +1,134 @@
 package com.example.codecombat2026.service;
 
 import com.example.codecombat2026.dto.ExecutionResult;
+import com.example.codecombat2026.dto.SubmissionJob;
+import com.example.codecombat2026.dto.VerdictEvent;
 import com.example.codecombat2026.entity.Problem;
 import com.example.codecombat2026.entity.Submission;
 import com.example.codecombat2026.entity.User;
 import com.example.codecombat2026.entity.UserProblemSolved;
 import com.example.codecombat2026.exception.ResourceNotFoundException;
 import com.example.codecombat2026.repository.ProblemRepository;
+import com.example.codecombat2026.repository.SubmissionRepository;
 import com.example.codecombat2026.repository.UserProblemSolvedRepository;
 import com.example.codecombat2026.repository.UserRepository;
 import com.example.codecombat2026.service.judge.DockerJudgeService;
 import com.example.codecombat2026.util.TimeUtil;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import java.util.concurrent.*;
 
 /**
- * Practice mode — fully separate from contests.
+ * Practice mode — fully async, judged by the shared Valkey-backed worker pool.
  *
- * Uses its own bounded thread pool so it doesn't compete with the contest
- * judge engine. Test cases are run via the same harness mechanism but
- * results are NEVER written to the submissions table.
+ * The old sync thread-pool approach blocked HTTP threads and could not scale
+ * across VMs.  Now practice submissions are pushed onto {@code submission:queue}
+ * (the same queue as contest/duel), the {@link SubmissionWorkerPool} judges
+ * them, and the verdict is delivered via SSE — identical to contest mode.
  *
- * If user gets all test cases AC, awards points (5/7/10 by difficulty)
- * and records in user_problem_solved (one-time only).
+ * Points (5/7/10 by difficulty) are awarded on first AC, idempotently guarded
+ * by the unique constraint on (user_id, problem_id).
  */
 @Service
 public class PracticeService {
 
     private static final Logger log = LoggerFactory.getLogger(PracticeService.class);
 
-    @Value("${PRACTICE_WORKERS:4}")
-    private int workerCount;
-
-    @Value("${PRACTICE_QUEUE_SIZE:50}")
-    private int queueSize;
-
-    private static final java.util.concurrent.atomic.AtomicLong PRACTICE_THREAD_SEQ = new java.util.concurrent.atomic.AtomicLong();
-
-    @Autowired private DockerJudgeService judgeService;
-    @Autowired private CacheService cacheService;
     @Autowired private ProblemRepository problemRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private UserProblemSolvedRepository solvedRepository;
-
-    private ThreadPoolExecutor pool;
-
-    @PostConstruct
-    public void init() {
-        pool = new ThreadPoolExecutor(
-            workerCount, workerCount,
-            0L, TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(queueSize),
-            r -> {
-                Thread t = new Thread(r);
-                t.setName("practice-" + PRACTICE_THREAD_SEQ.incrementAndGet());
-                t.setDaemon(true);
-                return t;
-            },
-            new ThreadPoolExecutor.AbortPolicy()
-        );
-        log.info("✅ PracticeService ready — {} workers, {} queue capacity", workerCount, queueSize);
-    }
-
-    @PreDestroy
-    public void shutdown() {
-        if (pool != null) {
-            pool.shutdown();
-            try { if (!pool.awaitTermination(5, TimeUnit.SECONDS)) pool.shutdownNow(); }
-            catch (InterruptedException e) { pool.shutdownNow(); Thread.currentThread().interrupt(); }
-        }
-    }
+    @Autowired private SubmissionRepository submissionRepository;
+    @Autowired private CacheService cacheService;
+    @Autowired private StringRedisTemplate redis;
+    @Autowired private ObjectMapper objectMapper;
 
     /**
-     * Run user's code through the problem's harness.
-     * Returns AC/WA verdict + per-test-case details.
-     * If AC and not already solved, awards points (idempotent).
+     * Enqueue a practice run for async judging.
+     *
+     * @return the submission id so the caller can correlate the SSE verdict.
      */
-    public PracticeVerdict runPractice(Long userId, Long problemId, String code, String language) {
+    public Long enqueuePractice(Long userId, Long problemId, String code, String language) {
         Problem problem = problemRepository.findById(problemId)
             .orElseThrow(() -> new ResourceNotFoundException("Problem not found"));
 
         if (!Boolean.TRUE.equals(problem.getActive())) {
-            return PracticeVerdict.error("This problem has been disabled by the administrator.");
+            throw new IllegalArgumentException("This problem has been disabled by the administrator.");
         }
 
         String harness = cacheService.getSnippetHarness(problemId, language);
         if (harness == null) {
-            return PracticeVerdict.error("No code harness configured for language: " + language);
+            throw new IllegalArgumentException("No code harness configured for language: " + language);
         }
-
-        Future<PracticeVerdict> future;
-        try {
-            future = pool.submit(() -> doJudge(userId, problem, code, language, harness));
-        } catch (RejectedExecutionException e) {
-            return PracticeVerdict.error("Server busy — too many practice runs in queue. Try again in a few seconds.");
-        }
-
-        try {
-            return future.get(15, TimeUnit.SECONDS);
-        } catch (TimeoutException e) {
-            future.cancel(true);
-            return PracticeVerdict.error("Judging took too long. Try again.");
-        } catch (Exception e) {
-            return PracticeVerdict.error("Internal error: " + e.getMessage());
-        }
-    }
-
-    private PracticeVerdict doJudge(Long userId, Problem problem, String code, String language, String harness) {
-        long startMs = System.currentTimeMillis();
 
         Submission.ProgrammingLanguage lang;
         try {
             lang = Submission.ProgrammingLanguage.valueOf(language.toUpperCase());
         } catch (Exception e) {
-            return PracticeVerdict.error("Unsupported language: " + language);
+            throw new IllegalArgumentException("Unsupported language: " + language);
         }
 
-        // Inject user code into harness (same logic as worker pool)
-        String executable = injectUserCode(harness, code, language);
+        // Create a PENDING submission row in DB so the user can poll / track history
+        Submission sub = new Submission();
+        sub.setUserId(userId);
+        sub.setProblemId(problemId);
+        sub.setContestId(problem.getContestId());
+        sub.setCode(code);
+        sub.setLanguage(lang);
+        sub.setSubmittedAt(TimeUtil.now());
+        sub.setStatus(Submission.SubmissionStatus.PENDING);
+        sub = submissionRepository.save(sub);
+
         double timeLimit = problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0;
         int memoryLimit  = problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256;
-        ExecutionResult result = judgeService.execute(executable, lang, timeLimit, memoryLimit, null);
 
-        long elapsed = System.currentTimeMillis() - startMs;
+        SubmissionJob job = new SubmissionJob();
+        job.setSubmissionId(sub.getId());
+        job.setUserId(userId);
+        job.setProblemId(problemId);
+        job.setContestId(problem.getContestId());
+        job.setCode(code);
+        job.setLanguage(language);
+        job.setTimeLimit(timeLimit);
+        job.setMemoryLimit(memoryLimit);
+        job.setTestRun(false);
+        job.setPractice(true);
 
-        if (result.isCompilationError()) {
-            return PracticeVerdict.compileError(result.getStderr(), elapsed);
+        try {
+            String json = objectMapper.writeValueAsString(job);
+            redis.opsForList().leftPush(SubmissionWorkerPool.QUEUE_KEY, json);
+            log.info("Practice run {} enqueued (user={}, problem={})", sub.getId(), userId, problemId);
+        } catch (Exception e) {
+            submissionRepository.updateStatus(sub.getId(), Submission.SubmissionStatus.RE);
+            throw new RuntimeException("Failed to enqueue practice run", e);
         }
-        if (result.isTimeLimitExceeded()) {
-            return PracticeVerdict.tle(elapsed);
-        }
 
-        // Parse TC lines
-        List<TcResult> tcs = parseTcLines(result.getStdout() != null ? result.getStdout() : "");
-        if (tcs.isEmpty()) {
-            String stderr = result.getStderr() != null ? result.getStderr() : "";
-            return PracticeVerdict.runtimeError(stderr.isEmpty() ? "Harness produced no output" : stderr, elapsed);
-        }
+        return sub.getId();
+    }
 
-        int total  = tcs.size();
-        int passed = (int) tcs.stream().filter(tc -> tc.passed).count();
-        boolean allPassed = passed == total;
-
-        PracticeVerdict v = new PracticeVerdict();
-        v.status        = allPassed ? "AC" : "WA";
-        v.passed        = passed;
-        v.total         = total;
-        v.executionTime = elapsed;
-        v.testCases     = tcs;
-
-        if (allPassed) {
-            int awarded = awardPointsIfFirstSolve(userId, problem);
-            v.pointsAwarded     = awarded;
-            v.alreadySolved     = (awarded == 0);
-            v.totalPointsByLevel = pointsForLevel(problem.getLevel());
-        }
-        return v;
+    /**
+     * Convenience overload — looks up the Problem and delegates.
+     * Called by {@link SubmissionWorkerPool} which only has problemId.
+     */
+    public int awardPointsIfFirstSolve(Long userId, Long problemId) {
+        Problem p = problemRepository.findById(problemId)
+            .orElse(null);
+        if (p == null) return 0;
+        return awardPointsIfFirstSolve(userId, p);
     }
 
     /**
      * Award points only on first AC. Returns awarded amount (0 if already solved).
+     * Called by {@link SubmissionWorkerPool} when a practice submission reaches AC.
      * Atomic — uses unique constraint on (user_id, problem_id).
      */
     @Transactional
-    private int awardPointsIfFirstSolve(Long userId, Problem problem) {
+    public int awardPointsIfFirstSolve(Long userId, Problem problem) {
         if (solvedRepository.existsByUserIdAndProblemId(userId, problem.getId())) {
             return 0;
         }
@@ -185,7 +141,6 @@ public class PracticeService {
             entry.setPointsEarned(points);
             solvedRepository.save(entry);
 
-            // Increment user's total points
             User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
             user.setTotalPoints((user.getTotalPoints() != null ? user.getTotalPoints() : 0) + points);
@@ -194,12 +149,12 @@ public class PracticeService {
             log.info("Practice: User {} solved problem {} (+{} pts)", userId, problem.getId(), points);
             return points;
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            
             return 0;
         }
     }
 
-    private int pointsForLevel(String level) {
+    /** Points awarded for solving a problem of the given difficulty. */
+    public int pointsForLevel(String level) {
         if (level == null) return 5;
         switch (level.toUpperCase()) {
             case "EASY":   return 5;
@@ -209,50 +164,10 @@ public class PracticeService {
         }
     }
 
-    // ─── Harness helpers (copied verbatim from SubmissionWorkerPool) ──────────
-
-    private String injectUserCode(String harness, String userCode, String language) {
-        boolean isPython = "PYTHON".equalsIgnoreCase(language);
-        String startMarker = isPython ? "# USER_CODE_START" : "// USER_CODE_START";
-        String endMarker   = isPython ? "# USER_CODE_END"   : "// USER_CODE_END";
-        int s = harness.indexOf(startMarker), e = harness.indexOf(endMarker);
-        if (s != -1 && e != -1 && e > s) {
-            return harness.substring(0, s + startMarker.length()) + "\n" + userCode + "\n" + harness.substring(e);
-        }
-        return harness
-            .replace("// USER_CODE_PLACEHOLDER", userCode)
-            .replace("# USER_CODE_PLACEHOLDER", userCode)
-            .replace("/* USER_CODE_PLACEHOLDER */", userCode);
-    }
-
-    private List<TcResult> parseTcLines(String stdout) {
-        List<TcResult> list = new ArrayList<>();
-        for (String line : stdout.split("\\r?\\n")) {
-            line = line.trim();
-            if (!line.startsWith("TC:")) continue;
-            String[] parts = line.split(":", 6);
-            if (parts.length < 3) continue;
-            try {
-                TcResult tc = new TcResult();
-                tc.testCase = Integer.parseInt(parts[1]);
-                tc.passed   = "PASS".equalsIgnoreCase(parts[2]);
-                for (int p = 3; p < parts.length; p++) {
-                    String part = parts[p];
-                    if ("hidden".equalsIgnoreCase(part)) tc.hidden = true;
-                    else if (part.startsWith("input="))   tc.input = part.substring(6);
-                    else if (part.startsWith("expected=")) tc.expected = part.substring(9);
-                    else if (part.startsWith("got="))      tc.got = part.substring(4);
-                }
-                list.add(tc);
-            } catch (NumberFormatException ignored) {}
-        }
-        return list;
-    }
-
-    // ─── DTOs ─────────────────────────────────────────────────────────────────
+    // ─── DTOs (kept for polling fallback) ────────────────────────────────
 
     public static class PracticeVerdict {
-        public String status;          // AC, WA, CE, RE, TLE, ERROR
+        public String status;
         public int passed;
         public int total;
         public long executionTime;

@@ -9,7 +9,6 @@ import com.example.codecombat2026.repository.UserProblemSolvedRepository;
 import com.example.codecombat2026.repository.UserRepository;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
 import com.example.codecombat2026.service.PracticeService;
-import com.example.codecombat2026.service.PracticeService.PracticeVerdict;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -135,10 +134,10 @@ public class PracticeController {
         return ResponseEntity.ok(resp);
     }
 
-    /** Synchronously judges user's code in practice mode. */
+    /** Enqueues user's code for async judging — verdict delivered via SSE. */
     @PostMapping("/run")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<PracticeVerdict> runPractice(
+    public ResponseEntity<?> runPractice(
             @RequestBody PracticeRunRequest req,
             @AuthenticationPrincipal UserDetailsImpl user) {
         if (req.code == null || req.code.isBlank()) {
@@ -147,8 +146,15 @@ public class PracticeController {
         if (req.code.length() > 50_000) {
             return ResponseEntity.badRequest().build();
         }
-        PracticeVerdict v = practiceService.runPractice(user.getId(), req.problemId, req.code, req.language);
-        return ResponseEntity.ok(v);
+        try {
+            Long submissionId = practiceService.enqueuePractice(user.getId(), req.problemId, req.code, req.language);
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("submissionId", submissionId);
+            resp.put("message", "Accepted — verdict will be delivered via SSE.");
+            return ResponseEntity.accepted().body(resp);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     /** User's overall practice stats. */

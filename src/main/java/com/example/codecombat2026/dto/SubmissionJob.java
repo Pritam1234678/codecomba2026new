@@ -38,4 +38,12 @@ public class SubmissionJob {
      * already on submission:queue at deploy time deserialize cleanly.
      */
     private Long proctoringSessionId;
+    /**
+     * True when this job was produced by the practice mode. Practice
+     * submissions are judged by the same worker pool but do NOT touch
+     * the leaderboard or contest scoring. On first AC the worker calls
+     * back to award points (user_problem_solved + total_points).
+     * Defaults to false so contest/duel jobs deserialize cleanly.
+     */
+    private boolean practice = false;
 }

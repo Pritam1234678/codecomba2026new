@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import PracticeService from '../services/practice.service';
 import ProblemService from '../services/problem.service';
+import api from '../services/api';
+import AuthService from '../services/auth.service';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -34,6 +36,20 @@ const DIFF_CFG = {
     MEDIUM: { color: C.secondary, label: 'Medium' },
     HARD:   { color: C.error,     label: 'Hard' },
 };
+
+// ── Normalise SSE VerdictEvent → shape buildVerdictUI expects ─────────────────
+function toVerdict(raw) {
+    return {
+        status:         raw.status,
+        passed:         raw.testCasesPassed,
+        total:          raw.totalTestCases,
+        executionTime:  raw.timeConsumedMs,
+        errorMessage:   raw.errorMessage,
+        testCases:      raw.testCaseDetails ? JSON.parse(raw.testCaseDetails) : [],
+        pointsAwarded:  raw.pointsAwarded || 0,
+        alreadySolved:  raw.alreadySolved || false,
+    };
+}
 
 // ── Verdict renderer ──────────────────────────────────────────────────────────
 function buildVerdictUI(v) {
@@ -211,6 +227,64 @@ const PracticeSolve = () => {
     const dragStartY = useRef(0);
     const dragStartH = useRef(0);
     const saveTimer  = useRef(null);
+    const sseRef = useRef(null);
+    const activeSubRef = useRef(null);   // submissionId currently waiting on
+    const runningRef = useRef(false);    // instant double-click guard (useState is async)
+
+    // Keep runningRef in sync — useState setter is batched, ref is instant
+    useEffect(() => { runningRef.current = running; }, [running]);
+
+    // ── SSE connection — verdicts arrive asynchronously ────────────────────────
+    useEffect(() => {
+        const user = AuthService.getCurrentUser();
+        if (!user?.token) return;
+
+        const API_BASE = import.meta.env.VITE_API_URL
+            ?? (window.location.hostname === 'localhost' ? 'http://localhost:8080/api' : '/api');
+
+        let es = null;
+        let cancelled = false;
+
+        api.post('/submissions/sse-ticket')
+            .then(res => {
+                if (cancelled) return;
+                const ticket = res.data?.ticket;
+                if (!ticket) return;
+
+                const url = `${API_BASE}/submissions/stream?ticket=${encodeURIComponent(ticket)}`;
+                es = new EventSource(url);
+                sseRef.current = es;
+
+                es.addEventListener('verdict', (e) => {
+                    try {
+                        const raw = JSON.parse(e.data);
+                        if (activeSubRef.current != null &&
+                            raw.submissionId !== activeSubRef.current) return;
+                        activeSubRef.current = null;
+                        if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+                        runningRef.current = false;
+                        setRunning(false);
+                        if (raw.status === 'AC') setSolved(true);
+                        setOutput(buildVerdictUI(toVerdict(raw), raw.testRun === true));
+                    } catch (err) {
+                        console.error('SSE parse error:', err);
+                    }
+                });
+
+                es.onerror = () => {
+                    console.warn('Practice SSE connection error');
+                };
+            })
+            .catch(err => {
+                console.warn('Failed to issue practice SSE ticket', err);
+            });
+
+        return () => {
+            cancelled = true;
+            if (es) { try { es.close(); } catch {} }
+            sseRef.current = null;
+        };
+    }, []);
 
     // ── Persist code + language to localStorage (debounced) ──────────────────
     useEffect(() => {
@@ -280,8 +354,11 @@ const PracticeSolve = () => {
         else setCode('');
     };
 
+    const timeoutRef = useRef(null);
+
     const handleRun = () => {
-        if (running) return;
+        if (runningRef.current) return;
+        runningRef.current = true;
         setRunning(true);
         setOutput(
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#facc15' }}>
@@ -291,19 +368,32 @@ const PracticeSolve = () => {
         );
         PracticeService.run(id, code, language)
             .then(res => {
-                const v = res.data;
-                setOutput(buildVerdictUI(v));
-                if (v.status === 'AC') {
-                    setSolved(true);
-                }
+                const sid = res.data.submissionId;
+                activeSubRef.current = sid;
+                // Safety: if SSE never fires, show timeout after 40s
+                timeoutRef.current = setTimeout(() => {
+                    if (activeSubRef.current === sid) {
+                        activeSubRef.current = null;
+                        runningRef.current = false;
+                        setRunning(false);
+                        setOutput(
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
+                                Judging timed out. Try running again.
+                            </span>
+                        );
+                    }
+                }, 40000);
             })
             .catch(err => {
-                const msg = err.response?.data?.message || err.message || 'Backend unreachable';
-                setOutput(<span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
-                    Error: {msg}
-                </span>);
-            })
-            .finally(() => setRunning(false));
+                runningRef.current = false;
+                setRunning(false);
+                const msg = err.response?.data?.error || err.message || 'Backend unreachable';
+                setOutput(
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
+                        Error: {msg}
+                    </span>
+                );
+            });
     };
 
     // ── Drag dividers ─────────────────────────────────────────────────────────
