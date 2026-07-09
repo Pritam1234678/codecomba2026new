@@ -28,7 +28,7 @@ const Leaderboard = () => {
     const [search,   setSearch]   = useState('');
 
     useEffect(() => {
-        api.get('/contests')
+        api.get('/admin/contests')
             .then(res => setContests(res.data))
             .catch(() => setError('Failed to load contests'))
             .finally(() => setLoading(false));
