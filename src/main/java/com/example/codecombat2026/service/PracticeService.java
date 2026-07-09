@@ -13,8 +13,10 @@ import com.example.codecombat2026.repository.SubmissionRepository;
 import com.example.codecombat2026.repository.UserProblemSolvedRepository;
 import com.example.codecombat2026.repository.UserRepository;
 import com.example.codecombat2026.service.judge.DockerJudgeService;
+import com.example.codecombat2026.service.judge.SandboxRunner;
 import com.example.codecombat2026.util.TimeUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +42,9 @@ public class PracticeService {
 
     private static final Logger log = LoggerFactory.getLogger(PracticeService.class);
 
+    private static final int  PRACTICE_RUN_LIMIT      = 20;
+    private static final int  PRACTICE_RUN_WINDOW_SEC = 60;
+
     @Autowired private ProblemRepository problemRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private UserProblemSolvedRepository solvedRepository;
@@ -47,6 +52,17 @@ public class PracticeService {
     @Autowired private CacheService cacheService;
     @Autowired private StringRedisTemplate redis;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private SandboxRunner sandbox;
+
+    @PostConstruct
+    public void init() {
+        if (!sandbox.isEnabled()) {
+            log.warn("⚠️  Sandbox is DISABLED on this node — practice code runs with full host privileges. "
+                + "Set SANDBOX_ENABLED=true to enable sandbox.");
+        }
+        log.info("✅ PracticeService ready — async Valkey queue, rate limit {} runs/{}s per problem",
+            PRACTICE_RUN_LIMIT, PRACTICE_RUN_WINDOW_SEC);
+    }
 
     /**
      * Enqueue a practice run for async judging.
@@ -64,6 +80,17 @@ public class PracticeService {
         String harness = cacheService.getSnippetHarness(problemId, language);
         if (harness == null) {
             throw new IllegalArgumentException("No code harness configured for language: " + language);
+        }
+
+        // Rate limit: N runs per problem per sliding window
+        String rateKey = "practice:runs:" + userId + ":" + problemId;
+        Long runCount = redis.opsForValue().increment(rateKey);
+        if (runCount != null && runCount == 1) {
+            redis.expire(rateKey, java.time.Duration.ofSeconds(PRACTICE_RUN_WINDOW_SEC));
+        }
+        if (runCount != null && runCount > PRACTICE_RUN_LIMIT) {
+            throw new IllegalArgumentException("Rate limit: max " + PRACTICE_RUN_LIMIT
+                + " practice runs per " + PRACTICE_RUN_WINDOW_SEC + "s per problem.");
         }
 
         Submission.ProgrammingLanguage lang;

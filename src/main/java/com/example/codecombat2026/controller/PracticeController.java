@@ -77,7 +77,7 @@ public class PracticeController {
                         p.getTimeLimit(),
                         p.getMemoryLimit(),
                         solvedIds.contains(p.getId()),
-                        pointsForLevel(p.getLevel())
+                        practiceService.pointsForLevel(p.getLevel())
                 ))
                 .collect(Collectors.toList());
     }
@@ -130,7 +130,7 @@ public class PracticeController {
                 p.getContestId(), p.getExample1(), p.getExample2(),
                 p.getExample3(), p.getImages()));
         resp.put("solved", solved);
-        resp.put("pointsAvailable", pointsForLevel(p.getLevel()));
+        resp.put("pointsAvailable", practiceService.pointsForLevel(p.getLevel()));
         return ResponseEntity.ok(resp);
     }
 
@@ -167,16 +167,6 @@ public class PracticeController {
         resp.put("totalPoints", u != null && u.getTotalPoints() != null ? u.getTotalPoints() : 0);
         resp.put("solvedCount", solvedCount);
         return ResponseEntity.ok(resp);
-    }
-
-    private int pointsForLevel(String level) {
-        if (level == null) return 5;
-        switch (level.toUpperCase()) {
-            case "EASY":   return 5;
-            case "MEDIUM": return 7;
-            case "HARD":   return 10;
-            default:       return 5;
-        }
     }
 
     // ─── DTOs ─────────────────────────────────────────────────────────────────

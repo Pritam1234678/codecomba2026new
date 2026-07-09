@@ -387,7 +387,10 @@ const PracticeSolve = () => {
             .catch(err => {
                 runningRef.current = false;
                 setRunning(false);
-                const msg = err.response?.data?.error || err.message || 'Backend unreachable';
+                const msg = err.response?.data?.error
+                    || err.response?.data?.message
+                    || err.message
+                    || 'Backend unreachable';
                 setOutput(
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
                         Error: {msg}
