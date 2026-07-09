@@ -142,7 +142,12 @@ public class DockerJudgeService {
         Files.writeString(sourceFile, code);
 
         ExecutionResult compileResult = runProcess(
-            List.of("javac", sourceFile.toString()),
+            // Cap the compiler's own JVM heap. By default javac sizes its heap
+            // to 25% of physical RAM (~2.66 GB here) and reserves that as
+            // VIRTUAL address space at startup, pushing total virtual past 4 GB
+            // and tripping RLIMIT_AS inside bwrap. Pinning -Xms/-Xmx keeps the
+            // reserved virtual near ~3 GB (measured) while RSS stays ~110 MB.
+            List.of("javac", "-J-Xms16m", "-J-Xmx256m", sourceFile.toString()),
             workDir, 30, false, null, SandboxLimits.forCompile()
         );
         if (compileResult.getExitCode() != 0) {

@@ -350,14 +350,17 @@ public class SandboxRunner {
         public static SandboxLimits forCompile() {
             return new SandboxLimits(
                 // RLIMIT_AS limits VIRTUAL address space, NOT resident RAM.
-                // javac's measured peak virtual reservation on this host is
-                // ~5.4 GB (MaxHeapSize 2.66 GB + CompressedClassSpaceSize 1 GB
-                // + ReservedCodeCacheSize 240 MB + metaspace + thread stacks)
-                // while its RSS stays ~120 MB. The old 4096 MB floor was below
-                // that, so javac died with "Could not reserve enough space for
-                // object heap" (exit 1, no output) inside bwrap. 8 GB virtual
-                // headroom.
-                /* mem */     8192,
+                // javac is launched with -J-Xms16m -J-Xmx256m (see
+                // DockerJudgeService), which caps its heap reservation. Measured
+                // peak virtual with those flags is ~3.0 GB (heap 256 MB +
+                // CompressedClassSpaceSize 1 GB + ReservedCodeCacheSize 240 MB
+                // + metaspace + thread stacks) while RSS stays ~110 MB. The
+                // 2.5 GB case fails (pthread_create EAGAIN — thread stacks need
+                // virtual space), so 3 GB is the practical floor; 5 GB gives
+                // comfortable headroom for larger harnesses. The old 4096 MB
+                // floor (without the heap flags) made javac die with "Could not
+                // reserve enough space for object heap" (exit 1, no output).
+                /* mem */     5120,
                 /* cpu */     60,
                 /* procs */   256,
                 /* fsize */   64,
