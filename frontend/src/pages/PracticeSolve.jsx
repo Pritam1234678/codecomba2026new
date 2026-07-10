@@ -101,7 +101,7 @@ function buildVerdictUI(v) {
     const tcs = v.testCases || [];
     const visibleTCs = tcs.filter(tc => !tc.hidden);
     const hiddenTCs  = tcs.filter(tc => tc.hidden);
-    const hiddenPassed = hiddenTCs.filter(tc => tc.passed).length;
+    const hiddenPassed = hiddenTCs.filter(tc => tc.status === 'PASS').length;
     const isAC = v.status === 'AC';
     const statusColor = isAC ? C.success : C.error;
 
@@ -161,17 +161,17 @@ function buildVerdictUI(v) {
                         Test Cases
                     </span>
                     {visibleTCs.map((tc, idx) => (
-                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '6px 10px', backgroundColor: tc.passed ? 'rgba(74,222,128,0.05)' : 'rgba(255,180,171,0.05)', border: `1px solid ${tc.passed ? 'rgba(74,222,128,0.15)' : 'rgba(255,180,171,0.15)'}` }}>
+                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '6px 10px', backgroundColor: tc.status === 'PASS' ? 'rgba(74,222,128,0.05)' : 'rgba(255,180,171,0.05)', border: `1px solid ${tc.status === 'PASS' ? 'rgba(74,222,128,0.15)' : 'rgba(255,180,171,0.15)'}` }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span style={{ color: tc.passed ? C.success : C.error, fontWeight: 600, minWidth: '16px' }}>
-                                    {tc.passed ? '✓' : '✗'}
+                                <span style={{ color: tc.status === 'PASS' ? C.success : C.error, fontWeight: 600, minWidth: '16px' }}>
+                                    {tc.status === 'PASS' ? '✓' : '✗'}
                                 </span>
                                 <span style={{ color: C.muted }}>Test Case {tc.testCase}</span>
-                                <span style={{ marginLeft: 'auto', color: tc.passed ? C.success : C.error, fontSize: '11px' }}>
-                                    {tc.passed ? 'PASS' : 'FAIL'}
+                                <span style={{ marginLeft: 'auto', color: tc.status === 'PASS' ? C.success : C.error, fontSize: '11px' }}>
+                                    {tc.status === 'PASS' ? 'PASS' : 'FAIL'}
                                 </span>
                             </div>
-                            {!tc.passed && (tc.input || tc.expected || tc.got) && (
+                            {tc.status !== 'PASS' && (tc.input || tc.expected || tc.got) && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginLeft: '26px', fontSize: '11px', color: C.outline }}>
                                     {tc.input    && <span><span style={{ color: C.muted   }}>Input:</span> {tc.input}</span>}
                                     {tc.expected && <span><span style={{ color: C.success }}>Expected:</span> {tc.expected}</span>}
