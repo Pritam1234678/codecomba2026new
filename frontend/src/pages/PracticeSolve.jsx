@@ -262,6 +262,7 @@ const PracticeSolve = () => {
                             raw.submissionId !== activeSubRef.current) return;
                         activeSubRef.current = null;
                         if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+                        if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
                         runningRef.current = false;
                         setRunning(false);
                         if (raw.status === 'AC') setSolved(true);
@@ -354,7 +355,54 @@ const PracticeSolve = () => {
         else setCode('');
     };
 
+    const pollTimerRef = useRef(null);
     const timeoutRef = useRef(null);
+
+    // Poll submission status as fallback when SSE doesn't fire
+    const startPolling = (sid) => {
+        let attempts = 0;
+        const poll = () => {
+            if (activeSubRef.current !== sid) return; // already handled by SSE
+            attempts++;
+            api.get(`/submissions/${sid}/status`)
+                .then(r => {
+                    if (activeSubRef.current !== sid) return;
+                    const data = r.data;
+                    if (data && data.status && !['PENDING', 'JUDGING'].includes(data.status)) {
+                        // Verdict ready — normalize and render
+                        activeSubRef.current = null;
+                        if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+                        runningRef.current = false;
+                        setRunning(false);
+                        const v = toVerdict({
+                            status:          data.status,
+                            testCasesPassed: data.testCasesPassed,
+                            totalTestCases:  data.totalTestCases,
+                            timeConsumedMs:  data.timeConsumed,
+                            errorMessage:    data.errorMessage,
+                            testCaseDetails: data.testCaseDetails,
+                            pointsAwarded:   0,
+                            alreadySolved:   false,
+                            testRun:         false,
+                        });
+                        setOutput(buildVerdictUI(v, false));
+                        if (data.status === 'AC') setSolved(true);
+                        return;
+                    }
+                    // Still pending — retry after delay
+                    if (attempts < 30) {
+                        pollTimerRef.current = setTimeout(poll, 2000);
+                    }
+                })
+                .catch(() => {
+                    if (attempts < 30) {
+                        pollTimerRef.current = setTimeout(poll, 2000);
+                    }
+                });
+        };
+        // Start polling after 3s (give SSE a head start)
+        pollTimerRef.current = setTimeout(poll, 3000);
+    };
 
     const handleRun = () => {
         if (runningRef.current) return;
@@ -370,10 +418,13 @@ const PracticeSolve = () => {
             .then(res => {
                 const sid = res.data.submissionId;
                 activeSubRef.current = sid;
-                // Safety: if SSE never fires, show timeout after 40s
+                // Start polling fallback — will auto-stop when SSE verdict arrives
+                startPolling(sid);
+                // Safety net: 40s hard timeout
                 timeoutRef.current = setTimeout(() => {
                     if (activeSubRef.current === sid) {
                         activeSubRef.current = null;
+                        if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
                         runningRef.current = false;
                         setRunning(false);
                         setOutput(
