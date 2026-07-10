@@ -50,6 +50,12 @@ public class SubmissionController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> submitCode(@RequestBody SubmissionRequest request,
                                         @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        if (request.getCode() == null || request.getCode().isBlank()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Code cannot be empty"));
+        }
+        if (request.getCode().length() > 50_000) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Code too large (max 50,000 characters)"));
+        }
         if (!rateLimiter.allowSubmission(userDetails.getId())) {
             long retryAfter = rateLimiter.getRetryAfterSeconds(userDetails.getId());
             return ResponseEntity.status(429)
@@ -81,6 +87,12 @@ public class SubmissionController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> testCode(@RequestBody SubmissionRequest request,
                                       @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        if (request.getCode() == null || request.getCode().isBlank()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Code cannot be empty"));
+        }
+        if (request.getCode().length() > 50_000) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Code too large (max 50,000 characters)"));
+        }
         if (!rateLimiter.allowTestRun(userDetails.getId())) {
             long retryAfter = rateLimiter.getRetryAfterSeconds(userDetails.getId());
             return ResponseEntity.status(429)
