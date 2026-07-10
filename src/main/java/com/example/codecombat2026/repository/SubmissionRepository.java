@@ -14,7 +14,7 @@ import java.util.List;
 @Repository
 public interface SubmissionRepository extends JpaRepository<Submission, Long> {
     // Real submissions only — test runs are excluded from all user-facing reads.
-    @Query("SELECT s FROM Submission s WHERE s.user.id = :userId AND s.testRun = false")
+    @Query("SELECT s FROM Submission s WHERE s.user.id = :userId AND s.testRun = false AND s.contest.id IS NOT NULL")
     List<Submission> findByUser_Id(@Param("userId") Long userId);
 
     /**
