@@ -407,7 +407,7 @@ export default function AdminProctoringDashboard() {
         let cancelled = false;
         (async () => {
             try {
-                const res = await api.get('/contests');
+                const res = await api.get('/admin/contests');
                 if (cancelled) return;
                 const all = Array.isArray(res?.data) ? res.data : [];
                 const proctored = all
