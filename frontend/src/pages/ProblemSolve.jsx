@@ -219,6 +219,7 @@ const ProblemSolve = () => {
     // render a verdict that matches the in-flight submission — otherwise a Run
     // could show an old Submit's "Submission saved" footer, and vice-versa.
     const activeSubRef = useRef(null);
+    const pollCleanupRef = useRef(null); // stop polling when SSE verdict arrives
     const dragStartX = useRef(0);
     const dragStartW = useRef(0);
     const dragStartY = useRef(0);
@@ -262,6 +263,7 @@ const ProblemSolve = () => {
                         if (activeSubRef.current != null &&
                             verdict.submissionId !== activeSubRef.current) return;
                         activeSubRef.current = null;
+                        if (pollCleanupRef.current) { pollCleanupRef.current(); pollCleanupRef.current = null; }
                         setSubmitting(false);
                         setRunning(false);
                         const execMs = verdict.timeConsumedMs || verdict.timeConsumed || null;
@@ -674,6 +676,7 @@ const ProblemSolve = () => {
         };
 
         // First attempt slightly delayed to give the worker a head start
+        pollCleanupRef.current = () => { cancelled = true; };
         setTimeout(tick, intervalMs);
 
         return () => { cancelled = true; };
