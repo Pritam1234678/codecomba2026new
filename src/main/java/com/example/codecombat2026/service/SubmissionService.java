@@ -260,12 +260,10 @@ public class SubmissionService {
         if (contest == null) return; // standalone / practice problem — no gates
         Long contestId = contest.getId();
 
-        if (!Boolean.TRUE.equals(contest.getActive())) {
-            throw new ProctoringForbiddenException(
-                "CONTEST_INACTIVE",
-                "This contest is not currently active.");
-        }
         var now = TimeUtil.now();
+        // Check time gates BEFORE active flag so an auto-deactivated ended
+        // contest surfaces the accurate "CONTEST_ENDED" error rather than
+        // the misleading "CONTEST_INACTIVE".
         if (contest.getStartTime() != null && contest.getStartTime().isAfter(now)) {
             throw new ProctoringForbiddenException(
                 "CONTEST_NOT_STARTED",
@@ -275,6 +273,11 @@ public class SubmissionService {
             throw new ProctoringForbiddenException(
                 "CONTEST_ENDED",
                 "Contest has ended — submissions are no longer accepted");
+        }
+        if (!Boolean.TRUE.equals(contest.getActive())) {
+            throw new ProctoringForbiddenException(
+                "CONTEST_INACTIVE",
+                "This contest has been deactivated by the administrator.");
         }
         if (requireRegistration && contestId != null
                 && !contestRegistrationRepository.existsByContestIdAndUserId(contestId, userId)) {

@@ -147,7 +147,7 @@ public class SseEmitterRegistry {
             try {
                 e.getValue().send(SseEmitter.event().name(eventName).data(json));
                 delivered++;
-            } catch (IOException ex) {
+            } catch (Exception ex) {
                 it.remove();
                 log.debug("SSE send failed for user {} sub {} event {}: {}",
                     userId, e.getKey(), eventName, ex.getMessage());
