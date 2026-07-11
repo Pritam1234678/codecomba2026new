@@ -1,242 +1,480 @@
-# How Practice Run Works — Full Architecture
+# Practice Run Flow — Complete Architecture
 
 ---
 
-## One-Line Summary
+## Ek Line Me Samjho
 
-> User clicks Run → code executes **synchronously** (no queue, no SSE) → verdict returns directly in HTTP response
+> User clicks Run → POST /api/practice/run → PracticeService.enqueuePractice() → Valkey queue `practice:queue` → Worker pool judges → SSE verdict + polling fallback → UI shows result
 
 ---
 
-## Step-by-Step Flow
+## Poora Flow — Big Picture
 
-### Step 1: User clicks "Run" on practice page
-- Frontend sends: `POST /api/practice/run`
-- Body: `{ problemId: 38, code: "class Solution...", language: "PYTHON" }`
-- Header: `Authorization: Bearer <jwt>`
+```
+USER (Browser)                    Backend (VM1/VM2)                    Valkey          PostgreSQL
+     │                                 │                                │                  │
+     │── POST /api/practice/run ─────►│                                │                  │
+     │                                │── Validate + enqueue ──────────────────────────►│
+     │                                │── LPUSH practice:queue      │                 │
+     │◄── 202 Accepted {subId} ───────│                               │                 │
+     │                                │                                │                 │
+     │                                │   [Worker Pool: 2 on VM1, 4 on VM2]          │
+     │                                │  LMOVE practice:queue                   │
+     │                                │    → practice:processing:vm1:1            │
+     │                                │                                │                 │
+     │                                │   [Worker Thread]                        │
+     │                                │   1. Fetch harness (cache)                │
+     │                                │   2. Inject user code                     │
+     │                                │   3. bwrap + prlimit + execute            │
+     │                                │   4. Parse TC output → verdict            │
+     │                                │   4. sseRegistry.sendVerdict()            │
+     │                                │        → Valkey if no SSE subscriber      │
+     │                                │                                          │
+     │◄─── SSE "verdict" ─────────────│                                │                 │
+     │   (or polling fallback)        │                                │                 │
+```
 
-### Step 2: Controller validates request
-- Code not blank? ✓
-- Code length < 50,000 chars? ✓
-- Pass to `PracticeService.runPractice(userId, problemId, code, language)`
+---
 
-### Step 3: Service validates problem
-- Fetch problem from DB: `SELECT * FROM problems WHERE id=38`
-- Is `active = true`? ✓ (if false → "This problem has been disabled")
-- Get time limit (5.0s) and memory limit (256MB) from the problem row
+## Complete Flow — Step by Step
 
-### Step 4: Fetch code harness (cache-aside)
-- Check Valkey: `GET snippet:38:PYTHON`
-- **Cache HIT** (~0.5ms): return cached harness string
-- **Cache MISS**: query PostgreSQL `code_snippets` table → cache it (60min TTL)
-- If no harness exists at all → return "No code harness configured for language: PYTHON"
+### Step 1: User Clicks "Run" on Practice Page
 
-### Step 5: Submit to bounded thread pool
-- `pool.submit(() → doJudge(...))`
-- Pool config: `PRACTICE_WORKERS` threads (VM1=2, VM2=4)
-- Queue: `ArrayBlockingQueue(1000)` — max 1000 pending requests
-- **If queue is FULL** → `RejectedExecutionException` → return "Server busy — try again in a few seconds"
-- **If accepted** → get a `Future<PracticeVerdict>`
-- Wait for result: `future.get(15, TimeUnit.SECONDS)` — blocks the HTTP thread
+**Frontend:** `PracticeSolve.jsx` → `handleRun()`
+```javascript
+PracticeService.run(id, code, language)
+  → POST /api/practice/run
+  Body: { problemId: 38, code: "class Solution...", language: "JAVA" }
+  Header: Authorization: Bearer <jwt>
+```
 
-### Step 6: Inject user code into harness
-- Find `# USER_CODE_START` and `# USER_CODE_END` markers
-- Replace content between markers with user's submitted code
-- Result = complete Python program with test driver
+### Step 2: Controller Validates & Enqueues
 
-### Step 7: Execute in sandbox
-- Same sandbox as contest (bwrap + prlimit):
-  - bwrap: new PID/NET/USER namespace, no internet, UID=65534, readonly FS
-  - prlimit: RLIMIT_AS (memory), RLIMIT_CPU (seconds), RLIMIT_NPROC (fork limit)
-- Run: `python3 solution.py`
-- Capture: stdout, stderr, exit code, elapsed time
-- If compile error (Java/C++) → return CE verdict immediately
-- If time limit exceeded → kill process → return TLE
-- If exit code 137 (SIGKILL) → Memory Limit Exceeded (MLE)
+**File:** `PracticeController.java` → `runPractice()`
+```java
+@PostMapping("/run")
+@PreAuthorize("isAuthenticated()")
+public ResponseEntity<?> runPractice(@RequestBody PracticeRunRequest req,
+                                     @AuthenticationPrincipal UserDetailsImpl user) {
+    // 1. Validate code
+    if (req.getCode() == null || req.getCode().isBlank())
+        return ResponseEntity.badRequest().body(error("Code cannot be empty"));
+    if (req.getCode().length() > 50_000)
+        return ResponseEntity.badRequest().body(error("Code too large (max 50KB)"));
 
-### Step 8: Parse test case output
-- Read stdout line by line looking for `TC:N:PASS` or `TC:N:FAIL` format
-- Example output:
-  ```
-  TC:1:PASS
-  TC:2:PASS
-  TC:3:PASS:hidden
-  TC:4:PASS:hidden
-  ```
-- Count: passed=4, total=4
-- **Practice mode runs ALL test cases** (no 2-TC limit like contest test-run)
-- If passed == total → status = "AC"
-- If passed < total → status = "WA"
-
-### Step 9: Award points (only if ALL passed AND first time)
-- Check: `SELECT EXISTS FROM user_problem_solved WHERE user_id=42 AND problem_id=38`
-- **Already solved before?** → skip, set `alreadySolved = true`, `pointsAwarded = 0`
-- **First time AC?** →
-  1. `INSERT INTO user_problem_solved (user_id, problem_id, points_earned, solved_at)`
-  2. `UPDATE users SET total_points = total_points + 7 WHERE id=42`
-  3. Set `pointsAwarded = 7`
-- **Race condition safety:** Unique constraint on `(user_id, problem_id)` — if two concurrent ACs arrive, one INSERT succeeds, other throws `DataIntegrityViolationException` → caught → returns 0 points (no double-award)
-
-### Step 10: Return verdict directly in HTTP response
-- No SSE, no polling — synchronous response:
-```json
-{
-  "status": "AC",
-  "passed": 4,
-  "total": 4,
-  "executionTime": 850,
-  "pointsAwarded": 7,
-  "alreadySolved": false,
-  "totalPointsByLevel": 7,
-  "testCases": [
-    { "testCase": 1, "passed": true, "hidden": false, "input": "[1,2]", "expected": "3", "got": "3" },
-    { "testCase": 2, "passed": true, "hidden": false },
-    { "testCase": 3, "passed": true, "hidden": true },
-    { "testCase": 4, "passed": true, "hidden": true }
-  ]
+    // 2. Enqueue
+    Long submissionId = practiceService.enqueuePractice(user.getId(), req.getProblemId(), req.getCode(), req.getLanguage());
+    return ResponseEntity.accepted().body(Map.of("submissionId", submissionId));
 }
 ```
 
-### Step 11: User sees result
-- "All Correct! +7 points"
-- Hidden test cases show pass/fail status but NOT input/expected/got (anti-cheating)
+### Step 3: PracticeService.enqueuePractice()
 
----
+```java
+public Long enqueuePractice(Long userId, Long problemId, String code, String language) {
+    // 1. Validate problem
+    Problem problem = problemRepository.findById(problemId)
+        .orElseThrow(() -> new ResourceNotFoundException("Problem not found"));
+    if (!Boolean.TRUE.equals(problem.getActive()))
+        throw new IllegalArgumentException("Problem disabled");
 
-## Key Architecture: Why Synchronous?
+    // 2. Get harness
+    String harness = cacheService.getSnippetHarness(problemId, language);
+    if (harness == null)
+        throw new IllegalArgumentException("No harness for language: " + language);
 
-```
-Contest mode (async queue):
-  User → DB → Queue → 202 → Worker (later) → SSE/poll
-  + Durable (job survives crash)
-  + Fair (FIFO)
-  - User waits 3-5 seconds for result
-  - Complex (SSE + polling + janitor)
+    // 3. Rate limit: 20 runs / 60s per user per problem
+    String rateKey = "practice:runs:" + userId + ":" + problemId;
+    Long count = redis.opsForValue().increment(rateKey);
+    if (count == 1) redis.expire(rateKey, Duration.ofSeconds(60));
+    if (count > 20) throw new IllegalArgumentException("Rate limit exceeded");
 
-Practice mode (synchronous pool):
-  User → Execute NOW → 200 with verdict
-  + Instant feedback (< 2 seconds total)
-  + Simple (no SSE, no polling, no queue delivery)
-  + No submission table pollution
-  - Not durable (crash = retry manually)
-  - Bounded capacity (queue full = reject)
+    // 5. Create Submission row (practice=true, contest=null, testRun=false)
+    Submission sub = new Submission();
+    sub.setUser(user);
+    sub.setProblem(problem);
+    sub.setContest(null);          // ← Practice has NO contest
+    sub.setCode(code);
+    sub.setLanguage(lang);
+    sub.setStatus(PENDING);
+    sub.setTestRun(false);         // Practice = real submission, not test run
+    sub.setPractice(true);         // ← Flags as practice
+    sub = submissionRepository.save(sub);
 
-WHY this tradeoff?
-  Practice is solo — no fairness requirement.
-  Instant feedback is critical for learning iteration.
-  If server crashes, user just clicks Run again (no harm).
-```
+    // 6. Build job & push to PRACTICE queue
+    SubmissionJob job = new SubmissionJob();
+    job.setSubmissionId(sub.getId());
+    job.setUserId(userId);
+    job.setProblemId(problemId);
+    job.setContestId(null);              // ← No contest
+    job.setCode(code);
+    job.setLanguage(language);
+    job.setTestRun(false);            // Practice = real submission
+    job.setPractice(true);            // ← Practice flag
+    job.setTimeLimit(problem.getTimeLimit());
+    job.setMemoryLimit(problem.getMemoryLimit());
 
----
+    String json = objectMapper.writeValueAsString(job);
+    redis.opsForList().leftPush("practice:queue", json);  // Separate queue!
 
-## Thread Pool Details
-
-```
-Type:           ThreadPoolExecutor
-Workers:        VM1 = 2 threads, VM2 = 4 threads
-Queue:          ArrayBlockingQueue(1000)
-Rejection:      AbortPolicy (throws → "Server busy")
-Thread names:   practice-1, practice-2, practice-3...
-Daemon:         true (don't block JVM shutdown)
-
-Request flow:
-  1. Request arrives
-  2. Worker thread free? → execute immediately
-  3. No free worker? → put in queue (up to 1000 waiting)
-  4. Queue also full? → AbortPolicy → "Server busy" to user
-  5. Execution timeout: Future.get(15s) — if still not done, cancel
-
-Capacity math:
-  VM1 (2 workers) + VM2 (4 workers) = 6 workers total
-  Average execution: ~3-5 seconds
-  Throughput: ~72-120 practice runs/minute
+    return sub.getId();
+}
 ```
 
 ---
 
-## nginx Load Balancing
+## Queue & Workers — Separate Pipeline
 
-```
-Practice is the ONLY route load-balanced across both VMs:
+| Aspect | Practice Run | Contest Run/Submit |
+|---|---|---|
+| **Queue** | `practice:queue` | `submission:queue` |
+| **Workers** | VM1: 2 dedicated | Shared 8 (VM1=2, VM2=6) |
+| **Worker Pool** | Dedicated 2 (VM1) + 4 (VM2) | Shared 8 workers |
+| **DB Row** | `practice=true, contest=null, testRun=false` | `testRun=true` / `practice=false` |
+| **Rate Limit** | 20 runs / 60s per problem | 10 runs / 60s per problem |
+| **Verdict Delivery** | SSE + 3s polling fallback | SSE + 1s polling |
+| **DB Visibility** | `/api/user/practice/history` | Dashboard + Leaderboard |
+| **Points** | Profile points (first AC only) | Leaderboard ZSET |
 
-  nginx config:
-    upstream practice_pool {
-        server 127.0.0.1:8080;    ← VM1
-        server 10.0.0.34:8080;    ← VM2
-        keepalive 16;
+---
+
+## Worker Pool — Dedicated Practice Threads
+
+**File:** `SubmissionWorkerPool.java`
+
+```java
+@Component
+public class SubmissionWorkerPool {
+    // Practice workers: VM1=2, VM2=4 (separate from contest pool)
+    @Value("${PRACTICE_WORKERS:2}")  // VM1:2, VM2:4 (via env)
+    private int practiceWorkerCount;
+
+    @PostConstruct
+    public void init() {
+        // Contest workers
+        for (int i = 0; i < workerCount; i++)
+            pool.submit(() -> workerLoop("contest", QUEUE_KEY));
+
+        // Practice workers — separate thread pool
+        for (int i = 0; i < practiceWorkerCount; i++)
+            pool.submit(() -> workerLoop("practice", PRACTICE_QUEUE_KEY));
     }
-    location /api/practice/ {
-        proxy_pass http://practice_pool;
-        proxy_next_upstream error timeout http_502 http_503;
+
+    private void workerLoop(String type, String queueKey) {
+        while (!Thread.currentThread().isInterrupted()) {
+            String jobJson = workerRedis.opsForList()
+                .move(type.equals("practice") ? PRACTICE_QUEUE_KEY : QUEUE_KEY,
+                      PROCESSING_KEY_PREFIX + instanceId + ":" + workerId,
+                      Duration.ofSeconds(3));
+            if (jobJson == null) continue;
+            processJob(jobJson, type.equals("practice"));
+        }
     }
 
-  Request 1 → VM1 (2 practice workers)
-  Request 2 → VM2 (4 practice workers)
-  Request 3 → VM1
-  Request 4 → VM2
-  ... round-robin
-
-  If VM2 is down:
-    nginx detects timeout/502 → retries on VM1 automatically
-    User never sees an error (just slightly slower)
+    private void processJob(String jobJson, boolean isPractice) {
+        // Same judging logic, but:
+        // - Practice: contestId=null, practice=true, testRun=false
+        // - Contest: contestId!=null, practice=false, testRun=false/true
+    }
+}
 ```
 
 ---
 
-## Points System
+## Verdict Delivery — SSE + Polling Fallback
 
+### Backend: `SseEmitterRegistry.sendVerdict()`
+
+```java
+public void sendVerdict(Long userId, Object verdictData) {
+    ConcurrentHashMap<String, SseEmitter> subs = emitters.get(userId);
+    if (subs == null || subs.isEmpty()) {
+        // No active SSE — cache for polling fallback
+        String key = "pending:verdict:" + userId + ":" + verdict.getSubmissionId();
+        redis.opsForValue().set(key, json, Duration.ofMinutes(5));
+        log.debug("No SSE subscriber for user {} — verdict cached for polling", userId);
+        return;
+    }
+    // Fan out to all tabs
+    subs.forEach((subId, emitter) -> {
+        try {
+            emitter.send(SseEmitter.event().name("verdict").data(verdict));
+        } catch (Exception ex) {
+            remove(userId, subId, "send-failed");
+        }
+    });
+}
 ```
-Level     Points
-────────────────
-EASY      5
-MEDIUM    7
-HARD      10
 
-Rules:
-  - Only on AC (all test cases pass)
-  - Only FIRST TIME per (user, problem) — unique constraint prevents double
-  - Stored in: user_problem_solved table
-  - user.total_points incremented atomically
-  - Concurrent AC race: one wins INSERT, other catches constraint violation → 0 points
+### Frontend: PracticeSolve.jsx — handleRun()
+
+```javascript
+const handleRun = () => {
+    if (runningRef.current) return;
+    runningRef.current = true;
+    setRunning(true);
+    setOutput(<Spinner />);
+
+    PracticeService.run(id, code, language)
+        .then(res => {
+            const sid = res.data.submissionId;
+            activeSubRef.current = sid;
+
+            // Start polling fallback AFTER 3s (give SSE head start)
+            pollTimer.current = setTimeout(() => startPolling(sid), 3000);
+
+            // 40s hard timeout
+            timeoutRef.current = setTimeout(() => {
+                if (activeSubRef.current === sid) {
+                    activeSubRef.current = null;
+                    runningRef.current = false;
+                    setRunning(false);
+                    setOutput(<Error>Judging timed out. Try again.</Error>);
+                }
+            }, 40000);
+        })
+        .catch(err => {
+            runningRef.current = false;
+            setRunning(false);
+            setOutput(<Error>Error: {err.message}</Error>);
+        });
+    };
+```
+
+### Polling Fallback (`startPolling`)
+
+```javascript
+const startPolling = (sid) => {
+    let attempts = 0;
+    const poll = async () => {
+        if (activeSubRef.current !== sid) return; // Already handled by SSE
+        try {
+            const res = await api.get(`/submissions/${sid}/status`);
+            const data = res.data;
+            if (data.status && !['PENDING','JUDGING'].includes(data.status)) {
+                // Verdict ready!
+                activeSubRef.current = null;
+                clearTimeout(timeoutRef.current);
+                clearTimeout(pollTimerRef.current);
+                runningRef.current = false;
+                setRunning(false);
+                if (data.status === 'AC') setSolved(true);
+                setOutput(buildVerdictUI(toVerdict(data), false));
+            } else if (attempts < 30) {
+                pollTimerRef.current = setTimeout(poll, 2000);
+            }
+        } catch (err) {
+            if (attempts < 30) pollTimerRef.current = setTimeout(poll, 2000);
+        }
+    };
+    pollTimerRef.current = setTimeout(() => poll(), 3000); // SSE gets 3s head start
+};
 ```
 
 ---
 
-## All Possible Verdicts
+## Frontend Verdict Handling — Unified
 
-| Status | Meaning | When |
-|--------|---------|------|
-| AC | All Correct | All test cases pass → points awarded (first time) |
-| WA | Wrong Answer | Some test cases fail → no points |
-| CE | Compile Error | javac/g++/gcc fails → show compiler error |
-| RE | Runtime Error | Segfault, uncaught exception, or no output |
-| TLE | Time Limit Exceeded | Code runs longer than problem's time limit |
-| ERROR | System Error | Pool full / harness missing / problem disabled |
+### `toVerdict(raw)` — Normalizes API response
+
+```javascript
+function toVerdict(raw) {
+    return {
+        status:         raw.status,
+        passed:         raw.testCasesPassed,
+        total:          raw.totalTestCases,
+        executionTime:  raw.timeConsumedMs,
+        errorMessage:   raw.errorMessage,
+        testCases:      raw.testCaseDetails ? JSON.parse(raw.testCaseDetails) : [],
+        pointsAwarded:  raw.pointsAwarded || 0,
+        alreadySolved:  raw.alreadySolved || false,
+    };
+}
+```
+
+### Unified `buildVerdictUI(v)` — Works for Both Practice & Contest
+
+```javascript
+function buildVerdictUI(v, isTestRun) {
+    // Status badge
+    if (v.status === 'CE' || v.status === 'RE') { ... }
+    if (v.status === 'TLE') { ... }
+
+    // Test cases
+    const visibleTCs = v.testCases.filter(tc => !tc.hidden);
+    return (
+        <div>
+            {visibleTCs.map((tc, i) => (
+                <div key={i} className={tc.passed ? 'pass' : 'fail'}>
+                    <span>{tc.passed ? '✓' : '✗'} Test Case {tc.testCase}</span>
+                    {!tc.passed && (tc.input || tc.expected || tc.got) && (
+                        <details><summary>Details</summary>
+                            {tc.input && <div>Input: {tc.input}</div>}
+                            {tc.expected && <div>Expected: {tc.expected}</div>}
+                            {tc.got && <div>Got: {tc.got}</div>}
+                        </details>
+                    )}
+                </div>
+            ))}
+        )}
+    </div>
+);
+```
 
 ---
 
-## Practice vs Contest — Side by Side
+## Verdict Delivery — SSE + Polling Fallback
 
-| | Practice Run | Contest Run | Contest Submit |
+### Backend: `SseEmitterRegistry.sendVerdict()`
+
+```java
+public void sendVerdict(Long userId, Object verdictData) {
+    ConcurrentHashMap<String, SseEmitter> subs = emitters.get(userId);
+    if (subs == null || subs.isEmpty()) {
+        // No active SSE — cache for polling fallback
+        String key = "pending:verdict:" + userId + ":" + verdict.getSubmissionId();
+        redis.opsForValue().set(key, json, Duration.ofMinutes(5));
+        log.debug("No SSE subscriber for user {} — verdict cached for polling", userId);
+        return;
+    }
+    // Fan out to all open tabs
+    subs.forEach((subId, emitter) -> {
+        try {
+            emitter.send(SseEmitter.event().name("verdict").data(verdict));
+        } catch (Exception ex) {
+            remove(userId, subId, "send-failed");
+        }
+    });
+}
+```
+
+### Frontend — SSE Handler (PracticeSolve.jsx)
+
+```javascript
+useEffect(() => {
+    const user = AuthService.getCurrentUser();
+    if (!user?.token) return;
+
+    api.post('/submissions/sse-ticket')
+        .then(res => {
+            const ticket = res.data?.ticket;
+            if (!ticket) return;
+            const url = `${API_BASE}/submissions/stream?ticket=${ticket}`;
+            const es = new EventSource(url);
+            sseRef.current = es;
+
+            es.addEventListener('verdict', (e) => {
+                const raw = JSON.parse(e.data);
+                if (activeSubRef.current != null &&
+                    raw.submissionId !== activeSubRef.current) return;
+
+                activeSubRef.current = null;
+                if (timeoutRef.current) clearTimeout(timeoutRef.current);
+                runningRef.current = false;
+                setRunning(false);
+                if (raw.status === 'AC') setSolved(true);
+                setOutput(buildVerdictUI(toVerdict(raw), raw.testRun === true));
+            });
+
+            es.onerror = () => console.warn('Practice SSE connection error');
+        });
+    }, []);
+}, []);
+```
+
+### Polling Fallback (starts 3s after Run click)
+
+```javascript
+const startPolling = (sid) => {
+    let attempts = 0;
+    const poll = () => {
+        if (activeSubRef.current !== sid) return;
+        api.get(`/submissions/${sid}/status`)
+            .then(res => {
+                const data = res.data;
+                if (data.status && !['PENDING','JUDGING'].includes(data.status)) {
+                    activeSubRef.current = null;
+                    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+                    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+                    runningRef.current = false;
+                    setRunning(false);
+                    if (data.status === 'AC') setSolved(true);
+                    setOutput(buildVerdictUI(toVerdict(data), false));
+                    return;
+                }
+                if (attempts < 30) pollTimerRef.current = setTimeout(poll, 2000);
+            })
+            .catch(() => { if (attempts < 30) pollTimerRef.current = setTimeout(poll, 2000); });
+    };
+    pollTimerRef.current = setTimeout(poll, 3000); // 3s head start for SSE
+};
+```
+
+---
+
+## Verdict UI — Unified `buildVerdictUI(verdict, isTestRun)`
+
+```javascript
+function buildVerdictUI(v, isTestRun) {
+    if (v.status === 'CE' || v.status === 'RE') { /* red error box */ }
+    if (v.status === 'TLE') { /* yellow timeout */ }
+    if (v.status === 'MLE') { ... }
+    if (v.status === 'AC') { /* green success + points badge */ }
+    if (v.status === 'WA') { /* red with test case table */ }
+
+    // Test case table — uses tc.status === 'PASS' (NOT tc.passed!)
+    {visibleTCs.map((tc, idx) => (
+        <div key={idx} className={tc.status === 'PASS' ? 'pass' : 'fail'}>
+            <span>{tc.status === 'PASS' ? '✓' : '✗'} Test Case {tc.testCase}</span>
+            {!tc.passed && (tc.input || tc.expected || tc.got) && (
+                <details><summary>Details</summary>
+                    {tc.input && <div>Input: {tc.input}</div>}
+                    {tc.expected && <div>Expected: {tc.expected}</div>}
+                    {tc.got && <div>Your Output: {tc.got}</div>}
+                </details>
+            )}
+        </div>
+    ))}
+```
+
+> **Note:** Backend stores `status: "PASS" | "FAIL"` in test case JSON. Both `PracticeSolve.jsx` and `ProblemSolve.jsx` now use `tc.status === 'PASS'` consistently.
+
+---
+
+## Rate Limits
+
+| Action | Limit | Window | Key |
 |---|---|---|---|
-| Endpoint | `/api/practice/run` | `/api/submissions/test` | `/api/submissions` |
-| Execution | Synchronous (in-process) | Async (queue) | Async (queue) |
-| Response | 200 with verdict | 202 → SSE/poll | 202 → SSE/poll |
-| Test cases | ALL | 2 visible only | ALL |
-| DB writes | Only `user_problem_solved` on AC | submissions table | submissions table |
-| Scoring | user.total_points (profile) | Nothing | Leaderboard ZSET |
-| Limit | None (unlimited runs) | 10 runs/problem | 5 submits/problem |
-| Load balance | nginx round-robin (VM1+VM2) | Workers drain shared queue | Workers drain shared queue |
-| Crash recovery | User retries manually | Janitor re-queues after 5min | Janitor re-queues after 5min |
+| Practice Run | 20 runs | 60s | `practice:runs:{userId}:{problemId}` |
+| Contest Test Run | 10 runs | 60s | `sub:rl:events:{userId}:{problemId}` |
+| Contest Submit | 5 submits | ∞ (per contest) | `sub:submit:{userId}:{problemId}` |
+| Screenshot Upload | 20/min | 60s | `practice:screenshots:{userId}` |
 
 ---
 
-## Interview Answer (2 minutes)
+## Common Errors & Fixes
 
-> "Practice mode is architecturally different from contests. It's fully synchronous — the user's HTTP request blocks while code executes, and the verdict is returned directly in the 200 response. There's no queue, no SSE, no polling.
->
-> PracticeService has a bounded ThreadPoolExecutor with an ArrayBlockingQueue of 1000 capacity. If all workers are busy and the queue is full, we reject with 'Server busy' rather than crashing. The code runs inside the same bwrap+prlimit sandbox as contests — identical security.
->
-> nginx load-balances practice requests across both VMs in round-robin. VM1 has 2 workers, VM2 has 4, giving us about 72-120 runs per minute combined. If a VM goes down, nginx retries on the other transparently.
->
-> Points are awarded only on first AC — we use a unique constraint on (user_id, problem_id) in the user_problem_solved table. Even if two concurrent requests both get AC, the constraint ensures only one INSERT succeeds. The other catches DataIntegrityViolationException and returns 0 points."
+| Error | Cause | Fix |
+|---|---|---|
+| `RATE_LIMITED` (429) | Too many runs | Wait 60s |
+| `HARNESS_MISSING` | No harness for language | Admin configure harness |
+| `CONTEST_INACTIVE` | 403 | Problem disabled |
+| `RATE_LIMITED` (503) | Queue full (1000 pending) | Wait and retry |
+| `HARNESS_MISSING` | No harness for language | Admin configure harness |
+| `UNAUTHORIZED` on SSE | Ticket expired/used | Auto-reconnect via polling |
+
+---
+
+## Debugging Checklist
+
+| Symptom | Likely Cause | Fix |
+|---|---|---|
+| "Judging timed out" | SSE race / slow worker | Polling fallback catches it |
+| All test cases show FAIL | Frontend reads `tc.passed` but backend sends `status` | Use `tc.status === 'PASS'` |
+| CE shows "No error details" | `parseClientTimestamp` failed | Check `result.getStderr()` in backend |
+| Verdict never arrives | SSE ticket expired / not connected | Polling fallback covers this |
+| Practice shows in dashboard | `findByUser_Id` missing `contest.id IS NOT NULL` | Add `AND s.contest.id IS NOT NULL` |
+
+---
+
+*Architecture: VM1 (2 contest + 2 practice workers) + VM2 (6 contest + 4 practice workers) → shared Valkey `practice:queue` & `submission:queue` → 0.4ms private network latency.*
