@@ -49,6 +49,7 @@ public class SubmissionWorkerPool {
     private static final Logger log = LoggerFactory.getLogger(SubmissionWorkerPool.class);
 
     public static final String QUEUE_KEY = "submission:queue";
+    public static final String PRACTICE_QUEUE_KEY = "practice:queue";
     /** Per-worker processing list prefix: submission:processing:&lt;hostPid&gt;:&lt;workerId&gt; */
     public static final String PROCESSING_KEY_PREFIX = "submission:processing:";
     /** Tracks all known processing list keys so the janitor knows where to look. */
@@ -82,6 +83,7 @@ public class SubmissionWorkerPool {
     @Autowired private LeaderboardCacheService leaderboard;
     @Autowired private SseEmitterRegistry sseRegistry;
     @Autowired private CacheService cacheService;
+    @Autowired private com.example.codecombat2026.repository.PracticeSubmissionRepository practiceSubmissionRepository;
     /**
      * Duel verdict callback target. Lazy-injected to break the circular
      * dependency: {@link DuelService} pushes duel-tagged jobs onto
@@ -289,7 +291,11 @@ public class SubmissionWorkerPool {
 
         try {
             if (!job.isTestRun() && submissionId != null && submissionId > 0) {
-                submissionRepository.updateStatus(submissionId, Submission.SubmissionStatus.JUDGING);
+                if (job.isPractice()) {
+                    practiceSubmissionRepository.updateStatus(submissionId, Submission.SubmissionStatus.JUDGING);
+                } else {
+                    submissionRepository.updateStatus(submissionId, Submission.SubmissionStatus.JUDGING);
+                }
             }
 
             String harness = cacheService.getSnippetHarness(job.getProblemId(), job.getLanguage());
@@ -369,18 +375,20 @@ public class SubmissionWorkerPool {
                            int passed, int total, int score, long timeMs, String details) {
 
         // 1. Update DB — needed by polling. Wrap in try so it never throws.
-        // The update is gated on status IN (PENDING,JUDGING) so a duplicate
-        // run (janitor reclaim double-exec) is a no-op: 0 rows affected → the
-        // leaderboard branch below skips the delta and avoids double-counting.
         int updated = 0;
         if (submissionId != null && submissionId > 0) {
             try {
                 java.util.List<Submission.SubmissionStatus> inflight =
                     List.of(Submission.SubmissionStatus.PENDING, Submission.SubmissionStatus.JUDGING);
-                updated = submissionRepository.updateResult(
-                    submissionId, inflight, status, errorMessage, passed, total,
-                    (double) timeMs, score, details, TimeUtil.now()
-                );
+                if (job.isPractice()) {
+                    updated = practiceSubmissionRepository.updateResult(
+                        submissionId, inflight, status, errorMessage, passed, total,
+                        (double) timeMs, score, details);
+                } else {
+                    updated = submissionRepository.updateResult(
+                        submissionId, inflight, status, errorMessage, passed, total,
+                        (double) timeMs, score, details, TimeUtil.now());
+                }
             } catch (Exception e) {
                 log.error("DB update failed for submission {}: {}", submissionId, e.getMessage());
             }

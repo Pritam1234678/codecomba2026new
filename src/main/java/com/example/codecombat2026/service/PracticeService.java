@@ -3,13 +3,14 @@ package com.example.codecombat2026.service;
 import com.example.codecombat2026.dto.ExecutionResult;
 import com.example.codecombat2026.dto.SubmissionJob;
 import com.example.codecombat2026.dto.VerdictEvent;
+import com.example.codecombat2026.entity.PracticeSubmission;
 import com.example.codecombat2026.entity.Problem;
 import com.example.codecombat2026.entity.Submission;
 import com.example.codecombat2026.entity.User;
 import com.example.codecombat2026.entity.UserProblemSolved;
 import com.example.codecombat2026.exception.ResourceNotFoundException;
+import com.example.codecombat2026.repository.PracticeSubmissionRepository;
 import com.example.codecombat2026.repository.ProblemRepository;
-import com.example.codecombat2026.repository.SubmissionRepository;
 import com.example.codecombat2026.repository.UserProblemSolvedRepository;
 import com.example.codecombat2026.repository.UserRepository;
 import com.example.codecombat2026.service.judge.DockerJudgeService;
@@ -48,7 +49,7 @@ public class PracticeService {
     @Autowired private ProblemRepository problemRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private UserProblemSolvedRepository solvedRepository;
-    @Autowired private SubmissionRepository submissionRepository;
+    @Autowired private PracticeSubmissionRepository practiceSubmissionRepository;
     @Autowired private CacheService cacheService;
     @Autowired private StringRedisTemplate redis;
     @Autowired private ObjectMapper objectMapper;
@@ -100,19 +101,20 @@ public class PracticeService {
             throw new IllegalArgumentException("Unsupported language: " + language);
         }
 
-        // Create a PENDING submission row in DB so the user can poll / track history
+        // Create a PENDING practice submission row in DB
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        Submission sub = new Submission();
-        sub.setUser(user);
-        sub.setProblem(problem);
-        sub.setContest(null);
+        PracticeSubmission sub = new PracticeSubmission();
+        sub.setUserId(userId);
+        sub.setProblemId(problemId);
         sub.setCode(code);
         sub.setLanguage(lang);
         sub.setSubmittedAt(TimeUtil.now());
         sub.setStatus(Submission.SubmissionStatus.PENDING);
-        sub = submissionRepository.save(sub);
+        sub.setUserName(user.getUsername());
+        sub.setProblemName(problem.getTitle());
+        sub = practiceSubmissionRepository.save(sub);
 
         double timeLimit = problem.getTimeLimit() != null ? problem.getTimeLimit() : 5.0;
         int memoryLimit  = problem.getMemoryLimit() != null ? problem.getMemoryLimit() : 256;
@@ -131,10 +133,10 @@ public class PracticeService {
 
         try {
             String json = objectMapper.writeValueAsString(job);
-            redis.opsForList().leftPush(SubmissionWorkerPool.QUEUE_KEY, json);
+            redis.opsForList().leftPush(SubmissionWorkerPool.PRACTICE_QUEUE_KEY, json);
             log.info("Practice run {} enqueued (user={}, problem={})", sub.getId(), userId, problemId);
         } catch (Exception e) {
-            submissionRepository.updateStatus(sub.getId(), Submission.SubmissionStatus.RE);
+            practiceSubmissionRepository.updateStatus(sub.getId(), Submission.SubmissionStatus.RE);
             throw new RuntimeException("Failed to enqueue practice run", e);
         }
 
