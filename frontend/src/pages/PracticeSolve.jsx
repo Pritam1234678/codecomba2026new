@@ -238,7 +238,7 @@ const PracticeSolve = () => {
     // Keep runningRef in sync — useState setter is batched, ref is instant
     useEffect(() => { runningRef.current = running; }, [running]);
 
-    // ── SSE connection — verdicts arrive asynchronously ────────────────────────
+    // ── SSE connection — auto-reconnects on error ──────────────────────────────
     useEffect(() => {
         const user = AuthService.getCurrentUser();
         if (!user?.token) return;
@@ -246,46 +246,63 @@ const PracticeSolve = () => {
         const API_BASE = import.meta.env.VITE_API_URL
             ?? (window.location.hostname === 'localhost' ? 'http://localhost:8080/api' : '/api');
 
-        let es = null;
         let cancelled = false;
+        let es = null;
+        let reconnectTimer = null;
 
-        api.post('/submissions/sse-ticket')
-            .then(res => {
-                if (cancelled) return;
-                const ticket = res.data?.ticket;
-                if (!ticket) return;
+        const connect = () => {
+            if (cancelled) return;
+            api.post('/submissions/sse-ticket')
+                .then(res => {
+                    if (cancelled) return;
+                    const ticket = res.data?.ticket;
+                    if (!ticket) return;
 
-                const url = `${API_BASE}/submissions/stream?ticket=${encodeURIComponent(ticket)}`;
-                es = new EventSource(url);
-                sseRef.current = es;
+                    const url = `${API_BASE}/submissions/stream?ticket=${encodeURIComponent(ticket)}`;
+                    if (es) { try { es.close(); } catch {} }
+                    es = new EventSource(url);
+                    sseRef.current = es;
 
-                es.addEventListener('verdict', (e) => {
-                    try {
-                        const raw = JSON.parse(e.data);
-                        if (activeSubRef.current != null &&
-                            raw.submissionId !== activeSubRef.current) return;
-                        activeSubRef.current = null;
-                        if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
-                        if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
-                        runningRef.current = false;
-                        setRunning(false);
-                        if (raw.status === 'AC') setSolved(true);
-                        setOutput(buildVerdictUI(toVerdict(raw), raw.testRun === true));
-                    } catch (err) {
-                        console.error('SSE parse error:', err);
+                    es.addEventListener('verdict', (e) => {
+                        try {
+                            const raw = JSON.parse(e.data);
+                            if (activeSubRef.current != null &&
+                                raw.submissionId !== activeSubRef.current) return;
+                            activeSubRef.current = null;
+                            if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+                            if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
+                            runningRef.current = false;
+                            setRunning(false);
+                            if (raw.status === 'AC') setSolved(true);
+                            setOutput(buildVerdictUI(toVerdict(raw), raw.testRun === true));
+                        } catch (err) {
+                            console.error('SSE parse error:', err);
+                        }
+                    });
+
+                    es.onerror = () => {
+                        if (es) { try { es.close(); } catch {} }
+                        sseRef.current = null;
+                        es = null;
+                        if (!cancelled) {
+                            console.warn('Practice SSE dropped — reconnecting in 3s');
+                            reconnectTimer = setTimeout(connect, 3000);
+                        }
+                    };
+                })
+                .catch(err => {
+                    if (!cancelled) {
+                        console.warn('SSE ticket failed — retrying in 5s', err);
+                        reconnectTimer = setTimeout(connect, 5000);
                     }
                 });
+        };
 
-                es.onerror = () => {
-                    console.warn('Practice SSE connection error');
-                };
-            })
-            .catch(err => {
-                console.warn('Failed to issue practice SSE ticket', err);
-            });
+        connect();
 
         return () => {
             cancelled = true;
+            if (reconnectTimer) clearTimeout(reconnectTimer);
             if (es) { try { es.close(); } catch {} }
             sseRef.current = null;
         };

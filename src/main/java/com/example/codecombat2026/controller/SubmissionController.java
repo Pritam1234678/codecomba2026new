@@ -2,7 +2,9 @@ package com.example.codecombat2026.controller;
 
 import com.example.codecombat2026.dto.MessageResponse;
 import com.example.codecombat2026.dto.SubmissionRequest;
+import com.example.codecombat2026.entity.PracticeSubmission;
 import com.example.codecombat2026.entity.Submission;
+import com.example.codecombat2026.repository.PracticeSubmissionRepository;
 import com.example.codecombat2026.security.services.UserDetailsImpl;
 import com.example.codecombat2026.service.RateLimiterService;
 import com.example.codecombat2026.service.SseEmitterRegistry;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,6 +36,7 @@ public class SubmissionController {
     @Autowired private SseTicketService sseTickets;
     @Autowired private StringRedisTemplate redis;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private PracticeSubmissionRepository practiceSubmissionRepository;
 
     // Cache keys / TTLs
     // submissions:user:{userId}          — user's full submission list (30s)
@@ -161,31 +165,75 @@ public class SubmissionController {
 
     /**
      * Polling fallback — get current status of a specific submission.
+     * Checks both contest (submissions) and practice (practice_submissions) tables.
      * Used if SSE connection drops. Cached 2s so rapid polling doesn't hammer DB.
      */
     @GetMapping("/{submissionId}/status")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Submission> getSubmissionStatus(@PathVariable Long submissionId) {
+    public ResponseEntity<?> getSubmissionStatus(@PathVariable Long submissionId) {
         String key = "submission:status:" + submissionId;
         try {
             String cached = redis.opsForValue().get(key);
             if (cached != null) {
-                return ResponseEntity.ok(objectMapper.readValue(cached, Submission.class));
+                return ResponseEntity.ok(objectMapper.readValue(cached, Map.class));
             }
         } catch (Exception ignored) {}
 
-        Submission sub = submissionService.getSubmissionById(submissionId);
+        // Try contest submissions table first
+        String status = null;
+        Map<String, Object> result = null;
+        try {
+            Submission sub = submissionService.getSubmissionById(submissionId);
+            result = submissionToMap(sub);
+            status = (String) result.get("status");
+        } catch (Exception e) {
+            // Not found in submissions — try practice_submissions
+            PracticeSubmission psub = practiceSubmissionRepository.findById(submissionId).orElse(null);
+            if (psub == null) {
+                return ResponseEntity.notFound().build();
+            }
+            result = practiceSubmissionToMap(psub);
+            status = (String) result.get("status");
+        }
 
-        // Only cache terminal states — PENDING/JUDGING change rapidly, no point caching them.
-        Submission.SubmissionStatus status = sub.getStatus();
-        if (status != null && status != Submission.SubmissionStatus.PENDING
-                && status != Submission.SubmissionStatus.JUDGING) {
+        // Only cache terminal states
+        if (status != null && !"PENDING".equals(status) && !"JUDGING".equals(status)) {
             try {
-                redis.opsForValue().set(key, objectMapper.writeValueAsString(sub), STATUS_TTL);
+                redis.opsForValue().set(key, objectMapper.writeValueAsString(result), STATUS_TTL);
             } catch (Exception ignored) {}
         }
 
-        return ResponseEntity.ok(sub);
+        return ResponseEntity.ok(result);
+    }
+
+    private Map<String, Object> submissionToMap(Submission s) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", s.getId());
+        m.put("status", s.getStatus() != null ? s.getStatus().name() : null);
+        m.put("testCasesPassed", s.getTestCasesPassed());
+        m.put("totalTestCases", s.getTotalTestCases());
+        m.put("score", s.getScore());
+        m.put("timeConsumed", s.getTimeConsumed());
+        m.put("errorMessage", s.getErrorMessage());
+        m.put("testCaseDetails", s.getTestCaseDetails());
+        m.put("testRun", s.isTestRun());
+        m.put("practice", false);
+        return m;
+    }
+
+    private Map<String, Object> practiceSubmissionToMap(PracticeSubmission s) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", s.getId());
+        m.put("status", s.getStatus() != null ? s.getStatus().name() : null);
+        m.put("testCasesPassed", s.getTestCasesPassed());
+        m.put("totalTestCases", s.getTotalTestCases());
+        m.put("score", s.getScore());
+        m.put("timeConsumed", s.getTimeConsumed());
+        m.put("errorMessage", s.getErrorMessage());
+        m.put("testCaseDetails", s.getTestCaseDetails());
+        m.put("testRun", false);
+        m.put("practice", true);
+        return m;
     }
 
     @GetMapping("/run-count/{problemId}")

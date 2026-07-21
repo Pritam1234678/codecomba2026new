@@ -231,69 +231,76 @@ const ProblemSolve = () => {
     useEffect(() => { runningRef.current = running; }, [running]);
     useEffect(() => { submittingRef.current = submitting; }, [submitting]);
 
-    // ── SSE connection ────────────────────────────────────────────────────────
+    // ── SSE connection — auto-reconnects on error ──────────────────────────────
     useEffect(() => {
         const user = AuthService.getCurrentUser();
         if (!user?.token) return;
 
-        // For SSE, always connect directly to backend — Vite proxy buffers SSE events
-        // In production VITE_API_URL is set; in dev we bypass Vite proxy with direct port
         const API_BASE = import.meta.env.VITE_API_URL
             ?? (window.location.hostname === 'localhost' ? 'http://localhost:8080/api' : '/api');
 
-        let es = null;
         let cancelled = false;
+        let es = null;
+        let reconnectTimer = null;
 
-        // Fetch a single-use ticket, then open the SSE stream with it.
-        // The ticket lives 60s and is consumed atomically on connect, so a
-        // leaked URL is useless past the first open.
-        api.post('/submissions/sse-ticket')
-            .then(res => {
-                if (cancelled) return;
-                const ticket = res.data?.ticket;
-                if (!ticket) return;
+        const connect = () => {
+            if (cancelled) return;
+            api.post('/submissions/sse-ticket')
+                .then(res => {
+                    if (cancelled) return;
+                    const ticket = res.data?.ticket;
+                    if (!ticket) return;
 
-                const url = `${API_BASE}/submissions/stream?ticket=${encodeURIComponent(ticket)}`;
-                es = new EventSource(url);
-                sseRef.current = es;
+                    const url = `${API_BASE}/submissions/stream?ticket=${encodeURIComponent(ticket)}`;
+                    if (es) { try { es.close(); } catch {} }
+                    es = new EventSource(url);
+                    sseRef.current = es;
 
-                es.addEventListener('verdict', (e) => {
-                    try {
-                        const verdict = JSON.parse(e.data);
-                        // Ignore verdicts that aren't for the submission we're waiting on
-                        // (stale/previous verdicts, or another tab's submission).
-                        if (activeSubRef.current != null &&
-                            verdict.submissionId !== activeSubRef.current) return;
-                        activeSubRef.current = null;
-                        if (pollCleanupRef.current) { pollCleanupRef.current(); pollCleanupRef.current = null; }
-                        setSubmitting(false);
-                        setRunning(false);
-                        const execMs = verdict.timeConsumedMs || verdict.timeConsumed || null;
-                        if (execMs > 0) setLastExecMs(execMs);
-                        setOutput(buildVerdictUI(verdict, verdict.testRun === true));
-                    } catch (err) {
-                        console.error('SSE parse error:', err);
+                    es.addEventListener('verdict', (e) => {
+                        try {
+                            const verdict = JSON.parse(e.data);
+                            if (activeSubRef.current != null &&
+                                verdict.submissionId !== activeSubRef.current) return;
+                            activeSubRef.current = null;
+                            if (pollCleanupRef.current) { pollCleanupRef.current(); pollCleanupRef.current = null; }
+                            setSubmitting(false);
+                            setRunning(false);
+                            const execMs = verdict.timeConsumedMs || verdict.timeConsumed || null;
+                            if (execMs > 0) setLastExecMs(execMs);
+                            setOutput(buildVerdictUI(verdict, verdict.testRun === true));
+                        } catch (err) {
+                            console.error('SSE parse error:', err);
+                        }
+                    });
+
+                    es.addEventListener('connected', () => {
+                        console.log('SSE stream connected for user');
+                    });
+
+                    es.onerror = () => {
+                        if (es) { try { es.close(); } catch {} }
+                        sseRef.current = null;
+                        es = null;
+                        if (!cancelled) {
+                            console.warn('SSE dropped — reconnecting in 3s');
+                            reconnectTimer = setTimeout(connect, 3000);
+                        }
+                    };
+                })
+                .catch(err => {
+                    if (!cancelled) {
+                        console.warn('SSE ticket failed — retrying in 5s', err);
+                        reconnectTimer = setTimeout(connect, 5000);
                     }
                 });
+        };
 
-                es.addEventListener('connected', () => {
-                    console.log('SSE stream connected for user');
-                });
-
-                es.onerror = (e) => {
-                    // SSE will auto-reconnect — but tickets are single-use,
-                    // so a forced reconnect needs a fresh ticket. The polling
-                    // fallback covers any verdict that arrives during the gap.
-                    console.warn('SSE connection error:', e);
-                };
-            })
-            .catch(err => {
-                console.warn('Failed to issue SSE ticket; relying on polling fallback', err);
-            });
+        connect();
 
         return () => {
             cancelled = true;
-            if (es) { try { es.close(); } catch { } }
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            if (es) { try { es.close(); } catch {} }
             sseRef.current = null;
         };
     }, []);
