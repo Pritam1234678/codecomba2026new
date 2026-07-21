@@ -225,9 +225,11 @@ const ProblemSolve = () => {
     const dragStartY = useRef(0);
     const dragStartH = useRef(0);
     const runningRef = useRef(false);
+    const submittingRef = useRef(false);
 
-    // Keep runningRef in sync
+    // Keep refs in sync with state (SSE verdict may call setRunning/setSubmitting)
     useEffect(() => { runningRef.current = running; }, [running]);
+    useEffect(() => { submittingRef.current = submitting; }, [submitting]);
 
     // ── SSE connection ────────────────────────────────────────────────────────
     useEffect(() => {
@@ -547,6 +549,8 @@ const ProblemSolve = () => {
 
     const handleRun = () => {
         if (!guardContest()) return;
+        if (runningRef.current) return;
+        runningRef.current = true;
         setRunning(true);
         setOutput(
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#facc15' }}>
@@ -562,6 +566,7 @@ const ProblemSolve = () => {
                     activeSubRef.current = submissionId;
                     pollVerdict(submissionId, true);
                 } else {
+                    runningRef.current = false;
                     setRunning(false);
                     setOutput(<span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
                         No submission ID returned from backend. Try again.
@@ -569,6 +574,7 @@ const ProblemSolve = () => {
                 }
             })
             .catch(err => {
+                runningRef.current = false;
                 setRunning(false);
                 const msg = err.response?.data?.message || err.message || 'Backend unreachable';
                 setOutput(<span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
@@ -579,6 +585,8 @@ const ProblemSolve = () => {
 
     const handleSubmit = () => {
         if (!guardContest()) return;
+        if (submittingRef.current) return;
+        submittingRef.current = true;
         setSubmitting(true);
         setOutput(
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.secondary }}>
@@ -594,6 +602,7 @@ const ProblemSolve = () => {
                     setSubmitCount(prev => prev + 1);
                     pollVerdict(submissionId, false);
                 } else {
+                    submittingRef.current = false;
                     setSubmitting(false);
                     setOutput(<span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.error }}>
                         No submission ID returned from backend. Try again.
@@ -601,6 +610,7 @@ const ProblemSolve = () => {
                 }
             })
             .catch(err => {
+                submittingRef.current = false;
                 setSubmitting(false);
                 if (err.response?.status === 429) {
                     setOutput(<span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#fb923c' }}>⚠ {err.response.data?.message || 'Too many submissions. Please wait.'}</span>);

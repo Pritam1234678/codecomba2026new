@@ -178,6 +178,12 @@ public class SubmissionService {
         // (but not registration — a user may test-run before registering).
         validateContestAccess(problem, userId, false);
 
+        // Delete old test runs for this user+problem before creating a new one.
+        // Prevents unbounded accumulation of test-run rows in the submissions table.
+        try {
+            submissionRepository.deleteTestRunsByUserAndProblem(userId, problemId);
+        } catch (Exception ignored) {}
+
         // Create a temporary submission for test run (separate from real submission)
         // We use a new submission each time so it doesn't overwrite the real one
         Submission submission = new Submission();
