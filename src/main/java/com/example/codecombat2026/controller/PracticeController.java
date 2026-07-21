@@ -158,12 +158,26 @@ public class PracticeController {
         }
     }
 
+    private static final java.time.Duration SUBMISSION_CACHE_TTL = java.time.Duration.ofMinutes(5);
+
     /** Fetch all practice submissions for a user on a specific problem. */
     @GetMapping("/submissions")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getSubmissions(
             @RequestParam Long problemId,
             @AuthenticationPrincipal UserDetailsImpl user) {
+
+        String cacheKey = "practice:submissions:" + user.getId() + ":" + problemId;
+        try {
+            String cached = redis.opsForValue().get(cacheKey);
+            if (cached != null) {
+                java.util.List<Map<String, Object>> cachedList =
+                    objectMapper.readValue(cached,
+                        new com.fasterxml.jackson.core.type.TypeReference<java.util.List<Map<String, Object>>>() {});
+                return ResponseEntity.ok(cachedList);
+            }
+        } catch (Exception ignored) {}
+
         List<PracticeSubmission> subs = practiceService.getPracticeSubmissions(user.getId(), problemId);
         List<Map<String, Object>> result = subs.stream().map(s -> {
             Map<String, Object> m = new HashMap<>();
@@ -177,9 +191,20 @@ public class PracticeController {
             m.put("errorMessage", s.getErrorMessage());
             m.put("testCaseDetails", s.getTestCaseDetails());
             m.put("score", s.getScore());
+            m.put("code", s.getCode());
             return m;
         }).collect(Collectors.toList());
+
+        try {
+            redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(result), SUBMISSION_CACHE_TTL);
+        } catch (Exception ignored) {}
+
         return ResponseEntity.ok(result);
+    }
+
+    /** Invalidate submission history cache for a user+problem. */
+    public void evictSubmissionCache(Long userId, Long problemId) {
+        try { redis.delete("practice:submissions:" + userId + ":" + problemId); } catch (Exception ignored) {}
     }
 
     /** User's overall practice stats. */

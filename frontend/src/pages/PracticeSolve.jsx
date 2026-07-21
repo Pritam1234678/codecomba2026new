@@ -874,18 +874,42 @@ const PracticeSolve = () => {
                                             Back to list
                                         </button>
                                     </div>
-                                    <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-                                        {buildVerdictUI(toVerdict({
-                                            status: selectedSub.status,
-                                            testCasesPassed: selectedSub.testCasesPassed,
-                                            totalTestCases: selectedSub.totalTestCases,
-                                            timeConsumedMs: selectedSub.timeConsumed,
-                                            errorMessage: selectedSub.errorMessage,
-                                            testCaseDetails: selectedSub.testCaseDetails,
-                                            pointsAwarded: 0,
-                                            alreadySolved: false,
-                                        }), false)}
-                                    </div>
+                                        <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                            {buildVerdictUI(toVerdict({
+                                                status: selectedSub.status,
+                                                testCasesPassed: selectedSub.testCasesPassed,
+                                                totalTestCases: selectedSub.totalTestCases,
+                                                timeConsumedMs: selectedSub.timeConsumed,
+                                                errorMessage: selectedSub.errorMessage,
+                                                testCaseDetails: selectedSub.testCaseDetails,
+                                                pointsAwarded: 0,
+                                                alreadySolved: false,
+                                            }), false)}
+                                            {selectedSub.code ? (
+                                                <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <span className="material-symbols-outlined" style={{ fontSize: '16px', color: C.outline }}>code</span>
+                                                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.12em', color: C.outline, textTransform: 'uppercase' }}>
+                                                            Submitted Code — {selectedSub.language}
+                                                        </span>
+                                                    </div>
+                                                    <pre style={{
+                                                        fontFamily: "'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace",
+                                                        fontSize: '12px', lineHeight: 1.6, color: C.muted,
+                                                        backgroundColor: C.surfaceMin, padding: '14px',
+                                                        border: `1px solid ${C.border}`,
+                                                        whiteSpace: 'pre-wrap', overflowX: 'auto',
+                                                        maxHeight: '400px', overflowY: 'auto',
+                                                    }}>
+                                                        {selectedSub.code}
+                                                    </pre>
+                                                </div>
+                                            ) : (
+                                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, fontStyle: 'italic', textAlign: 'center' }}>
+                                                    Code not available
+                                                </span>
+                                            )}
+                                        </div>
                                 </>
                             ) : subHistoryLoading ? (
                                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline }}>

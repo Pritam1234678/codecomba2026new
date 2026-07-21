@@ -134,6 +134,7 @@ public class PracticeService {
         try {
             String json = objectMapper.writeValueAsString(job);
             redis.opsForList().leftPush(SubmissionWorkerPool.QUEUE_KEY, json);
+            redis.delete("practice:submissions:" + userId + ":" + problemId);
             log.info("Practice run {} enqueued (user={}, problem={})", sub.getId(), userId, problemId);
         } catch (Exception e) {
             practiceSubmissionRepository.updateStatus(sub.getId(), Submission.SubmissionStatus.RE);
