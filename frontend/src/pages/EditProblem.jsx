@@ -134,7 +134,7 @@ export default function EditProblem() {
     const [formData, setFormData] = useState({
         title: '', description: '', inputFormat: '', outputFormat: '',
         constraints: '', timeLimit: 2, memoryLimit: 256,
-        example1: '', example2: '', example3: '', images: '', active: true, level: 'MEDIUM'
+        example1: '', example2: '', example3: '', images: '', active: true, level: 'MEDIUM', topics: ''
     });
 
     const [snippets, setSnippets] = useState(
@@ -151,7 +151,7 @@ export default function EditProblem() {
                 const h = { Authorization: `Bearer ${token}` };
                 const res = await axios.get(`${API_URL}/problems/${id}`, { headers: h });
                 const p = res.data;
-                setFormData({ title: p.title || '', description: p.description || '', inputFormat: p.inputFormat || '', outputFormat: p.outputFormat || '', constraints: p.constraints || '', timeLimit: (p.timeLimit > 100 ? Math.round(p.timeLimit / 1000) : p.timeLimit) || 2, memoryLimit: p.memoryLimit || 256, example1: p.example1 || '', example2: p.example2 || '', example3: p.example3 || '', images: p.images || '', active: p.active !== undefined ? p.active : true, level: p.level || 'MEDIUM' });
+                setFormData({ title: p.title || '', description: p.description || '', inputFormat: p.inputFormat || '', outputFormat: p.outputFormat || '', constraints: p.constraints || '', timeLimit: (p.timeLimit > 100 ? Math.round(p.timeLimit / 1000) : p.timeLimit) || 2, memoryLimit: p.memoryLimit || 256, example1: p.example1 || '', example2: p.example2 || '', example3: p.example3 || '', images: p.images || '', active: p.active !== undefined ? p.active : true, level: p.level || 'MEDIUM', topics: p.topics || '' });
                 if (p.contestId) setContestId(p.contestId);
                 try {
                     const sRes = await ProblemService.getSnippetsAdmin(id);
@@ -334,6 +334,44 @@ export default function EditProblem() {
                                         >{lv}</button>
                                     );
                                 })}
+                            </div>
+                        </div>
+
+                        {/* Topics */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase' }}>
+                                Topics
+                            </label>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {(function() {
+                                    const ALL_TOPICS = ['Array', 'String', 'Two Pointers', 'Sliding Window', 'Binary Search', 'Hash Table', 'Linked List', 'Stack', 'Queue', 'Tree', 'Binary Tree', 'BST', 'Heap', 'Graph', 'Dynamic Programming', 'Greedy', 'Sorting', 'Bit Manipulation', 'Math', 'Recursion', 'Backtracking', 'DFS', 'BFS', 'Union Find', 'Trie', 'Divide and Conquer', 'Simulation'];
+                                    const selected = formData.topics ? formData.topics.split(',').map(t => t.trim()) : [];
+                                    const toggle = (topic) => {
+                                        const next = selected.includes(topic)
+                                            ? selected.filter(t => t !== topic)
+                                            : [...selected, topic];
+                                        setFormData(p => ({ ...p, topics: next.join(', ') }));
+                                        setDirty(true);
+                                    };
+                                    return ALL_TOPICS.map(topic => {
+                                        const on = selected.includes(topic);
+                                        return (
+                                            <button key={topic} type="button"
+                                                onClick={() => toggle(topic)}
+                                                style={{
+                                                    padding: '5px 10px', border: `1px solid ${on ? C.secondary : C.border}`,
+                                                    backgroundColor: on ? 'rgba(233,193,118,0.12)' : 'transparent',
+                                                    color: on ? C.secondary : C.outline,
+                                                    fontFamily: "'JetBrains Mono', monospace", fontSize: '9px',
+                                                    letterSpacing: '0.06em', cursor: 'pointer',
+                                                    transition: 'all 0.15s',
+                                                }}
+                                            >
+                                                {topic}
+                                            </button>
+                                        );
+                                    });
+                                })()}
                             </div>
                         </div>
 

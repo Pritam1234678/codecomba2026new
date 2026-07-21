@@ -135,7 +135,7 @@ export default function AddProblem() {
         title: '', description: '', inputFormat: '', outputFormat: '',
         constraints: '', timeLimit: 2, memoryLimit: 256,
         example1: '', example2: '', example3: '', images: '',
-        active: true, level: 'MEDIUM',
+        active: true, level: 'MEDIUM', topics: '',
     });
 
     const [snippets, setSnippets] = useState(emptySnippets());
@@ -192,6 +192,7 @@ export default function AddProblem() {
                 timeLimit:    (() => { const t = p.timeLimit; if (!t) return 2; return Math.max(1, Math.min(15, t > 100 ? Math.round(t / 1000) : Math.round(t))); })(),
                 memoryLimit:  p.memoryLimit  || 256,
                 level:        p.level        || 'MEDIUM',
+                topics:       p.topics       || '',
                 example1:     p.example1     || '',
                 example2:     p.example2     || '',
                 example3:     p.example3     || '',
@@ -555,6 +556,43 @@ export default function AddProblem() {
                                         </button>
                                     );
                                 })}
+                            </div>
+                        </div>
+
+                        {/* ── Topics ── */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase' }}>
+                                Topics
+                            </label>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {(function() {
+                                    const ALL_TOPICS = ['Array', 'String', 'Two Pointers', 'Sliding Window', 'Binary Search', 'Hash Table', 'Linked List', 'Stack', 'Queue', 'Tree', 'Binary Tree', 'BST', 'Heap', 'Graph', 'Dynamic Programming', 'Greedy', 'Sorting', 'Bit Manipulation', 'Math', 'Recursion', 'Backtracking', 'DFS', 'BFS', 'Union Find', 'Trie', 'Divide and Conquer', 'Simulation'];
+                                    const selected = formData.topics ? formData.topics.split(',').map(t => t.trim()) : [];
+                                    const toggle = (topic) => {
+                                        const next = selected.includes(topic)
+                                            ? selected.filter(t => t !== topic)
+                                            : [...selected, topic];
+                                        setFormData(p => ({ ...p, topics: next.join(', ') }));
+                                    };
+                                    return ALL_TOPICS.map(topic => {
+                                        const on = selected.includes(topic);
+                                        return (
+                                            <button key={topic} type="button"
+                                                onClick={() => toggle(topic)}
+                                                style={{
+                                                    padding: '5px 10px', border: `1px solid ${on ? C.secondary : C.border}`,
+                                                    backgroundColor: on ? 'rgba(233,193,118,0.12)' : 'transparent',
+                                                    color: on ? C.secondary : C.outline,
+                                                    fontFamily: "'JetBrains Mono', monospace", fontSize: '9px',
+                                                    letterSpacing: '0.06em', cursor: 'pointer',
+                                                    transition: 'all 0.15s',
+                                                }}
+                                            >
+                                                {topic}
+                                            </button>
+                                        );
+                                    });
+                                })()}
                             </div>
                         </div>
 
