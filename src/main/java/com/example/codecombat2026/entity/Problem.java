@@ -89,6 +89,9 @@ public class Problem {
     @Column(nullable = false)
     private String level = "MEDIUM";
 
+    @Column(name = "topics")
+    private String topics;
+
     /**
      * Code snippets for each language.
      * Each snippet contains:

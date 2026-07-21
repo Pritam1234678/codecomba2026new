@@ -419,6 +419,13 @@ public class AiProblemGeneratorController {
         Keep "description" concise (about 60-120 words) and matching the pure-function version.
         Do NOT ramble or repeat sentences.
 
+        TOPICS: Assign one or two comma-separated topics from this list that best
+        describe the algorithmic category. Always choose from this exact list:
+        Array, String, Two Pointers, Sliding Window, Binary Search, Hash Table,
+        Linked List, Stack, Queue, Tree, Binary Tree, BST, Heap, Graph,
+        Dynamic Programming, Greedy, Sorting, Bit Manipulation, Math, Recursion,
+        Backtracking, DFS, BFS, Union Find, Trie, Divide and Conquer, Simulation
+
         Shape:
         {
           "problem": {
@@ -430,6 +437,7 @@ public class AiProblemGeneratorController {
             "timeLimit": 5,            // seconds: EASY 3, MEDIUM 5, HARD 8
             "memoryLimit": 256,        // MB, 128-512
             "level": "EASY|MEDIUM|HARD",
+            "topics": "Two Pointers, Sliding Window",
             "example1": "Input: ...\\nOutput: ...\\nExplanation: ...",
             "example2": "...",
             "example3": "..."

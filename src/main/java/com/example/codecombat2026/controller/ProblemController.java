@@ -43,7 +43,8 @@ public class ProblemController {
                         p.getExample1(),
                         p.getExample2(),
                         p.getExample3(),
-                        p.getImages()))
+                        p.getImages(),
+                        p.getTopics()))
                 .collect(java.util.stream.Collectors.toList());
     }
 
@@ -51,7 +52,6 @@ public class ProblemController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ProblemDTO> getProblemById(@PathVariable Long id) {
         Problem p = problemService.getProblemById(id);
-        // Return 404 if problem is disabled — user should not access it
         if (!Boolean.TRUE.equals(p.getActive())) {
             return ResponseEntity.notFound().build();
         }
@@ -69,7 +69,8 @@ public class ProblemController {
                 p.getExample1(),
                 p.getExample2(),
                 p.getExample3(),
-                p.getImages());
+                p.getImages(),
+                p.getTopics());
         return ResponseEntity.ok(dto);
     }
 
@@ -93,7 +94,8 @@ public class ProblemController {
                         p.getExample1(),
                         p.getExample2(),
                         p.getExample3(),
-                        p.getImages()))
+                        p.getImages(),
+                        p.getTopics()))
                 .collect(java.util.stream.Collectors.toList());
     }
 

@@ -114,7 +114,7 @@ public class ContestController {
                         p.getInputFormat(), p.getOutputFormat(), p.getConstraints(),
                         p.getTimeLimit(), p.getMemoryLimit(), p.getActive(),
                         p.getContestId(), p.getExample1(), p.getExample2(),
-                        p.getExample3(), p.getImages()))
+                        p.getExample3(), p.getImages(), p.getTopics()))
                 .collect(Collectors.toList());
 
         boolean registered = registrationService.isRegistered(id, userDetails.getId());

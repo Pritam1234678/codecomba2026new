@@ -15,6 +15,7 @@ public class ProblemDTO {
     private String example2;
     private String example3;
     private String images;
+    private String topics;
 
     // Constructors
     public ProblemDTO() {
@@ -38,6 +39,15 @@ public class ProblemDTO {
         this.example2 = example2;
         this.example3 = example3;
         this.images = images;
+    }
+
+    public ProblemDTO(Long id, String title, String description, String inputFormat,
+            String outputFormat, String constraints, Double timeLimit,
+            Integer memoryLimit, Boolean active, Long contestId,
+            String example1, String example2, String example3, String images, String topics) {
+        this(id, title, description, inputFormat, outputFormat, constraints, timeLimit,
+            memoryLimit, active, contestId, example1, example2, example3, images);
+        this.topics = topics;
     }
 
     // Getters and Setters
@@ -151,5 +161,13 @@ public class ProblemDTO {
 
     public void setImages(String images) {
         this.images = images;
+    }
+
+    public String getTopics() {
+        return topics;
+    }
+
+    public void setTopics(String topics) {
+        this.topics = topics;
     }
 }
