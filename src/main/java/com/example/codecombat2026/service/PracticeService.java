@@ -185,6 +185,10 @@ public class PracticeService {
         }
     }
 
+    public List<PracticeSubmission> getPracticeSubmissions(Long userId, Long problemId) {
+        return practiceSubmissionRepository.findByUserIdAndProblemIdOrderBySubmittedAtDesc(userId, problemId);
+    }
+
     /** Points awarded for solving a problem of the given difficulty. */
     public int pointsForLevel(String level) {
         if (level == null) return 5;

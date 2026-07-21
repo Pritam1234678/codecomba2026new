@@ -3,6 +3,7 @@ package com.example.codecombat2026.controller;
 import com.example.codecombat2026.dto.ProblemDTO;
 import com.example.codecombat2026.entity.Problem;
 import com.example.codecombat2026.entity.User;
+import com.example.codecombat2026.entity.PracticeSubmission;
 import com.example.codecombat2026.entity.UserProblemSolved;
 import com.example.codecombat2026.repository.ProblemRepository;
 import com.example.codecombat2026.repository.UserProblemSolvedRepository;
@@ -155,6 +156,30 @@ public class PracticeController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    /** Fetch all practice submissions for a user on a specific problem. */
+    @GetMapping("/submissions")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getSubmissions(
+            @RequestParam Long problemId,
+            @AuthenticationPrincipal UserDetailsImpl user) {
+        List<PracticeSubmission> subs = practiceService.getPracticeSubmissions(user.getId(), problemId);
+        List<Map<String, Object>> result = subs.stream().map(s -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", s.getId());
+            m.put("status", s.getStatus() != null ? s.getStatus().name() : null);
+            m.put("language", s.getLanguage() != null ? s.getLanguage().name() : null);
+            m.put("submittedAt", s.getSubmittedAt() != null ? s.getSubmittedAt().toString() : null);
+            m.put("timeConsumed", s.getTimeConsumed());
+            m.put("testCasesPassed", s.getTestCasesPassed());
+            m.put("totalTestCases", s.getTotalTestCases());
+            m.put("errorMessage", s.getErrorMessage());
+            m.put("testCaseDetails", s.getTestCaseDetails());
+            m.put("score", s.getScore());
+            return m;
+        }).collect(Collectors.toList());
+        return ResponseEntity.ok(result);
     }
 
     /** User's overall practice stats. */

@@ -9,5 +9,7 @@ const run = (problemId, code, language) =>
 
 const stats = () => api.get('/practice/stats');
 
-const PracticeService = { listProblems, getProblem, run, stats };
+const getSubmissions = (problemId) => api.get('/practice/submissions', { params: { problemId: parseInt(problemId) } });
+
+const PracticeService = { listProblems, getProblem, run, stats, getSubmissions };
 export default PracticeService;

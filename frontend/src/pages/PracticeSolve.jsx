@@ -216,6 +216,10 @@ const PracticeSolve = () => {
     const [output,   setOutput]   = useState(null);
     const [loading,  setLoading]  = useState(true);
     const [running,  setRunning]  = useState(false);
+    const [submissionModal, setSubmissionModal] = useState(false);
+    const [submissionHistory, setSubmissionHistory] = useState([]);
+    const [subHistoryLoading, setSubHistoryLoading] = useState(false);
+    const [selectedSub, setSelectedSub] = useState(null);
 
     // Layout state
     const [leftWidth, setLeftWidth]       = useState(42);
@@ -448,6 +452,20 @@ const PracticeSolve = () => {
                     </span>
                 );
             });
+    };
+
+    const fetchSubmissions = () => {
+        setSubHistoryLoading(true);
+        PracticeService.getSubmissions(id)
+            .then(res => setSubmissionHistory(res.data || []))
+            .catch(err => console.error('Failed to load submissions', err))
+            .finally(() => setSubHistoryLoading(false));
+    };
+
+    const openSubmissions = () => {
+        setSubmissionModal(true);
+        setSelectedSub(null);
+        fetchSubmissions();
     };
 
     // ── Drag dividers ─────────────────────────────────────────────────────────
@@ -780,19 +798,166 @@ const PracticeSolve = () => {
                             Console
                         </div>
 
-                        <button
-                            onClick={handleRun}
-                            disabled={running}
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 28px', border: `1px solid ${C.secondary}`, color: running ? C.outline : C.bg, backgroundColor: running ? 'transparent' : C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: running ? 'not-allowed' : 'pointer', opacity: running ? 0.5 : 1, transition: 'all 0.2s' }}
-                        >
-                            <span className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1", animation: running ? 'spin 1s linear infinite' : 'none' }}>
-                                {running ? 'sync' : 'play_arrow'}
-                            </span>
-                            {running ? 'Running...' : 'Run'}
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <button
+                                onClick={openSubmissions}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', border: `1px solid ${C.border}`, color: C.muted, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s' }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>history</span>
+                                Submissions
+                            </button>
+                            <button
+                                onClick={handleRun}
+                                disabled={running}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 28px', border: `1px solid ${C.secondary}`, color: running ? C.outline : C.bg, backgroundColor: running ? 'transparent' : C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: running ? 'not-allowed' : 'pointer', opacity: running ? 0.5 : 1, transition: 'all 0.2s' }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1", animation: running ? 'spin 1s linear infinite' : 'none' }}>
+                                    {running ? 'sync' : 'play_arrow'}
+                                </span>
+                                {running ? 'Running...' : 'Run'}
+                            </button>
+                        </div>
                     </div>
                 </section>
             </main>
+
+            {/* ── Submission History Modal ── */}
+            {submissionModal && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 1000,
+                    backgroundColor: 'rgba(0,0,0,0.75)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }} onClick={() => setSubmissionModal(false)}>
+                    <div style={{
+                        width: 'min(90vw, 900px)', maxHeight: '85vh',
+                        backgroundColor: C.surfaceLow, border: `1px solid ${C.border}`,
+                        display: 'flex', flexDirection: 'column',
+                    }} onClick={e => e.stopPropagation()}>
+                        {/* Modal header */}
+                        <div style={{
+                            height: '52px', flexShrink: 0, borderBottom: `1px solid ${C.border}`,
+                            backgroundColor: C.surfaceMin, display: 'flex', alignItems: 'center',
+                            justifyContent: 'space-between', padding: '0 20px',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px', color: C.primary }}>history</span>
+                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', letterSpacing: '0.08em', color: C.primary, textTransform: 'uppercase' }}>
+                                    Submission History
+                                </span>
+                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
+                                    — {submissionHistory.length} submission{submissionHistory.length !== 1 ? 's' : ''}
+                                </span>
+                            </div>
+                            <button onClick={() => setSubmissionModal(false)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.outline, padding: '4px' }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+                            </button>
+                        </div>
+
+                        {/* Modal body */}
+                        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            {selectedSub ? (
+                                <>
+                                    <div style={{
+                                        height: '40px', flexShrink: 0, borderBottom: `1px solid ${C.border}`,
+                                        display: 'flex', alignItems: 'center', padding: '0 20px',
+                                    }}>
+                                        <button onClick={() => setSelectedSub(null)}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.outline,
+                                                fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', display: 'flex',
+                                                alignItems: 'center', gap: '6px', padding: 0 }}
+                                        >
+                                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span>
+                                            Back to list
+                                        </button>
+                                    </div>
+                                    <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+                                        {buildVerdictUI(toVerdict({
+                                            status: selectedSub.status,
+                                            testCasesPassed: selectedSub.testCasesPassed,
+                                            totalTestCases: selectedSub.totalTestCases,
+                                            timeConsumedMs: selectedSub.timeConsumed,
+                                            errorMessage: selectedSub.errorMessage,
+                                            testCaseDetails: selectedSub.testCaseDetails,
+                                            pointsAwarded: 0,
+                                            alreadySolved: false,
+                                        }), false)}
+                                    </div>
+                                </>
+                            ) : subHistoryLoading ? (
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline }}>
+                                    Loading...
+                                </div>
+                            ) : submissionHistory.length === 0 ? (
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: C.outline }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0" }}>article</span>
+                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>No submissions yet</span>
+                                </div>
+                            ) : (
+                                <div style={{ flex: 1, overflowY: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>
+                                        <thead>
+                                            <tr style={{ position: 'sticky', top: 0, backgroundColor: C.surfaceMin, borderBottom: `2px solid ${C.border}` }}>
+                                                <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '10px', letterSpacing: '0.12em', color: C.outline, textTransform: 'uppercase', fontWeight: 500 }}>#</th>
+                                                <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '10px', letterSpacing: '0.12em', color: C.outline, textTransform: 'uppercase', fontWeight: 500 }}>Status</th>
+                                                <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '10px', letterSpacing: '0.12em', color: C.outline, textTransform: 'uppercase', fontWeight: 500 }}>Language</th>
+                                                <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: '10px', letterSpacing: '0.12em', color: C.outline, textTransform: 'uppercase', fontWeight: 500 }}>Time</th>
+                                                <th style={{ padding: '10px 16px', textAlign: 'center', fontSize: '10px', letterSpacing: '0.12em', color: C.outline, textTransform: 'uppercase', fontWeight: 500 }}>Passed</th>
+                                                <th style={{ padding: '10px 16px', textAlign: 'right', fontSize: '10px', letterSpacing: '0.12em', color: C.outline, textTransform: 'uppercase', fontWeight: 500 }}>When</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {submissionHistory.map((sub, idx) => {
+                                                const sColor = sub.status === 'AC' ? C.success
+                                                    : sub.status === 'WA' ? C.error
+                                                    : sub.status === 'CE' ? C.secondary
+                                                    : sub.status === 'TLE' ? '#facc15'
+                                                    : sub.status === 'RE' ? C.error
+                                                    : C.outline;
+                                                const stLabel = sub.status === 'AC' ? 'Accepted'
+                                                    : sub.status === 'WA' ? 'Wrong Answer'
+                                                    : sub.status === 'CE' ? 'Comp. Error'
+                                                    : sub.status === 'TLE' ? 'Time Limit Ex.'
+                                                    : sub.status === 'RE' ? 'Runtime Error'
+                                                    : sub.status || '—';
+                                                const submitted = sub.submittedAt ? (() => {
+                                                    const d = new Date(sub.submittedAt);
+                                                    return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+                                                })() : '—';
+                                                return (
+                                                    <tr key={sub.id}
+                                                        onClick={() => setSelectedSub(sub)}
+                                                        style={{
+                                                            cursor: 'pointer', borderBottom: `1px solid ${C.border}20`,
+                                                            transition: 'background-color 0.15s',
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = C.surfaceCon}
+                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                    >
+                                                        <td style={{ padding: '10px 16px', color: C.outline, fontSize: '11px' }}>{idx + 1}</td>
+                                                        <td style={{ padding: '10px 16px', color: sColor, fontWeight: 600, fontSize: '11px' }}>{stLabel}</td>
+                                                        <td style={{ padding: '10px 16px', color: C.muted, fontSize: '11px' }}>{sub.language}</td>
+                                                        <td style={{ padding: '10px 16px', color: C.muted, fontSize: '11px' }}>{sub.timeConsumed != null ? `${sub.timeConsumed}ms` : '—'}</td>
+                                                        <td style={{ padding: '10px 16px', textAlign: 'center', color: sub.status === 'AC' ? C.success : C.outline, fontSize: '11px' }}>
+                                                            {sub.testCasesPassed != null && sub.totalTestCases != null
+                                                                ? `${sub.testCasesPassed}/${sub.totalTestCases}`
+                                                                : '—'}
+                                                        </td>
+                                                        <td style={{ padding: '10px 16px', textAlign: 'right', color: C.outline, fontSize: '10px' }}>{submitted}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style>{`
                 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; }

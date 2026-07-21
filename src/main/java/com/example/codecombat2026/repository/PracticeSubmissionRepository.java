@@ -16,6 +16,8 @@ public interface PracticeSubmissionRepository extends JpaRepository<PracticeSubm
 
     List<PracticeSubmission> findByUserIdOrderBySubmittedAtDesc(Long userId);
 
+    List<PracticeSubmission> findByUserIdAndProblemIdOrderBySubmittedAtDesc(Long userId, Long problemId);
+
     @Modifying
     @Transactional
     @Query("UPDATE PracticeSubmission p SET p.status = :status WHERE p.id = :id")
