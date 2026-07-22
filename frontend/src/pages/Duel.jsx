@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import useDuelMatchmaking from '../hooks/useDuelMatchmaking';
 import { getDuelHistory, getActiveMatch } from '../services/duelService';
 import useResponsive from '../hooks/useResponsive';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 // ── Color palette — mirrors AdminDashboard.jsx ──────────────────────────────
 const C = {

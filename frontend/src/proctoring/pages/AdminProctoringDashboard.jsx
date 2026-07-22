@@ -4,6 +4,7 @@ import api from '../../services/api';
 import proctoringApi from '../services/proctoringApi';
 import RiskBadge from '../components/RiskBadge';
 import { C } from '../constants';
+import SkeletonLoader from '../../components/SkeletonLoader';
 
 // ── About this page ─────────────────────────────────────────────────────────
 //

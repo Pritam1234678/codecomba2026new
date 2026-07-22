@@ -5,6 +5,7 @@ import api from '../services/api';
 import AuthService from '../services/auth.service';
 import useResponsive from '../hooks/useResponsive';
 import AchievementPoster, { TIERS } from '../components/AchievementPoster';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 const C = {
     bg: '#131313', surface: '#191919', surfaceHi: '#222222',

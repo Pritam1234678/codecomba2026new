@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
+import SkeletonLoader from '../components/SkeletonLoader';
 import useDuelStream from '../hooks/useDuelStream';
 import {
     getMatch,
