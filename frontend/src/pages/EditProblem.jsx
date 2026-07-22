@@ -192,6 +192,7 @@ export default function EditProblem() {
             await ProblemService.saveAllSnippets(id, LANGS.map(l => ({ language: l, solutionTemplate: snippets[l].solutionTemplate })));
             setDirty(false);
             showToast('Problem saved successfully.');
+            setTimeout(() => navigate('/admin/problems'), 1000);
         } catch (err) { setError(err.response?.data?.message || 'Failed to update problem'); setSaving(false); }
     };
 

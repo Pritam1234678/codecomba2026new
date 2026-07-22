@@ -252,11 +252,7 @@ export default function AddProblem() {
             );
 
             showToast('Problem created successfully.');
-            setTimeout(() => navigate(
-                isStandalone
-                    ? `/admin/problems`
-                    : `/admin/contests/${contestId}/problems`
-            ), 1200);
+            setTimeout(() => navigate('/admin/problems'), 1200);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to create problem');
             setSaving(false);
