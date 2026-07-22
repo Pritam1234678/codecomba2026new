@@ -60,11 +60,11 @@ public class AiProblemGeneratorController {
     // Frontend consumes snippets keyed by these names.
     private static final List<String> LANGS = List.of("JAVA", "CPP", "PYTHON", "JAVASCRIPT", "C");
 
-    // 20-minute read timeout — a couple of large AI passes plus retries.
+    // 20-minute read timeout, 30s connect timeout.
     private final RestTemplate restTemplate = createRestTemplate();
     private static RestTemplate createRestTemplate() {
         SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
-        f.setConnectTimeout(10_000);
+        f.setConnectTimeout(30_000);
         f.setReadTimeout(1_200_000);
         return new RestTemplate(f);
     }
@@ -114,7 +114,7 @@ public class AiProblemGeneratorController {
         // immediately), then raise temperature / drop the penalty so hard, loop-prone
         // problems (interactive ones the model must reframe) get more diversity to escape
         // the repetition loop that truncates their JSON.
-        double[][] pass1Sampling = { {0.5, 0.2}, {0.65, 0.1}, {0.8, 0.0}, {0.9, 0.0} };
+        double[][] pass1Sampling = { {0.5, 0.2}, {0.65, 0.1}, {0.8, 0.0}, {0.9, 0.0}, {0.95, 0.0} };
         Map<String, Object> spec = null;
         Exception pass1Err = null;
         for (int attempt = 0; attempt < pass1Sampling.length && spec == null; attempt++) {
@@ -222,38 +222,43 @@ public class AiProblemGeneratorController {
         headers.setBearerAuth(cfg.apiKey());
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
-        ResponseEntity<Map> response = null;
-        for (int attempt = 0; attempt < 4; attempt++) {
+        int maxRetries = 5;
+        for (int attempt = 0; attempt < maxRetries; attempt++) {
             try {
-                response = restTemplate.exchange(NVIDIA_API_URL, HttpMethod.POST, entity, Map.class);
-                break;
+                ResponseEntity<Map> response = restTemplate.exchange(NVIDIA_API_URL, HttpMethod.POST, entity, Map.class);
+                Map body = response.getBody();
+                if (body == null) throw new RuntimeException("Empty response from AI");
+
+                List<Map> choices = (List<Map>) body.get("choices");
+                if (choices == null || choices.isEmpty()) throw new RuntimeException("No choices in AI response");
+
+                Map choice = choices.get(0);
+                String finishReason = (String) choice.get("finish_reason");
+                String content = (String) ((Map) choice.get("message")).get("content");
+                if (content == null || content.isBlank()) throw new RuntimeException("Empty content from AI");
+
+                if ("length".equals(finishReason) || "repetition".equals(finishReason)) {
+                    throw new RuntimeException("model output was incomplete (finish_reason=" + finishReason + ")");
+                }
+                return content;
             } catch (HttpStatusCodeException ex) {
-                if (ex.getStatusCode().value() == 429 && attempt < 3) {
-                    Thread.sleep(8000L * (attempt + 1));   // 8s, 16s, 24s backoff
+                int code = ex.getStatusCode().value();
+                if ((code == 429 || code == 503) && attempt < maxRetries - 1) {
+                    long delay = (long) Math.min(4000L * (attempt + 1) * (attempt + 1), 30000L);
+                    Thread.sleep(delay);
                     continue;
                 }
                 throw ex;
+            } catch (java.io.IOException ex) {
+                if (attempt < maxRetries - 1) {
+                    long delay = (long) Math.min(4000L * (attempt + 1) * (attempt + 1), 30000L);
+                    Thread.sleep(delay);
+                    continue;
+                }
+                throw new RuntimeException("Network error after " + maxRetries + " retries: " + ex.getMessage(), ex);
             }
         }
-        if (response == null) throw new RuntimeException("rate-limited (429) after retries");
-
-        Map body = response.getBody();
-        if (body == null) throw new RuntimeException("Empty response from AI");
-
-        List<Map> choices = (List<Map>) body.get("choices");
-        if (choices == null || choices.isEmpty()) throw new RuntimeException("No choices in AI response");
-
-        Map choice = choices.get(0);
-        String finishReason = (String) choice.get("finish_reason");
-        String content = (String) ((Map) choice.get("message")).get("content");
-        if (content == null || content.isBlank()) throw new RuntimeException("Empty content from AI");
-
-        // "length" = hit token cap; "repetition" = NIM cut a degenerate loop.
-        // Both leave the output incomplete, so treat them as retryable failures.
-        if ("length".equals(finishReason) || "repetition".equals(finishReason)) {
-            throw new RuntimeException("model output was incomplete (finish_reason=" + finishReason + ")");
-        }
-        return content;
+        throw new RuntimeException("rate-limited (429/503) after " + maxRetries + " retries");
     }
 
     // ─── Reference-solution execution (computes TRUE expected values) ─────────
