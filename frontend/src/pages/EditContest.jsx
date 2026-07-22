@@ -36,7 +36,12 @@ export default function EditContest() {
         contestService.getContestById(id)
             .then(res => {
                 const c   = res.data;
-                const fmt = d => d ? new Date(d).toISOString().slice(0, 16) : '';
+                const fmt = d => {
+                    if (!d) return '';
+                    const dt = new Date(d);
+                    const pad = n => String(n).padStart(2, '0');
+                    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+                };
                 const data = { name: c.name || '', description: c.description || '', startTime: fmt(c.startTime), endTime: fmt(c.endTime), active: c.active || false };
                 setFormData(data);
                 setOriginal(data);
