@@ -52,9 +52,10 @@ public class AiProblemGeneratorController {
     private String deepseekApiKey;
 
     private static final String NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-    private static final String MODEL_NEMOTRON = "nvidia/nemotron-3-ultra-550b-a55b";
-    private static final String MODEL_DEEPSEEK = "deepseek-ai/deepseek-v4-pro";
-    private static final String MODEL_KIMI     = "moonshotai/kimi-k2.6";
+    private static final String MODEL_NEMOTRON      = "nvidia/nemotron-3-ultra-550b-a55b";
+    private static final String MODEL_DEEPSEEK_FLASH = "deepseek-ai/deepseek-v4-flash";
+    private static final String MODEL_DEEPSEEK       = "deepseek-ai/deepseek-v4-pro";
+    private static final String MODEL_KIMI           = "moonshotai/kimi-k2.6";
 
     // Frontend consumes snippets keyed by these names.
     private static final List<String> LANGS = List.of("JAVA", "CPP", "PYTHON", "JAVASCRIPT", "C");
@@ -79,26 +80,23 @@ public class AiProblemGeneratorController {
     private record ModelConfig(String modelId, String apiKey, Map<String, Object> extra) {}
 
     private ModelConfig resolveModel(String modelParam) {
-        if ("deepseek".equalsIgnoreCase(modelParam)) {
-            return new ModelConfig(MODEL_DEEPSEEK, deepseekApiKey,
-                Map.of("chat_template_kwargs", Map.of("thinking", false)));
+        if ("nemotron".equalsIgnoreCase(modelParam)) {
+            return new ModelConfig(MODEL_NEMOTRON, nvidiaApiKey,
+                Map.of(
+                    "chat_template_kwargs", Map.of("enable_thinking", true),
+                    "reasoning_budget", 16384
+                ));
         }
-        if ("kimi".equalsIgnoreCase(modelParam)) {
-            return new ModelConfig(MODEL_KIMI, deepseekApiKey,
-                Map.of("chat_template_kwargs", Map.of("thinking", false)));
-        }
-        return new ModelConfig(MODEL_NEMOTRON, nvidiaApiKey,
-            Map.of(
-                "chat_template_kwargs", Map.of("enable_thinking", true),
-                "reasoning_budget", 16384
-            ));
+        // default: DeepSeek V4 Flash (fast, reliable)
+        return new ModelConfig(MODEL_DEEPSEEK_FLASH, deepseekApiKey,
+            Map.of("chat_template_kwargs", Map.of("thinking", false)));
     }
 
     // ─── Main endpoint ────────────────────────────────────────────────────────
 
     @PostMapping("/ai-generate")
     public ResponseEntity<?> generate(@RequestBody Map<String, String> request) {
-        String modelParam = request.getOrDefault("model", "kimi");
+        String modelParam = request.getOrDefault("model", "flash");
         ModelConfig cfg   = resolveModel(modelParam);
 
         if (cfg.apiKey() == null || cfg.apiKey().isBlank()) {

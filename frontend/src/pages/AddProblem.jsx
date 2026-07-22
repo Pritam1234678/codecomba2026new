@@ -143,7 +143,7 @@ export default function AddProblem() {
     // ── AI panel state ────────────────────────────────────────────────────────
     const [aiOpen,    setAiOpen]    = useState(false);
     const [aiQuery,   setAiQuery]   = useState('');
-    const [aiModel, setAiModel] = useState('kimi'); // 'kimi' | 'nemotron'
+    const [aiModel, setAiModel] = useState('flash'); // 'flash' | 'nemotron'
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError,   setAiError]   = useState('');
     const [aiStatus,  setAiStatus]  = useState('');
@@ -748,7 +748,7 @@ export default function AddProblem() {
                                         <span className="material-symbols-outlined" style={{ fontSize: '22px', color: C.secondary }}>auto_awesome</span>
                                         <div>
                                             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.secondary, textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>
-                                                {aiModel === 'kimi' ? 'Kimi K2.6 · Moonshot AI' : 'Nemotron 3 Ultra · NVIDIA NIM'}
+                                                {aiModel === 'flash' ? 'DeepSeek V4 Flash · Fast' : 'Nemotron 3 Ultra · NVIDIA NIM'}
                                             </span>
                                             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', fontWeight: 600, color: C.onBg, margin: 0 }}>
                                                 AI Problem Generator
@@ -779,8 +779,8 @@ export default function AddProblem() {
                                     <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase' }}>AI Model</label>
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                         {[
-                                            { id: 'kimi',     label: 'Kimi K2.6',        sub: 'moonshot · fast & smart' },
-                                            { id: 'nemotron', label: 'Nemotron 3 Ultra',  sub: 'nvidia · deep reasoning' },
+                                            { id: 'flash',    label: 'DeepSeek V4 Flash', sub: 'deepseek-ai · fast & reliable' },
+                                            { id: 'nemotron', label: 'Nemotron 3 Ultra',   sub: 'nvidia · deep reasoning' },
                                         ].map(m => {
                                             const active = aiModel === m.id;
                                             return (
