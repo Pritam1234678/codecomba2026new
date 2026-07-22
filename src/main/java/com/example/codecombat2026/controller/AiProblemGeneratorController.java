@@ -9,6 +9,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
@@ -249,7 +250,7 @@ public class AiProblemGeneratorController {
                     continue;
                 }
                 throw ex;
-            } catch (java.io.IOException ex) {
+            } catch (ResourceAccessException ex) {
                 if (attempt < maxRetries - 1) {
                     long delay = (long) Math.min(4000L * (attempt + 1) * (attempt + 1), 30000L);
                     Thread.sleep(delay);
