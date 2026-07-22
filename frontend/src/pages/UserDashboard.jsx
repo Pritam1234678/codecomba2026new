@@ -5,6 +5,7 @@ import api from '../services/api';
 import AuthService from '../services/auth.service';
 import useResponsive from '../hooks/useResponsive';
 
+import SkeletonLoader from '../components/SkeletonLoader';
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
     bg:         '#131313',
@@ -88,11 +89,7 @@ export default function UserDashboard() {
 
     const initials = (user?.fullName || user?.username || 'U').charAt(0).toUpperCase();
 
-    if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
-            Loading...
-        </div>
-    );
+    if (loading) return <SkeletonLoader />;
 
     return (
         <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", minHeight: '100vh' }}>

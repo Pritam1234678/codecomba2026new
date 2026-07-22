@@ -5,6 +5,7 @@ import api from '../services/api';
 import AuthService from '../services/auth.service';
 import useResponsive from '../hooks/useResponsive';
 
+import SkeletonLoader from '../components/SkeletonLoader';
 const C = {
     bg:         '#131313',
     surface:    '#131313',
@@ -83,11 +84,7 @@ const EditProfile = () => {
         }
     };
 
-    if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
-            Loading...
-        </div>
-    );
+    if (loading) return <SkeletonLoader />;
 
     const displayName = currentUser?.username || formData.fullName || 'Architect';
     const initials    = displayName.charAt(0).toUpperCase();

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 
+import SkeletonLoader from '../components/SkeletonLoader';
 const C = {
     bg:         '#131313',
     surfaceCon: '#201f1f',
@@ -82,11 +83,7 @@ export default function PlayerProfile() {
             .finally(() => setLoading(false));
     }, [username]);
 
-    if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
-            Loading...
-        </div>
-    );
+    if (loading) return <SkeletonLoader />;
 
     if (notFound || !profile) return (
         <div style={{ maxWidth: '500px', margin: '6rem auto', padding: '0 24px', textAlign: 'center' }}>

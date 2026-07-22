@@ -5,6 +5,7 @@ import contestService from '../services/contest.service';
 import AdminService from '../services/admin.service';
 import useResponsive from '../hooks/useResponsive';
 
+import SkeletonLoader from '../components/SkeletonLoader';
 const C = {
     bg:         '#131313',
     surfaceCon: '#201f1f',
@@ -94,11 +95,7 @@ export default function EditContest() {
         return `${String(h).padStart(2,'0')}h : ${String(m).padStart(2,'0')}m : 00s`;
     };
 
-    if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', letterSpacing: '0.1em' }}>
-            Loading...
-        </div>
-    );
+    if (loading) return <SkeletonLoader />;
 
     return (
         <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", minHeight: '100vh' }}>

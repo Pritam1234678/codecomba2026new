@@ -5,6 +5,7 @@ import api from '../services/api';
 import cache from '../services/cache';
 import useResponsive from '../hooks/useResponsive';
 
+import SkeletonLoader from '../components/SkeletonLoader';
 const C = {
     bg:         '#131313',
     surfaceCon: '#201f1f',
@@ -93,11 +94,7 @@ const ContestList = () => {
     const liveContests     = contests.filter(c => getStatus(c) === 'LIVE');
     const upcomingContests = contests.filter(c => getStatus(c) === 'UPCOMING');
 
-    if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', letterSpacing: '0.1em' }}>
-            Loading...
-        </div>
-    );
+    if (loading) return <SkeletonLoader />;
 
     if (error) return (
         <div style={{ padding: isMobile ? '24px 16px' : '48px 64px', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.error }}>

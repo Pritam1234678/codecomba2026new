@@ -677,7 +677,7 @@ export default function AdminProctoringDashboard() {
                 </div>
 
                 {loading ? (
-                    <div style={styles.emptyBlock}>Loading live sessions…</div>
+                    <SkeletonLoader compact rows={2} />
                 ) : visibleRows.length === 0 ? (
                     <div style={styles.emptyBlock}>
                         {rows.length === 0

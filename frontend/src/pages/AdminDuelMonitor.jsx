@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 
+import SkeletonLoader from '../components/SkeletonLoader';
 // ── Same theme tokens as Practice.jsx ─────────────────────────────────────────
 const C = {
     bg:         '#131313',
@@ -301,11 +302,7 @@ const AdminDuelMonitor = () => {
 
     const totalPages = Math.ceil(historyTotal / PAGE_SIZE);
 
-    if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
-            Loading duel monitor...
-        </div>
-    );
+    if (loading) return <SkeletonLoader />;
     if (error) return (
         <div style={{ padding: '2rem', color: C.error, fontFamily: "'JetBrains Mono', monospace" }}>
             <p>{error}</p>

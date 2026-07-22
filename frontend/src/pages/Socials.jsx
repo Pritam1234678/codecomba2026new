@@ -172,7 +172,7 @@ export default function Socials() {
         }
     };
 
-    if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>Loading…</div>;
+    if (loading) return <SkeletonLoader fullScreen />;
 
     const shownName = profile?.fullName || currentUser?.username || 'Player';
     const initials = shownName.charAt(0).toUpperCase();

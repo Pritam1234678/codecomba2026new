@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import PracticeService from '../services/practice.service';
 import useResponsive from '../hooks/useResponsive';
 
+import SkeletonLoader from '../components/SkeletonLoader';
 // ── Theme tokens ──────────────────────────────────────────────────────────────
 const C = {
     bg:         '#131313',
@@ -63,11 +64,7 @@ const Practice = () => {
     const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const paginated   = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-    if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
-            Loading problems...
-        </div>
-    );
+    if (loading) return <SkeletonLoader />;
 
     return (
         <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", minHeight: '100vh', padding: isMobile ? '24px 16px' : '48px 64px' }}>

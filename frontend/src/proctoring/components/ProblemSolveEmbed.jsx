@@ -5,6 +5,7 @@ import ProblemService from '../../services/problem.service';
 import SubmissionService from '../../services/submission.service';
 import AuthService from '../../services/auth.service';
 
+import SkeletonLoader from '../../components/SkeletonLoader';
 // ── Design tokens (Practice palette — must match ProblemSolve.jsx) ──────────
 const C = {
     bg:         '#131313',
@@ -542,11 +543,7 @@ const ProblemSolveEmbed = ({ problemId, onSubmissionComplete, proctored = false 
     };
 
     // ── Loading / Error states ────────────────────────────────────────────────
-    if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', backgroundColor: C.bg, color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
-            Loading problem…
-        </div>
-    );
+    if (loading) return <SkeletonLoader />;
 
     if (!problem) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', backgroundColor: C.bg, padding: '24px' }}>

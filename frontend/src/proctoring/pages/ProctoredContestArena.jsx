@@ -12,6 +12,7 @@ import proctoringApi from '../services/proctoringApi';
 import api from '../../services/api';
 import { C, EVENT_TYPES } from '../constants';
 
+import SkeletonLoader from '../../components/SkeletonLoader';
 // Camera capture constants. The webcam stream is requested at 320×240
 // (Req 7.1 — enough resolution for face count + centroid; design
 // section "Inference Loop") with audio explicitly off (Req 23.4 — no
@@ -1343,9 +1344,7 @@ export default function ProctoredContestArena() {
         <div style={styles.workspace}>
           <aside style={styles.rail} aria-label="Contest problems">
             <div style={styles.railHeader}>
-              {problemsLoading
-                ? 'Loading problems…'
-                : `${problems.length} ${problems.length === 1 ? 'Problem' : 'Problems'}`}
+              {problemsLoading ? <SkeletonLoader compact rows={1} /> : `${problems.length} ${problems.length === 1 ? 'Problem' : 'Problems'}`}
             </div>
             {!problemsLoading && problems.length > 0 && (
               <div style={styles.railList}>

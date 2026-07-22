@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import proctoringApi from '../services/proctoringApi';
 import { C } from '../constants';
 
+import SkeletonLoader from '../../components/SkeletonLoader';
 // ─── AdminProctoringSession ─────────────────────────────────────────────────
 //
 // Admin-only drill-down for a single proctoring session (Req 15.3,
@@ -364,17 +365,7 @@ const ScreenshotThumb = ({ shot, onOpen }) => {
           Unavailable
         </span>
       ) : (
-        <span
-          style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '10px',
-            letterSpacing: '0.1em',
-            color: C.outline,
-            textTransform: 'uppercase',
-          }}
-        >
-          Loading…
-        </span>
+        <SkeletonLoader compact rows={1} />
       )}
       <span
         style={{
@@ -606,21 +597,7 @@ export default function AdminProctoringSession() {
 
   // ── Render: loading / error early returns ────────────────────────────────
   if (loading) {
-    return (
-      <div
-        style={{
-          minHeight: '60vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: C.outline,
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '13px',
-        }}
-      >
-        Loading session…
-      </div>
-    );
+    return <SkeletonLoader rows={4} />;
   }
 
   if (error || !detail) {

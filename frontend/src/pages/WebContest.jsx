@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../services/api';
 import AuthService from '../services/auth.service';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -312,11 +313,7 @@ const WebContest = () => {
 
     // ── Loading state ─────────────────────────────────────────────────────────
     if (loading) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80vh', background: C.bg }}>
-                <span style={{ color: C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '14px' }}>Loading...</span>
-            </div>
-        );
+        return <SkeletonLoader fullScreen />;
     }
 
     // ── Render ────────────────────────────────────────────────────────────────

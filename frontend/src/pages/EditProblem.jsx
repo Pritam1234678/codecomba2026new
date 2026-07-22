@@ -6,6 +6,7 @@ import Editor from '@monaco-editor/react';
 import ProblemService from '../services/problem.service';
 import api from '../services/api';
 
+import SkeletonLoader from '../components/SkeletonLoader';
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api';
 
 const C = {
@@ -196,9 +197,7 @@ export default function EditProblem() {
         } catch (err) { setError(err.response?.data?.message || 'Failed to update problem'); setSaving(false); }
     };
 
-    if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>Loading...</div>
-    );
+    if (loading) return <SkeletonLoader />;
 
     return (
         <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

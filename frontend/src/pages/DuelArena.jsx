@@ -660,13 +660,7 @@ const DuelArena = () => {
     // ── Branch: still loading the initial match details ──────────────────────
     if (matchLoading) {
         return (
-            <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                minHeight: '100vh', backgroundColor: C.bg, color: C.outline,
-                fontFamily: "'JetBrains Mono', monospace", fontSize: '13px',
-            }}>
-                Loading Arena...
-            </div>
+            <SkeletonLoader fullScreen />
         );
     }
 

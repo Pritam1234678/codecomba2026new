@@ -508,15 +508,7 @@ const Duel = () => {
                     </div>
 
                     {historyLoading ? (
-                        <p style={{
-                            fontFamily: "'JetBrains Mono', monospace",
-                            fontSize: '12px',
-                            color: C.outline,
-                            padding: '2rem 0',
-                            textAlign: 'center',
-                        }}>
-                            Loading…
-                        </p>
+                        <SkeletonLoader compact rows={2} />
                     ) : (history.length === 0) ? (
                         <div style={{
                             border: `1px dashed ${C.border}`,

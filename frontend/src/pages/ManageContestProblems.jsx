@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 
+import SkeletonLoader from '../components/SkeletonLoader';
 const C = {
     bg:'#131313', surfaceCon:'#201f1f', surfaceLow:'#1c1b1b', surfaceHi:'#2a2a2a', surfaceMin:'#0e0e0e',
     border:'#50453b', primary:'#f1bc8b', secondary:'#e9c176', muted:'#d4c4b7', outline:'#9d8e83',
@@ -145,12 +146,7 @@ export default function ManageContestProblems() {
         } catch { showToast('Failed to detach.', 'error'); setDelModal({ show: false }); }
     };
 
-    if (loading) return (
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'60vh',
-            color: C.outline, fontFamily:"'JetBrains Mono', monospace", fontSize:'13px' }}>
-            Loading...
-        </div>
-    );
+    if (loading) return <SkeletonLoader />;
 
     return (
         <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily:"'Geist', sans-serif", minHeight:'100vh' }}>
@@ -369,11 +365,7 @@ export default function ManageContestProblems() {
 
                             {/* Card grid */}
                             <div style={{ flex:1, overflowY:'auto', padding:'1.25rem 1.5rem' }}>
-                                {browseLoading ? (
-                                    <div style={{ padding:'3rem', textAlign:'center', fontFamily:"'JetBrains Mono', monospace", fontSize:'12px', color: C.outline }}>
-                                        Loading...
-                                    </div>
-                                ) : available.length === 0 ? (
+                                {browseLoading ? <SkeletonLoader compact /> : available.length === 0 ? (
                                     <div style={{ padding:'3rem', textAlign:'center', fontFamily:"'JetBrains Mono', monospace", fontSize:'12px', color: C.outline }}>
                                         No available problems match your filters.
                                     </div>

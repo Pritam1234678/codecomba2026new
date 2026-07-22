@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import PracticeService from '../services/practice.service';
 import ProblemService from '../services/problem.service';
+import SkeletonLoader from '../components/SkeletonLoader';
 import api from '../services/api';
 import AuthService from '../services/auth.service';
 
@@ -529,11 +530,7 @@ const PracticeSolve = () => {
     }, [isDraggingH]);
 
     // ── Loading / Error states ────────────────────────────────────────────────
-    if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: C.bg, color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }}>
-            Loading problem...
-        </div>
-    );
+    if (loading) return <SkeletonLoader fullScreen />;
 
     if (!problem) return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: C.bg }}>
@@ -929,9 +926,7 @@ const PracticeSolve = () => {
                                         </div>
                                 </>
                             ) : subHistoryLoading ? (
-                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.outline }}>
-                                    Loading...
-                                </div>
+                                <SkeletonLoader compact rows={3} />
                             ) : submissionHistory.length === 0 ? (
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: C.outline }}>
                                     <span className="material-symbols-outlined" style={{ fontSize: '32px', fontVariationSettings: "'FILL' 0" }}>article</span>
