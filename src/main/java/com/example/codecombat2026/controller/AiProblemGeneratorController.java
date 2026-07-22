@@ -54,6 +54,7 @@ public class AiProblemGeneratorController {
     private static final String NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
     private static final String MODEL_NEMOTRON = "nvidia/nemotron-3-ultra-550b-a55b";
     private static final String MODEL_DEEPSEEK = "deepseek-ai/deepseek-v4-pro";
+    private static final String MODEL_KIMI     = "moonshotai/kimi-k2.6";
 
     // Frontend consumes snippets keyed by these names.
     private static final List<String> LANGS = List.of("JAVA", "CPP", "PYTHON", "JAVASCRIPT", "C");
@@ -80,6 +81,10 @@ public class AiProblemGeneratorController {
     private ModelConfig resolveModel(String modelParam) {
         if ("deepseek".equalsIgnoreCase(modelParam)) {
             return new ModelConfig(MODEL_DEEPSEEK, deepseekApiKey,
+                Map.of("chat_template_kwargs", Map.of("thinking", false)));
+        }
+        if ("kimi".equalsIgnoreCase(modelParam)) {
+            return new ModelConfig(MODEL_KIMI, deepseekApiKey,
                 Map.of("chat_template_kwargs", Map.of("thinking", false)));
         }
         return new ModelConfig(MODEL_NEMOTRON, nvidiaApiKey,
