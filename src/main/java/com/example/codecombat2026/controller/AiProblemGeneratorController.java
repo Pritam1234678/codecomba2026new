@@ -522,8 +522,17 @@ public class AiProblemGeneratorController {
              hidden  pass:  TC:<n>:PASS:hidden
              visible fail:  TC:<n>:FAIL:input=<args repr>:expected=<exp>:got=<got>
              hidden  fail:  TC:<n>:FAIL:hidden
-        • Compare scalars with ==; compare arrays element-wise. Hidden tests must NEVER print
-          input/expected/got. Keep the printed input/expected/got free of ':' characters.
+         • Compare scalars with ==; compare arrays element-wise. Hidden tests must NEVER print
+           input/expected/got. Keep the printed input/expected/got free of ':' characters.
+         • CRITICAL — Each test(...) call in main()/entry MUST be wrapped in a try-catch
+           (or equivalent) so a crash in one test case prints the FAIL line and continues to
+           the next test case. Never let an unhandled exception abort the whole harness.
+           Examples:
+             Java:   try { test(arr, exp, 1, false); } catch (Exception e) { System.out.println("TC:1:FAIL:input=ERR:expected=ERR:got=ERR"); }
+             C++:    try { test(arr, exp, 1); } catch (...) { cout << "TC:1:FAIL:hidden\\n"; }
+             Python: try: test(arr, exp, 1) except: print("TC:1:FAIL:hidden")
+             JS:     try { test(arr, exp, 1); } catch(e) { console.log("TC:1:FAIL:hidden"); }
+             C:      (no try-catch in C; rely on exit code — the parseOutput handler will mark it RE)
 
         JAVA STRUCTURE RULE (important): declare `class Solution` as a TOP-LEVEL package-private
         class in the same file, ABOVE `public class Main`, and put it BETWEEN the markers. Java
@@ -570,8 +579,8 @@ public class AiProblemGeneratorController {
                 else System.out.println("TC:" + tc + ":FAIL:input=" + Arrays.toString(arr) + ":expected=" + expected + ":got=" + got);
             }
             public static void main(String[] a) {
-                test(new int[]{1,2,3}, 6, 1, false);
-                test(new int[]{5}, 5, 2, false);
+                try { test(new int[]{1,2,3}, 6, 1, false); } catch (Exception e) { System.out.println("TC:1:FAIL:input=" + Arrays.toString(new int[]{1,2,3}) + ":expected=6:got=ERR"); }
+                try { test(new int[]{5}, 5, 2, false); } catch (Exception e) { System.out.println("TC:2:FAIL:input=" + Arrays.toString(new int[]{5}) + ":expected=5:got=ERR"); }
             }
         }
         ===HARNESS:CPP===
@@ -589,7 +598,7 @@ public class AiProblemGeneratorController {
             else if (hidden) cout << "TC:" << tc << ":FAIL:hidden\\n";
             else { cout << "TC:" << tc << ":FAIL:input=["; for (size_t i=0;i<arr.size();i++){ if(i) cout<<","; cout<<arr[i]; } cout << "]:expected=" << expected << ":got=" << got << "\\n"; }
         }
-        int main(){ test({1,2,3},6,1); test({5},5,2); return 0; }
+        int main(){ try{test({1,2,3},6,1);}catch(...){cout<<"TC:1:FAIL:input=[1,2,3]:expected=6:got=ERR\\n";} try{test({5},5,2);}catch(...){cout<<"TC:2:FAIL:input=[5]:expected=5:got=ERR\\n";} return 0; }
         ===HARNESS:PYTHON===
         # USER_CODE_START
         class Solution:
@@ -601,8 +610,10 @@ public class AiProblemGeneratorController {
             if got == expected: print(f"TC:{tc}:PASS" + (":hidden" if hidden else ""))
             elif hidden: print(f"TC:{tc}:FAIL:hidden")
             else: print(f"TC:{tc}:FAIL:input={arr}:expected={expected}:got={got}")
-        test([1,2,3], 6, 1)
-        test([5], 5, 2)
+        try: test([1,2,3], 6, 1)
+        except: print("TC:1:FAIL:hidden")
+        try: test([5], 5, 2)
+        except: print("TC:2:FAIL:hidden")
         ===HARNESS:JAVASCRIPT===
         // USER_CODE_START
         function solve(arr) { return 0; }
@@ -613,8 +624,8 @@ public class AiProblemGeneratorController {
             else if (hidden) console.log(`TC:${tc}:FAIL:hidden`);
             else console.log(`TC:${tc}:FAIL:input=[${arr}]:expected=${expected}:got=${got}`);
         }
-        test([1,2,3], 6, 1);
-        test([5], 5, 2);
+        try { test([1,2,3], 6, 1); } catch(e) { console.log("TC:1:FAIL:hidden"); }
+        try { test([5], 5, 2); } catch(e) { console.log("TC:2:FAIL:hidden"); }
         ===HARNESS:C===
         #include <stdio.h>
         // USER_CODE_START
@@ -655,8 +666,8 @@ public class AiProblemGeneratorController {
                 else System.out.println("TC:" + tc + ":FAIL:input=" + Arrays.toString(in) + ":expected=" + Arrays.toString(expected) + ":got=" + Arrays.toString(got));
             }
             public static void main(String[] a){
-                test(new int[]{1,2,3}, new int[]{3,2,1}, 1, false);
-                test(new int[]{}, new int[]{}, 2, false);
+                try { test(new int[]{1,2,3}, new int[]{3,2,1}, 1, false); } catch (Exception e) { System.out.println("TC:1:FAIL:input=" + Arrays.toString(new int[]{1,2,3}) + ":expected=" + Arrays.toString(new int[]{3,2,1}) + ":got=ERR"); }
+                try { test(new int[]{}, new int[]{}, 2, false); } catch (Exception e) { System.out.println("TC:2:FAIL:input=" + Arrays.toString(new int[]{}) + ":expected=" + Arrays.toString(new int[]{}) + ":got=ERR"); }
             }
         }
         ===HARNESS:PYTHON===
@@ -683,8 +694,10 @@ public class AiProblemGeneratorController {
             if got == expected: print(f"TC:{tc}:PASS" + (":hidden" if hidden else ""))
             elif hidden: print(f"TC:{tc}:FAIL:hidden")
             else: print(f"TC:{tc}:FAIL:input={inp}:expected={expected}:got={got}")
-        test([1,2,3], [3,2,1], 1)
-        test([], [], 2)
+        try: test([1,2,3], [3,2,1], 1)
+        except: print("TC:1:FAIL:hidden")
+        try: test([], [], 2)
+        except: print("TC:2:FAIL:hidden")
         ─────────────────────────────────────────────────────────────────────────
         """;
 }
