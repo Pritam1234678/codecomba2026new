@@ -49,12 +49,13 @@ public class AiProblemGeneratorController {
     @Value("${NVIDIA_API_KEY:}")
     private String nvidiaApiKey;
 
-    @Value("${DEEPSEEK_API_KEY:}")
-    private String deepseekApiKey;
+    @Value("${OPENROUTER_API_KEY:}")
+    private String openrouterApiKey;
 
-    private static final String NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-    private static final String MODEL_NEMOTRON      = "nvidia/nemotron-3-ultra-550b-a55b";
-    private static final String MODEL_DEEPSEEK_FLASH = "deepseek-ai/deepseek-v4-flash";
+    private static final String NVIDIA_API_URL     = "https://integrate.api.nvidia.com/v1/chat/completions";
+    private static final String OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+    private static final String MODEL_NIM_NEMOTRON        = "nvidia/nemotron-3-ultra-550b-a55b";
+    private static final String MODEL_OPENROUTER_NEMOTRON = "nvidia/nemotron-3-ultra-550b-a55b:free";
 
     // Frontend consumes snippets keyed by these names.
     private static final List<String> LANGS = List.of("JAVA", "CPP", "PYTHON", "JAVASCRIPT", "C");
@@ -76,18 +77,18 @@ public class AiProblemGeneratorController {
             .build()
     );
 
-    private record ModelConfig(String modelId, String apiKey, Map<String, Object> extra) {}
+    private record ModelConfig(String modelId, String apiKey, String apiUrl, Map<String, Object> extra) {}
 
     private ModelConfig resolveModel(String modelParam) {
-        if ("nemotron".equalsIgnoreCase(modelParam)) {
-            return new ModelConfig(MODEL_NEMOTRON, nvidiaApiKey,
+        if ("nim".equalsIgnoreCase(modelParam) || "nemotron".equalsIgnoreCase(modelParam)) {
+            return new ModelConfig(MODEL_NIM_NEMOTRON, nvidiaApiKey, NVIDIA_API_URL,
                 Map.of(
                     "chat_template_kwargs", Map.of("enable_thinking", true),
                     "reasoning_budget", 16384
                 ));
         }
-        // default: DeepSeek V4 Flash
-        return new ModelConfig(MODEL_DEEPSEEK_FLASH, deepseekApiKey,
+        // default: OpenRouter Nemotron (free + reliable)
+        return new ModelConfig(MODEL_OPENROUTER_NEMOTRON, openrouterApiKey, OPENROUTER_API_URL,
             Map.of("chat_template_kwargs", Map.of("thinking", false)));
     }
 
@@ -95,7 +96,7 @@ public class AiProblemGeneratorController {
 
     @PostMapping("/ai-generate")
     public ResponseEntity<?> generate(@RequestBody Map<String, String> request) {
-        String modelParam = request.getOrDefault("model", "flash");
+        String modelParam = request.getOrDefault("model", "openrouter");
         ModelConfig cfg   = resolveModel(modelParam);
 
         if (cfg.apiKey() == null || cfg.apiKey().isBlank()) {
@@ -224,7 +225,7 @@ public class AiProblemGeneratorController {
         int maxRetries = 5;
         for (int attempt = 0; attempt < maxRetries; attempt++) {
             try {
-                ResponseEntity<Map> response = restTemplate.exchange(NVIDIA_API_URL, HttpMethod.POST, entity, Map.class);
+                ResponseEntity<Map> response = restTemplate.exchange(cfg.apiUrl(), HttpMethod.POST, entity, Map.class);
                 Map body = response.getBody();
                 if (body == null) throw new RuntimeException("Empty response from AI");
 
