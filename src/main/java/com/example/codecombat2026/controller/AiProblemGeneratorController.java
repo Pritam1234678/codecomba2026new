@@ -9,7 +9,6 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpStatusCodeException;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
@@ -52,14 +51,9 @@ public class AiProblemGeneratorController {
     @Value("${DEEPSEEK_API_KEY:}")
     private String deepseekApiKey;
 
-    @Value("${OLLAMA_URL:http://localhost:11434}")
-    private String ollamaUrl;
-
     private static final String NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
-    private static final String OLLAMA_API_PATH = "/api/chat";
     private static final String MODEL_NEMOTRON      = "nvidia/nemotron-3-ultra-550b-a55b";
     private static final String MODEL_DEEPSEEK_FLASH = "deepseek-ai/deepseek-v4-flash";
-    private static final String MODEL_OLLAMA_DS      = "deepseek-v4-flash:cloud";
 
     // Frontend consumes snippets keyed by these names.
     private static final List<String> LANGS = List.of("JAVA", "CPP", "PYTHON", "JAVASCRIPT", "C");
@@ -81,21 +75,18 @@ public class AiProblemGeneratorController {
             .build()
     );
 
-    private record ModelConfig(String modelId, String apiKey, String apiUrl, boolean ollama, Map<String, Object> extra) {}
+    private record ModelConfig(String modelId, String apiKey, Map<String, Object> extra) {}
 
     private ModelConfig resolveModel(String modelParam) {
         if ("nemotron".equalsIgnoreCase(modelParam)) {
-            return new ModelConfig(MODEL_NEMOTRON, nvidiaApiKey, NVIDIA_API_URL, false,
+            return new ModelConfig(MODEL_NEMOTRON, nvidiaApiKey,
                 Map.of(
                     "chat_template_kwargs", Map.of("enable_thinking", true),
                     "reasoning_budget", 16384
                 ));
         }
-        if ("ollama".equalsIgnoreCase(modelParam)) {
-            return new ModelConfig(MODEL_OLLAMA_DS, null, ollamaUrl + OLLAMA_API_PATH, true, Map.of());
-        }
-        // default: DeepSeek V4 Flash (NVIDIA NIM)
-        return new ModelConfig(MODEL_DEEPSEEK_FLASH, deepseekApiKey, NVIDIA_API_URL, false,
+        // default: DeepSeek V4 Flash
+        return new ModelConfig(MODEL_DEEPSEEK_FLASH, deepseekApiKey,
             Map.of("chat_template_kwargs", Map.of("thinking", false)));
     }
 
@@ -106,7 +97,7 @@ public class AiProblemGeneratorController {
         String modelParam = request.getOrDefault("model", "flash");
         ModelConfig cfg   = resolveModel(modelParam);
 
-        if (!cfg.ollama() && (cfg.apiKey() == null || cfg.apiKey().isBlank())) {
+        if (cfg.apiKey() == null || cfg.apiKey().isBlank()) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(Map.of("error", "API key for model '" + modelParam + "' is not configured"));
         }
@@ -121,12 +112,12 @@ public class AiProblemGeneratorController {
         // immediately), then raise temperature / drop the penalty so hard, loop-prone
         // problems (interactive ones the model must reframe) get more diversity to escape
         // the repetition loop that truncates their JSON.
-        double[][] pass1Sampling = { {0.5, 0.2}, {0.65, 0.1}, {0.8, 0.0}, {0.9, 0.0}, {0.95, 0.0} };
+        double[][] pass1Sampling = { {0.5, 0.2}, {0.65, 0.1}, {0.8, 0.0}, {0.9, 0.0} };
         Map<String, Object> spec = null;
         Exception pass1Err = null;
         for (int attempt = 0; attempt < pass1Sampling.length && spec == null; attempt++) {
             try {
-                String specRaw = callAi(cfg, List.of(
+                String specRaw = callNim(cfg, List.of(
                     Map.of("role", "system", "content", PASS1_SYSTEM),
                     Map.of("role", "user", "content",
                         "Design the problem spec for: " + query + "\n\n" +
@@ -176,7 +167,7 @@ public class AiProblemGeneratorController {
         Exception pass2Err = null;
         for (int attempt = 0; attempt < pass2Temp.length && snippets == null; attempt++) {
             try {
-                String harnessRaw = callAi(cfg, List.of(
+                String harnessRaw = callNim(cfg, List.of(
                     Map.of("role", "system", "content", HARNESS_SYSTEM),
                     Map.of("role", "user", "content",
                         "Spec:\n" + specForHarness + "\n\n" +
@@ -204,71 +195,6 @@ public class AiProblemGeneratorController {
         result.put("problem",  problem);
         result.put("snippets", snippets);
         return ResponseEntity.ok(result);
-    }
-
-    // ─── AI model dispatch ────────────────────────────────────────────────────
-
-    private String callAi(ModelConfig cfg,
-                          List<Map<String, Object>> messages,
-                          int maxTokens,
-                          double temperature,
-                          double frequencyPenalty) throws Exception {
-        if (cfg.ollama()) {
-            return callOllama(cfg, messages, maxTokens, temperature, frequencyPenalty);
-        }
-        return callNim(cfg, messages, maxTokens, temperature, frequencyPenalty);
-    }
-
-    // ─── Ollama (local) ────────────────────────────────────────────────────────
-
-    @SuppressWarnings("unchecked")
-    private String callOllama(ModelConfig cfg,
-                              List<Map<String, Object>> messages,
-                              int maxTokens,
-                              double temperature,
-                              double frequencyPenalty) throws Exception {
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("model", cfg.modelId());
-        payload.put("messages", messages);
-        payload.put("stream", false);
-        Map<String, Object> options = new HashMap<>();
-        options.put("temperature", temperature);
-        options.put("num_predict", maxTokens);
-        payload.put("options", options);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
-
-        int maxRetries = 5;
-        for (int attempt = 0; attempt < maxRetries; attempt++) {
-            try {
-                ResponseEntity<Map> response = restTemplate.exchange(
-                    cfg.apiUrl(), HttpMethod.POST, entity, Map.class);
-                Map body = response.getBody();
-                if (body == null) throw new RuntimeException("Empty response from Ollama");
-                Map message = (Map) body.get("message");
-                if (message == null) throw new RuntimeException("No message in Ollama response");
-                String content = (String) message.get("content");
-                if (content == null || content.isBlank()) throw new RuntimeException("Empty content from Ollama");
-                return content;
-            } catch (HttpStatusCodeException ex) {
-                if (attempt < maxRetries - 1) {
-                    long delay = (long) Math.min(2000L * (attempt + 1), 10000L);
-                    Thread.sleep(delay);
-                    continue;
-                }
-                throw ex;
-            } catch (ResourceAccessException ex) {
-                if (attempt < maxRetries - 1) {
-                    long delay = (long) Math.min(2000L * (attempt + 1) * (attempt + 1), 15000L);
-                    Thread.sleep(delay);
-                    continue;
-                }
-                throw new RuntimeException("Ollama network error after " + maxRetries + " retries: " + ex.getMessage(), ex);
-            }
-        }
-        throw new RuntimeException("Ollama failed after " + maxRetries + " retries");
     }
 
     // ─── NVIDIA NIM HTTP helper (with 429 backoff) ────────────────────────────
