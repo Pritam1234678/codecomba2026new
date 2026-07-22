@@ -317,7 +317,7 @@ export default function ContestDetail() {
                                 </div>
                             )}
 
-                            {registered && problems.length > 0 && (
+                            {registered && isLive && problems.length > 0 && (
                                 <button
                                     onClick={() => navigate(proctored ? `/contests/${id}/proctored/entry` : `/problems/${problems[0].id}`)}
                                     style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 32px', border: `1px solid ${C.border}`, color: C.primary, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s' }}
@@ -327,6 +327,14 @@ export default function ContestDetail() {
                                     <span className="material-symbols-outlined" style={{ fontSize: '18px', fontVariationSettings: "'FILL' 1" }}>play_arrow</span>
                                     Start Solving
                                 </button>
+                            )}
+                            {registered && !isLive && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceLow }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '16px', color: C.outline }}>schedule</span>
+                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase' }}>
+                                        {isUpcoming ? 'Contest Not Started' : 'Contest Ended'}
+                                    </span>
+                                </div>
                             )}
                             <button
                                 onClick={() => navigate('/contests')}
@@ -393,6 +401,19 @@ export default function ContestDetail() {
                                             <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>how_to_reg</span>
                                             {registering ? 'Registering...' : 'Register Now'}
                                         </button>
+                                    </div>
+                                </div>
+                            ) : isUpcoming ? (
+                                /* Pre-start gate */
+                                <div style={{ padding: '4rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '40px', color: C.border }}>schedule</span>
+                                    <div>
+                                        <p style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', color: C.muted, margin: '0 0 8px' }}>
+                                            Contest Has Not Started
+                                        </p>
+                                        <p style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', color: C.outline, margin: 0 }}>
+                                            Problems will be available when the contest begins.
+                                        </p>
                                     </div>
                                 </div>
                             ) : problems.length === 0 ? (

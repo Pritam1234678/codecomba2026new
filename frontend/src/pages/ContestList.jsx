@@ -255,14 +255,20 @@ const ContestRow = ({ contest, status, isLive, isEnded, index }) => {
             {/* Action */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', borderLeft: `1px solid #50453b`, paddingLeft: '24px' }}>
                 {!isEnded ? (
-                    <Link
-                        to={`/contests/${contest.id}`}
-                        style={{ border: `1px solid ${isLive ? '#e9c176' : '#50453b'}`, color: isLive ? '#e9c176' : '#d4c4b7', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '10px 20px', textDecoration: 'none', transition: 'all 0.2s' }}
-                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = isLive ? '#e9c176' : '#f1bc8b'; e.currentTarget.style.color = '#131313'; e.currentTarget.style.borderColor = isLive ? '#e9c176' : '#f1bc8b'; }}
-                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = isLive ? '#e9c176' : '#d4c4b7'; e.currentTarget.style.borderColor = isLive ? '#e9c176' : '#50453b'; }}
-                    >
-                        {isLive ? 'Enter Arena' : 'View Contest'}
-                    </Link>
+                    isLive ? (
+                        <Link
+                            to={`/contests/${contest.id}`}
+                            style={{ border: `1px solid #e9c176`, color: '#e9c176', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '10px 20px', textDecoration: 'none', transition: 'all 0.2s' }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#e9c176'; e.currentTarget.style.color = '#131313'; e.currentTarget.style.borderColor = '#e9c176'; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#e9c176'; e.currentTarget.style.borderColor = '#e9c176'; }}
+                        >
+                            Enter Arena
+                        </Link>
+                    ) : (
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#50453b', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                            Coming Soon
+                        </span>
+                    )
                 ) : (
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#50453b', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                         Archived

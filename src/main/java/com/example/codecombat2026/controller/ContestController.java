@@ -9,6 +9,7 @@ import com.example.codecombat2026.security.services.UserDetailsImpl;
 import com.example.codecombat2026.service.ContestRegistrationService;
 import com.example.codecombat2026.service.ContestService;
 import com.example.codecombat2026.service.ProblemService;
+import com.example.codecombat2026.util.TimeUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -107,18 +108,26 @@ public class ContestController {
         Contest contest = contestFuture.join();
         List<Problem> problems = problemsFuture.join();
 
-        List<ProblemDTO> problemDTOs = problems.stream()
-                .filter(p -> Boolean.TRUE.equals(p.getActive()))
-                .map(p -> new ProblemDTO(
-                        p.getId(), p.getTitle(), p.getDescription(),
-                        p.getInputFormat(), p.getOutputFormat(), p.getConstraints(),
-                        p.getTimeLimit(), p.getMemoryLimit(), p.getActive(),
-                        p.getContestId(), p.getExample1(), p.getExample2(),
-                        p.getExample3(), p.getImages(), p.getTopics()))
-                .collect(Collectors.toList());
-
         boolean registered = registrationService.isRegistered(id, userDetails.getId());
         long registrationCount = registrationService.countRegistrations(id);
+
+        boolean isAdmin = userDetails.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        boolean contestStarted = contest.getStartTime() != null
+                && !contest.getStartTime().isAfter(TimeUtil.now());
+        boolean canAccessProblems = isAdmin || contestStarted;
+
+        List<ProblemDTO> problemDTOs = canAccessProblems
+                ? problems.stream()
+                    .filter(p -> Boolean.TRUE.equals(p.getActive()))
+                    .map(p -> new ProblemDTO(
+                            p.getId(), p.getTitle(), p.getDescription(),
+                            p.getInputFormat(), p.getOutputFormat(), p.getConstraints(),
+                            p.getTimeLimit(), p.getMemoryLimit(), p.getActive(),
+                            p.getContestId(), p.getExample1(), p.getExample2(),
+                            p.getExample3(), p.getImages(), p.getTopics()))
+                    .collect(Collectors.toList())
+                : List.of();
 
         Map<String, Object> response = new HashMap<>();
         response.put("contest", contest);
@@ -126,6 +135,7 @@ public class ContestController {
         response.put("registered", registered);
         response.put("registrationCount", registrationCount);
         response.put("proctored", proctoredContestRepo.existsByContestId(id));
+        response.put("canAccessProblems", canAccessProblems);
 
         return ResponseEntity.ok(response);
     }
