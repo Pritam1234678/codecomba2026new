@@ -255,7 +255,6 @@ public class DockerJudgeService {
         pb.directory(workDir.toFile());
         pb.redirectErrorStream(false);
 
-        long startMs = System.currentTimeMillis();
         Process process = pb.start();
 
         // CRITICAL: write stdin (if any) and close. If user code calls Scanner.nextInt()
@@ -267,6 +266,8 @@ public class DockerJudgeService {
             }
             process.getOutputStream().close();
         } catch (IOException ignored) {}
+
+        long startMs = System.currentTimeMillis();
 
         // Read stdout and stderr concurrently to avoid blocking on full pipe buffer.
         // Use daemon threads so they never prevent JVM shutdown.

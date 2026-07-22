@@ -301,7 +301,6 @@ public class WebContestWorkerPool {
         pb.directory(workDir.toFile());
         pb.redirectErrorStream(false);
 
-        long startMs = System.currentTimeMillis();
         Process process = pb.start();
         try { process.getOutputStream().close(); } catch (IOException ignored) {}
 
@@ -330,6 +329,8 @@ public class WebContestWorkerPool {
 
         stdoutReader.start();
         stderrReader.start();
+
+        long startMs = System.currentTimeMillis();
 
         int timeoutSec = (int) timeLimit + 10;
         boolean finished = process.waitFor(timeoutSec, TimeUnit.SECONDS);
