@@ -143,7 +143,7 @@ export default function AddProblem() {
     // ── AI panel state ────────────────────────────────────────────────────────
     const [aiOpen,    setAiOpen]    = useState(false);
     const [aiQuery,   setAiQuery]   = useState('');
-    const [aiModel, setAiModel] = useState('flash'); // 'flash' | 'nemotron' | 'ollama'
+    const [aiModel, setAiModel] = useState('flash'); // 'flash' | 'nemotron' | 'ollama' (local)
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError,   setAiError]   = useState('');
     const [aiStatus,  setAiStatus]  = useState('');
@@ -779,7 +779,7 @@ export default function AddProblem() {
                                     <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: C.outline, textTransform: 'uppercase' }}>AI Model</label>
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                         {[
-                                            { id: 'ollama',   label: 'DeepSeek Flash (Local)', sub: 'ollama · local GPU' },
+                                            { id: 'ollama',   label: 'Ollama (Local)',        sub: 'Requires GPU setup' },
                                             { id: 'flash',    label: 'DeepSeek V4 Flash',        sub: 'nvidia nim · fast & reliable' },
                                             { id: 'nemotron', label: 'Nemotron 3 Ultra',          sub: 'nvidia nim · deep reasoning' },
                                         ].map(m => {
