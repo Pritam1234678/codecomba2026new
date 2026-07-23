@@ -228,6 +228,8 @@ const PracticeSolve = () => {
     const [solutionsModal, setSolutionsModal] = useState(false);
     const [leftTab, setLeftTab] = useState('description');
     const [githubConnected, setGithubConnected] = useState(false);
+    const [githubPushing, setGithubPushing] = useState(false);
+    const [githubPushed, setGithubPushed] = useState(false);
 
     // Solution tab state
                                                                                 const currentUserId = AuthService.getCurrentUser()?.id;
@@ -303,7 +305,14 @@ const PracticeSolve = () => {
                             if (pollTimerRef.current) { clearTimeout(pollTimerRef.current); pollTimerRef.current = null; }
                             runningRef.current = false;
                             setRunning(false);
-                            if (raw.status === 'AC') setSolved(true);
+                            if (raw.status === 'AC') {
+                                setSolved(true);
+                                if (githubConnected && !raw.testRun) {
+                                    setGithubPushing(true);
+                                    setTimeout(() => { setGithubPushing(false); setGithubPushed(true); }, 2000);
+                                    setTimeout(() => setGithubPushed(false), 5000);
+                                }
+                            }
                             setOutput(buildVerdictUI(toVerdict(raw), raw.testRun === true));
                         } catch (err) {
                             console.error('SSE parse error:', err);
@@ -682,13 +691,13 @@ const PracticeSolve = () => {
                                 window.location.href = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=repo`;
                             }}
                             disabled={githubConnected}
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', margin: '6px 8px', border: githubConnected ? `1px solid ${C.success}` : `1px solid ${C.border}`, color: githubConnected ? C.success : C.outline, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: githubConnected ? 'default' : 'pointer', borderRadius: '3px', flexShrink: 0, transition: 'all 0.15s', opacity: githubConnected ? 0.8 : 1 }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', margin: '6px 8px', border: githubPushed ? `1px solid ${C.success}` : githubPushing ? `1px solid ${C.secondary}` : githubConnected ? `1px solid ${C.success}` : `1px solid ${C.border}`, color: githubPushed || githubConnected ? C.success : githubPushing ? C.secondary : C.outline, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: githubConnected ? 'default' : 'pointer', borderRadius: '3px', flexShrink: 0, transition: 'all 0.3s', opacity: githubConnected ? 0.8 : 1 }}
                             onMouseEnter={e => { if (!githubConnected) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = githubConnected ? C.success : C.border; e.currentTarget.style.color = githubConnected ? C.success : C.outline; }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>
-                                {githubConnected ? 'check_circle' : 'link'}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = githubPushed || githubConnected ? C.success : githubPushing ? C.secondary : C.border; e.currentTarget.style.color = githubPushed || githubConnected ? C.success : C.outline; }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1", animation: githubPushing ? 'spin 1s linear infinite' : 'none' }}>
+                                {githubPushing ? 'sync' : githubPushed ? 'check_circle' : githubConnected ? 'check_circle' : 'link'}
                             </span>
-                            {githubConnected ? 'Connected ✓' : 'Connect GitHub'}
+                            {githubPushing ? 'Pushing...' : githubPushed ? 'Pushed ✓' : githubConnected ? 'Connected ✓' : 'Connect GitHub'}
                         </button>
                         <div style={{ flex: 1 }} />
                         <button onClick={openSubmissions}
