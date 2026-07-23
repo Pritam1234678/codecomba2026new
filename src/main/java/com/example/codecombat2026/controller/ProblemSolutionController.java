@@ -39,7 +39,7 @@ public class ProblemSolutionController {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid language: " + language));
         }
 
-        String userName = user.getFullName() != null ? user.getFullName() : user.getUsername();
+        String userName = user.getUsername();
         ProblemSolution s = service.create(problemId, user.getId(), userName, lang, code, explanation, imageUrl);
 
         Map<String, Object> res = new LinkedHashMap<>();
