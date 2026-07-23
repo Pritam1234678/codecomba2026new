@@ -307,7 +307,7 @@ const PracticeSolve = () => {
                             setRunning(false);
                             if (raw.status === 'AC') {
                                 setSolved(true);
-                                if (githubConnected && !raw.testRun) {
+                                if (githubConnected) {
                                     setGithubPushing(true);
                                     setTimeout(() => { setGithubPushing(false); setGithubPushed(true); }, 2000);
                                     setTimeout(() => setGithubPushed(false), 5000);
@@ -446,7 +446,14 @@ const PracticeSolve = () => {
                             testRun:         false,
                         });
                         setOutput(buildVerdictUI(v, false));
-                        if (data.status === 'AC') setSolved(true);
+                        if (data.status === 'AC') {
+                            setSolved(true);
+                            if (githubConnected) {
+                                setGithubPushing(true);
+                                setTimeout(() => { setGithubPushing(false); setGithubPushed(true); }, 2000);
+                                setTimeout(() => setGithubPushed(false), 5000);
+                            }
+                        }
                         return;
                     }
                     // Still pending — retry after delay
