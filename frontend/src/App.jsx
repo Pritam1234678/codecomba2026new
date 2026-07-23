@@ -120,6 +120,18 @@ function App() {
     checkAccountStatus();
   }, [location.pathname]);
 
+  // ── GitHub OAuth callback handler ───────────────────────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    if (code) {
+      window.history.replaceState({}, '', location.pathname);
+      api.post('/github/connect', { code })
+        .then(() => localStorage.setItem('github_connected', 'true'))
+        .catch(() => {});
+    }
+  }, [location.search, location.pathname]);
+
   const currentUser = AuthService.getCurrentUser();
   const isLoggedIn = !!currentUser;
   const isPublicRoute = PUBLIC_PATHS.includes(location.pathname);

@@ -259,8 +259,14 @@ const PracticeSolve = () => {
                 .then(() => setGithubConnected(true))
                 .catch(() => {});
         }
+        const connected = localStorage.getItem('github_connected') === 'true';
+        setGithubConnected(connected);
         api.get('/github/status')
-            .then(res => setGithubConnected(res.data?.connected || false))
+            .then(res => {
+                const c = res.data?.connected || false;
+                setGithubConnected(c);
+                localStorage.setItem('github_connected', String(c));
+            })
             .catch(() => {});
     }, []);
     useEffect(() => {
