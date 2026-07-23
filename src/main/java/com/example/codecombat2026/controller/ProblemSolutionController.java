@@ -19,40 +19,23 @@ public class ProblemSolutionController {
     @Autowired
     private ProblemSolutionService service;
 
+    @SuppressWarnings("unchecked")
     @PostMapping
     public ResponseEntity<?> create(@RequestBody Map<String, Object> body,
                                      @AuthenticationPrincipal UserDetailsImpl user) {
         Long problemId = toLong(body.get("problemId"));
-        String language = (String) body.get("language");
-        String code = (String) body.get("code");
+        Map<String, String> codes = (Map<String, String>) body.get("codes");
         String explanation = (String) body.get("explanation");
         String imageUrl = (String) body.get("imageUrl");
 
-        if (problemId == null || language == null || code == null || code.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "problemId, language, and code are required"));
-        }
-
-        ProblemSolution.ProblemLanguages lang;
-        try {
-            lang = ProblemSolution.ProblemLanguages.valueOf(language.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid language: " + language));
+        if (problemId == null || codes == null || codes.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "problemId and codes (language→code map) are required"));
         }
 
         String userName = user.getUsername();
-        ProblemSolution s = service.create(problemId, user.getId(), userName, lang, code, explanation, imageUrl);
+        ProblemSolution s = service.create(problemId, user.getId(), userName, codes, explanation, imageUrl);
 
-        Map<String, Object> res = new LinkedHashMap<>();
-        res.put("id", s.getId());
-        res.put("problemId", s.getProblemId());
-        res.put("userId", s.getUserId());
-        res.put("userName", s.getUserName());
-        res.put("language", s.getLanguage().name());
-        res.put("code", s.getCode());
-        res.put("explanation", s.getExplanation());
-        res.put("imageUrl", s.getImageUrl());
-        res.put("createdAt", s.getCreatedAt());
-        return ResponseEntity.ok(res);
+        return ResponseEntity.ok(toResponse(s));
     }
 
     @GetMapping("/{problemId}")
@@ -60,17 +43,7 @@ public class ProblemSolutionController {
         List<ProblemSolution> solutions = service.getByProblem(problemId);
         List<Map<String, Object>> result = new ArrayList<>();
         for (ProblemSolution s : solutions) {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id", s.getId());
-            m.put("problemId", s.getProblemId());
-            m.put("userId", s.getUserId());
-            m.put("userName", s.getUserName());
-            m.put("language", s.getLanguage().name());
-            m.put("code", s.getCode());
-            m.put("explanation", s.getExplanation());
-            m.put("imageUrl", s.getImageUrl());
-            m.put("createdAt", s.getCreatedAt());
-            result.add(m);
+            result.add(toResponse(s));
         }
         return ResponseEntity.ok(result);
     }
@@ -80,33 +53,21 @@ public class ProblemSolutionController {
         return ResponseEntity.ok(Map.of("count", service.countByProblem(problemId)));
     }
 
+    @SuppressWarnings("unchecked")
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable Long id,
                                      @RequestBody Map<String, Object> body,
                                      @AuthenticationPrincipal UserDetailsImpl user) {
-        String language = (String) body.get("language");
-        String code = (String) body.get("code");
+        Map<String, String> codes = (Map<String, String>) body.get("codes");
         String explanation = (String) body.get("explanation");
         String imageUrl = (String) body.get("imageUrl");
 
-        if (language == null || code == null || code.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "language and code are required"));
-        }
-        ProblemSolution.ProblemLanguages lang;
-        try {
-            lang = ProblemSolution.ProblemLanguages.valueOf(language.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid language: " + language));
+        if (codes == null || codes.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "codes (language→code map) are required"));
         }
         try {
-            ProblemSolution s = service.update(id, user.getId(), lang, code, explanation, imageUrl);
-            Map<String, Object> res = new LinkedHashMap<>();
-            res.put("id", s.getId());
-            res.put("language", s.getLanguage().name());
-            res.put("code", s.getCode());
-            res.put("explanation", s.getExplanation());
-            res.put("imageUrl", s.getImageUrl());
-            return ResponseEntity.ok(res);
+            ProblemSolution s = service.update(id, user.getId(), codes, explanation, imageUrl);
+            return ResponseEntity.ok(toResponse(s));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -121,6 +82,19 @@ public class ProblemSolutionController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    private Map<String, Object> toResponse(ProblemSolution s) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", s.getId());
+        m.put("problemId", s.getProblemId());
+        m.put("userId", s.getUserId());
+        m.put("userName", s.getUserName());
+        m.put("codes", s.getCodesMap());
+        m.put("explanation", s.getExplanation());
+        m.put("imageUrl", s.getImageUrl());
+        m.put("createdAt", s.getCreatedAt());
+        return m;
     }
 
     private Long toLong(Object v) {

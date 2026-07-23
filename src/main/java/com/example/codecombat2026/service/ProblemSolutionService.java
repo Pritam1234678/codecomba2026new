@@ -11,10 +11,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class ProblemSolutionService {
@@ -33,14 +30,13 @@ public class ProblemSolutionService {
         .registerModule(new JavaTimeModule());
 
     public ProblemSolution create(Long problemId, Long userId, String userName,
-                                   ProblemSolution.ProblemLanguages language,
-                                   String code, String explanation, String imageUrl) {
+                                   Map<String, String> codesMap,
+                                   String explanation, String imageUrl) {
         ProblemSolution s = new ProblemSolution();
         s.setProblemId(problemId);
         s.setUserId(userId);
         s.setUserName(userName);
-        s.setLanguage(language);
-        s.setCode(code);
+        s.setCodesMap(codesMap);
         s.setExplanation(explanation);
         s.setImageUrl(imageUrl);
         ProblemSolution saved = repository.save(s);
@@ -48,15 +44,14 @@ public class ProblemSolutionService {
         return saved;
     }
 
-    public ProblemSolution update(Long id, Long userId, ProblemSolution.ProblemLanguages language,
-                                   String code, String explanation, String imageUrl) {
+    public ProblemSolution update(Long id, Long userId, Map<String, String> codesMap,
+                                   String explanation, String imageUrl) {
         ProblemSolution s = repository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Solution not found"));
         if (!s.getUserId().equals(userId)) {
             throw new RuntimeException("Not authorized to edit this solution");
         }
-        s.setLanguage(language);
-        s.setCode(code);
+        s.setCodesMap(codesMap);
         s.setExplanation(explanation);
         s.setImageUrl(imageUrl);
         ProblemSolution saved = repository.save(s);
@@ -120,8 +115,7 @@ public class ProblemSolutionService {
             m.put("problemId", s.getProblemId());
             m.put("userId", s.getUserId());
             m.put("userName", s.getUserName());
-            m.put("language", s.getLanguage().name());
-            m.put("code", s.getCode());
+            m.put("codes", s.getCodesMap());
             m.put("explanation", s.getExplanation());
             m.put("imageUrl", s.getImageUrl());
             m.put("createdAt", s.getCreatedAt() != null ? s.getCreatedAt().toString() : null);
@@ -138,9 +132,9 @@ public class ProblemSolutionService {
             s.setProblemId(toLong(m.get("problemId")));
             s.setUserId(toLong(m.get("userId")));
             s.setUserName((String) m.get("userName"));
-            String lang = (String) m.get("language");
-            if (lang != null) s.setLanguage(ProblemSolution.ProblemLanguages.valueOf(lang));
-            s.setCode((String) m.get("code"));
+            @SuppressWarnings("unchecked")
+            Map<String, String> codesMap = (Map<String, String>) m.get("codes");
+            if (codesMap != null) s.setCodesMap(codesMap);
             s.setExplanation((String) m.get("explanation"));
             s.setImageUrl((String) m.get("imageUrl"));
             String createdAt = (String) m.get("createdAt");

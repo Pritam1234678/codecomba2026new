@@ -227,17 +227,17 @@ const PracticeSolve = () => {
     const [solutions, setSolutions] = useState([]);
     const [solutionsLoading, setSolutionsLoading] = useState(false);
     const [showAddSolution, setShowAddSolution] = useState(false);
-    const [solLanguage, setSolLanguage] = useState('JAVA');
-    const [solCode, setSolCode] = useState('');
-    const [solExplanation, setSolExplanation] = useState('');
-    const [solImageUrl, setSolImageUrl] = useState('');
     const [solSaving, setSolSaving] = useState(false);
     const [solCount, setSolCount] = useState(0);
+    const [activeSolLang, setActiveSolLang] = useState('JAVA');
+    const [solCodes, setSolCodes] = useState({ JAVA: '', CPP: '', PYTHON: '', JAVASCRIPT: '', C: '' });
+    const [solExplanation, setSolExplanation] = useState('');
+    const [solImageUrl, setSolImageUrl] = useState('');
     const [editingSol, setEditingSol] = useState(null);
-    const [editCode, setEditCode] = useState('');
-    const [editLang, setEditLang] = useState('JAVA');
+    const [editCodes, setEditCodes] = useState({ JAVA: '', CPP: '', PYTHON: '', JAVASCRIPT: '', C: '' });
     const [editExplanation, setEditExplanation] = useState('');
     const [editImageUrl, setEditImageUrl] = useState('');
+    const [editActiveLang, setEditActiveLang] = useState('JAVA');
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const currentUserId = AuthService.getCurrentUser()?.id;
 
@@ -523,18 +523,19 @@ const PracticeSolve = () => {
     };
 
     const handleAddSolution = async () => {
-        if (!solCode.trim()) return;
+        const codes = {};
+        for (const [l, c] of Object.entries(solCodes)) { if (c.trim()) codes[l] = c; }
+        if (Object.keys(codes).length === 0) return;
         setSolSaving(true);
         try {
             await api.post('/practice/solutions', {
                 problemId: parseInt(id),
-                language: solLanguage,
-                code: solCode,
+                codes,
                 explanation: solExplanation.trim() || null,
                 imageUrl: solImageUrl.trim() || null,
             });
             setShowAddSolution(false);
-            setSolCode('');
+            setSolCodes({ JAVA: '', CPP: '', PYTHON: '', JAVASCRIPT: '', C: '' });
             setSolExplanation('');
             setSolImageUrl('');
             fetchSolutions();
@@ -547,19 +548,21 @@ const PracticeSolve = () => {
 
     const startEdit = (sol) => {
         setEditingSol(sol.id);
-        setEditLang(sol.language);
-        setEditCode(sol.code);
+        const codes = sol.codes || {};
+        setEditCodes({ JAVA: codes.JAVA || '', CPP: codes.CPP || '', PYTHON: codes.PYTHON || '', JAVASCRIPT: codes.JAVASCRIPT || '', C: codes.C || '' });
         setEditExplanation(sol.explanation || '');
         setEditImageUrl(sol.imageUrl || '');
+        setEditActiveLang(Object.keys(codes).find(k => codes[k]) || 'JAVA');
     };
 
     const handleUpdateSolution = async (id) => {
-        if (!editCode.trim()) return;
+        const codes = {};
+        for (const [l, c] of Object.entries(editCodes)) { if (c.trim()) codes[l] = c; }
+        if (Object.keys(codes).length === 0) return;
         setSolSaving(true);
         try {
             await api.put(`/practice/solutions/${id}`, {
-                language: editLang,
-                code: editCode,
+                codes,
                 explanation: editExplanation.trim() || null,
                 imageUrl: editImageUrl.trim() || null,
             });
