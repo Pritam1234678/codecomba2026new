@@ -193,7 +193,7 @@ export default function SolutionPanel({ problemId, currentUserId }) {
                                             <p style={{ margin: 0, fontFamily: "'Geist', sans-serif", fontSize: '13px', color: C.muted, lineHeight: '1.6' }}>{selected.explanation}</p>
                                         </div>
                                     )}
-                                    {selected.imageUrl && <img src={selected.imageUrl} style={{ maxWidth: '100%', maxHeight: '200px', border: `1px solid ${C.border}`, borderRadius: '2px', objectFit: 'contain', marginTop: '10px' }} />}
+                                    {selected.imageUrl && <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}><img src={selected.imageUrl} style={{ maxWidth: '90%', maxHeight: '240px', border: `1px solid ${C.border}`, borderRadius: '4px', objectFit: 'contain', boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }} /></div>}
                                 </div>
                             )}
                         </div>
