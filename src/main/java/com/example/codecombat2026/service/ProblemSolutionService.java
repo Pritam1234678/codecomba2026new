@@ -9,12 +9,16 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.*;
 
 @Service
 public class ProblemSolutionService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProblemSolutionService.class);
 
     private static final String LIST_KEY_PREFIX  = "solutions:list:";
     private static final String COUNT_KEY_PREFIX = "solutions:count:";
@@ -103,7 +107,7 @@ public class ProblemSolutionService {
     }
 
     private void evictCache(Long problemId) {
-        try { redis.delete(LIST_KEY_PREFIX + problemId); } catch (Exception ignored) {}
+        try { redis.delete(LIST_KEY_PREFIX + problemId); log.info("Cache evicted: {}", LIST_KEY_PREFIX + problemId); } catch (Exception e) { log.warn("Cache evict failed: {}", e.getMessage()); }
         try { redis.delete(COUNT_KEY_PREFIX + problemId); } catch (Exception ignored) {}
     }
 
