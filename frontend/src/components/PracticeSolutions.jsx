@@ -188,9 +188,9 @@ export default function PracticeSolutions({ problemId, currentUserId, onClose })
                                 const codesMap = sol.codes || {};
 
                                 return (
-                                    <div key={sol.id} style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, overflow: 'hidden', borderRadius: '3px' }}>
-                                        {/* Card header */}
-                                        <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#0e0d0c' }}>
+                                    <div key={sol.id} style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, overflow: 'hidden', borderRadius: '3px', display: 'flex', flexDirection: 'column', maxHeight: '440px' }}>
+                                        {/* Card header — fixed */}
+                                        <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#0e0d0c', flexShrink: 0 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                 <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: C.surfaceHi, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Geist', sans-serif", fontSize: '11px', fontWeight: 700, color: C.primary }}>
                                                     {(sol.userName || 'A')[0].toUpperCase()}
@@ -238,10 +238,11 @@ export default function PracticeSolutions({ problemId, currentUserId, onClose })
                                             </div>
                                         </div>
 
-                                        {/* Code + explanation */}
+                                        {/* Code + explanation — scrollable body */}
+                                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                                         {isEditing ? (
                                             <>
-                                                <div style={{ height: Math.min(320, Math.max(120, (editCodes[editLang] || '').split('\n').length * 20 + 32)) }}>
+                                                <div style={{ height: '200px', flexShrink: 0 }}>
                                                     <Editor height="100%" language={LANG_MAP[editLang]?.monaco || 'java'}
                                                         value={editCodes[editLang] || ''}
                                                         onChange={v => setEditCodes(p => ({ ...p, [editLang]: v || '' }))}
@@ -261,7 +262,7 @@ export default function PracticeSolutions({ problemId, currentUserId, onClose })
                                         ) : (
                                             <>
                                                 {Object.keys(codesMap).filter(l => codesMap[l]?.trim()).length > 0 && (
-                                                    <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${C.border}`, backgroundColor: '#0a0a0a', padding: '0 12px' }}>
+                                                    <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${C.border}`, backgroundColor: '#0a0a0a', padding: '0 12px', flexShrink: 0 }}>
                                                         {Object.keys(codesMap).filter(l => codesMap[l]?.trim()).map(l => (
                                                             <button key={l} onClick={() => switchViewLang(sol.id, l)}
                                                                 style={{ padding: '6px 14px', border: 'none', borderBottom: viewLangId === sol.id && viewLang === l ? `2px solid ${C.secondary}` : '2px solid transparent', backgroundColor: 'transparent', color: viewLangId === sol.id && viewLang === l ? C.secondary : C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.06em', cursor: 'pointer', transition: 'all 0.15s' }}
@@ -273,17 +274,17 @@ export default function PracticeSolutions({ problemId, currentUserId, onClose })
                                                     const al = viewLangId === sol.id && viewLang ? viewLang : Object.keys(codesMap)[0];
                                                     const c = codesMap[al] || '';
                                                     return (
-                                                        <div style={{ height: Math.min(320, Math.max(120, c.split('\n').length * 20 + 32)) }}>
+                                                        <div style={{ height: '200px', flexShrink: 0 }}>
                                                             <Editor height="100%" language={LANG_MAP[al]?.monaco || 'java'}
                                                                 value={c} theme="vs-dark"
-                                                                options={{ readOnly: true, minimap: { enabled: false }, fontSize: 12, lineNumbers: 'on', scrollBeyondLastLine: false, wordWrap: 'on', padding: { top: 10, bottom: 10 }, domReadOnly: true, contextmenu: false }}
+                                                                options={{ readOnly: true, minimap: { enabled: false }, fontSize: 12, lineNumbers: 'on', scrollBeyondLastLine: false, overviewRulerBorder: false, hideCursorInOverviewRuler: true, padding: { top: 10, bottom: 10 }, domReadOnly: true, contextmenu: false }}
                                                                 loading={<div style={{ height: '100%', backgroundColor: '#0a0a0a' }} />}
                                                             />
                                                         </div>
                                                     );
                                                 })()}
                                                 {(sol.explanation || sol.imageUrl) && (
-                                                    <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '12px', borderTop: `1px solid ${C.border}` }}>
+                                                    <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: `1px solid ${C.border}`, overflowY: 'auto', maxHeight: '160px', flexShrink: 0 }}>
                                                         {sol.explanation && (
                                                             <div style={{ display: 'flex', gap: '10px' }}>
                                                                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', marginTop: '3px', flexShrink: 0 }}>Approach</span>
@@ -291,12 +292,13 @@ export default function PracticeSolutions({ problemId, currentUserId, onClose })
                                                             </div>
                                                         )}
                                                         {sol.imageUrl && (
-                                                            <img src={sol.imageUrl} alt="diagram" style={{ maxWidth: '100%', maxHeight: '280px', border: `1px solid ${C.border}`, borderRadius: '2px', objectFit: 'contain' }} />
+                                                            <img src={sol.imageUrl} alt="diagram" style={{ maxWidth: '100%', maxHeight: '200px', border: `1px solid ${C.border}`, borderRadius: '2px', objectFit: 'contain' }} />
                                                         )}
                                                     </div>
                                                 )}
                                             </>
                                         )}
+                                        </div>
                                     </div>
                                 );
                             })}
