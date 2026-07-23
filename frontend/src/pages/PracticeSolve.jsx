@@ -222,6 +222,18 @@ const PracticeSolve = () => {
     const [subHistoryLoading, setSubHistoryLoading] = useState(false);
     const [selectedSub, setSelectedSub] = useState(null);
 
+    // Solution tab state
+    const [solutionsModal, setSolutionsModal] = useState(false);
+    const [solutions, setSolutions] = useState([]);
+    const [solutionsLoading, setSolutionsLoading] = useState(false);
+    const [showAddSolution, setShowAddSolution] = useState(false);
+    const [solLanguage, setSolLanguage] = useState('JAVA');
+    const [solCode, setSolCode] = useState('');
+    const [solExplanation, setSolExplanation] = useState('');
+    const [solImageUrl, setSolImageUrl] = useState('');
+    const [solSaving, setSolSaving] = useState(false);
+    const [solCount, setSolCount] = useState(0);
+
     // Layout state
     const [leftWidth, setLeftWidth]       = useState(42);
     const [isDragging, setIsDragging]     = useState(false);
@@ -484,6 +496,46 @@ const PracticeSolve = () => {
         setSubmissionModal(true);
         setSelectedSub(null);
         fetchSubmissions();
+    };
+
+    const fetchSolutions = () => {
+        setSolutionsLoading(true);
+        api.get(`/practice/solutions/${id}`)
+            .then(res => setSolutions(res.data || []))
+            .catch(() => {})
+            .finally(() => setSolutionsLoading(false));
+        api.get(`/practice/solutions/${id}/count`)
+            .then(res => setSolCount(res.data?.count || 0))
+            .catch(() => {});
+    };
+
+    const openSolutions = () => {
+        setSolutionsModal(true);
+        setShowAddSolution(false);
+        fetchSolutions();
+    };
+
+    const handleAddSolution = async () => {
+        if (!solCode.trim()) return;
+        setSolSaving(true);
+        try {
+            await api.post('/practice/solutions', {
+                problemId: parseInt(id),
+                language: solLanguage,
+                code: solCode,
+                explanation: solExplanation.trim() || null,
+                imageUrl: solImageUrl.trim() || null,
+            });
+            setShowAddSolution(false);
+            setSolCode('');
+            setSolExplanation('');
+            setSolImageUrl('');
+            fetchSolutions();
+        } catch (err) {
+            alert(err.response?.data?.error || 'Failed to save solution');
+        } finally {
+            setSolSaving(false);
+        }
     };
 
     // ── Drag dividers ─────────────────────────────────────────────────────────
@@ -823,6 +875,15 @@ const PracticeSolve = () => {
                                 Submissions
                             </button>
                             <button
+                                onClick={openSolutions}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', border: `1px solid ${C.border}`, color: C.muted, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s' }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>lightbulb</span>
+                                Solutions
+                            </button>
+                            <button
                                 onClick={handleRun}
                                 disabled={running}
                                 style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 28px', border: `1px solid ${C.secondary}`, color: running ? C.outline : C.bg, backgroundColor: running ? 'transparent' : C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: running ? 'not-allowed' : 'pointer', opacity: running ? 0.5 : 1, transition: 'all 0.2s' }}
@@ -988,6 +1049,145 @@ const PracticeSolve = () => {
                                             })}
                                         </tbody>
                                     </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Solutions Modal ── */}
+            {solutionsModal && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 1001,
+                    backgroundColor: 'rgba(0,0,0,0.75)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }} onClick={() => setSolutionsModal(false)}>
+                    <div style={{
+                        width: 'min(92vw, 960px)', maxHeight: '88vh',
+                        backgroundColor: C.surfaceLow, border: `1px solid ${C.border}`,
+                        display: 'flex', flexDirection: 'column',
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{
+                            height: '52px', flexShrink: 0, borderBottom: `1px solid ${C.border}`,
+                            backgroundColor: C.surfaceMin, display: 'flex', alignItems: 'center',
+                            justifyContent: 'space-between', padding: '0 20px',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px', color: C.secondary }}>lightbulb</span>
+                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', letterSpacing: '0.08em', color: C.secondary, textTransform: 'uppercase' }}>
+                                    Solutions
+                                </span>
+                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
+                                    — {solCount} solution{solCount !== 1 ? 's' : ''}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <button onClick={() => setShowAddSolution(!showAddSolution)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', border: `1px solid ${C.secondary}`, color: C.secondary, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; }}
+                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.secondary; }}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>{showAddSolution ? 'arrow_back' : 'add'}</span>
+                                    {showAddSolution ? 'Back' : 'Add Solution'}
+                                </button>
+                                <button onClick={() => setSolutionsModal(false)}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.outline, padding: '4px' }}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            {showAddSolution ? (
+                                <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Language</label>
+                                        <select value={solLanguage} onChange={e => setSolLanguage(e.target.value)}
+                                            style={{ padding: '6px 12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceHi, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>
+                                            {Object.keys(LANG_MAP).map(l => <option key={l} value={l}>{LANG_MAP[l].label}</option>)}
+                                        </select>
+                                    </div>
+                                    <textarea value={solCode} onChange={e => setSolCode(e.target.value)}
+                                        placeholder="Paste your solution code here..."
+                                        style={{ minHeight: '220px', padding: '14px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', lineHeight: '1.6', resize: 'vertical' }} />
+                                    <textarea value={solExplanation} onChange={e => setSolExplanation(e.target.value)}
+                                        placeholder="Explanation (optional)..."
+                                        style={{ minHeight: '80px', padding: '12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'Geist', sans-serif", fontSize: '13px', lineHeight: '1.6', resize: 'vertical' }} />
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Image URL (optional)</label>
+                                        <input type="text" value={solImageUrl} onChange={e => setSolImageUrl(e.target.value)} placeholder="https://..."
+                                            style={{ flex: 1, padding: '6px 12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceHi, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }} />
+                                    </div>
+                                    <button onClick={handleAddSolution} disabled={solSaving || !solCode.trim()}
+                                        style={{ alignSelf: 'flex-end', padding: '10px 28px', border: 'none', backgroundColor: solSaving || !solCode.trim() ? C.surfaceHi : C.secondary, color: solSaving || !solCode.trim() ? C.outline : C.bg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: solSaving || !solCode.trim() ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
+                                    >
+                                        {solSaving ? 'Saving...' : 'Submit Solution'}
+                                    </button>
+                                </div>
+                            ) : solutionsLoading ? (
+                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <SkeletonLoader compact rows={3} />
+                                </div>
+                            ) : solutions.length === 0 ? (
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: C.outline }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '40px', color: C.border }}>lightbulb</span>
+                                    <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px' }}>No solutions yet</span>
+                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>Be the first to share a solution!</span>
+                                </div>
+                            ) : (
+                                <div style={{ overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                    {solutions.map((sol, idx) => (
+                                        <div key={sol.id || idx} style={{
+                                            border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin,
+                                            overflow: 'hidden',
+                                        }}>
+                                            <div style={{
+                                                padding: '10px 16px', borderBottom: `1px solid ${C.border}`,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                backgroundColor: C.surfaceHi,
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, color: C.primary }}>
+                                                        {sol.userName || 'Anonymous'}
+                                                    </span>
+                                                    <span style={{
+                                                        padding: '2px 8px', border: `1px solid ${C.border}`,
+                                                        fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em',
+                                                        color: C.secondary, textTransform: 'uppercase',
+                                                    }}>
+                                                        {sol.language}
+                                                    </span>
+                                                </div>
+                                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline }}>
+                                                    {new Date(sol.createdAt).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                            <pre style={{
+                                                margin: 0, padding: '14px 16px',
+                                                fontFamily: "'JetBrains Mono', monospace", fontSize: '12px',
+                                                color: C.onBg, lineHeight: '1.7', whiteSpace: 'pre-wrap',
+                                                overflowX: 'auto', backgroundColor: '#0a0a0a',
+                                                borderBottom: sol.explanation || sol.imageUrl ? `1px solid ${C.border}` : 'none',
+                                            }}>
+                                                {sol.code}
+                                            </pre>
+                                            {(sol.explanation || sol.imageUrl) && (
+                                                <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                    {sol.explanation && (
+                                                        <p style={{ margin: 0, fontFamily: "'Geist', sans-serif", fontSize: '13px', color: C.muted, lineHeight: '1.6' }}>
+                                                            {sol.explanation}
+                                                        </p>
+                                                    )}
+                                                    {sol.imageUrl && (
+                                                        <img src={sol.imageUrl} alt="solution"
+                                                            style={{ maxWidth: '100%', maxHeight: '300px', border: `1px solid ${C.border}`, objectFit: 'contain' }} />
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>
