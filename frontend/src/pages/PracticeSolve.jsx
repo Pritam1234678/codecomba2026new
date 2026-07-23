@@ -238,6 +238,9 @@ const PracticeSolve = () => {
     const [editExplanation, setEditExplanation] = useState('');
     const [editImageUrl, setEditImageUrl] = useState('');
     const [editActiveLang, setEditActiveLang] = useState('JAVA');
+    const [viewLangId, setViewLangId] = useState(null);
+    const [viewLang, setViewLangState] = useState(null);
+    const setViewLang = (id, lang) => { setViewLangId(id); setViewLangState(lang); };
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const currentUserId = AuthService.getCurrentUser()?.id;
 
@@ -1160,33 +1163,25 @@ const PracticeSolve = () => {
                         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                             {showAddSolution ? (
                                 <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                                    <div style={{ padding: '20px 24px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                            <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Language</label>
-                                            <div style={{ display: 'flex', gap: '2px', backgroundColor: C.surfaceHi, border: `1px solid ${C.border}` }}>
-                                                {Object.keys(LANG_MAP).map(l => (
-                                                    <button key={l} onClick={() => setSolLanguage(l)}
-                                                        style={{
-                                                            padding: '6px 14px', border: 'none',
-                                                            backgroundColor: solLanguage === l ? C.secondary : 'transparent',
-                                                            color: solLanguage === l ? C.bg : C.outline,
-                                                            fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
-                                                            letterSpacing: '0.08em', cursor: 'pointer',
-                                                            transition: 'all 0.15s',
-                                                        }}
-                                                    >
-                                                        {l}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
+                                    {/* Language tabs */}
+                                    <div style={{ padding: '16px 24px 0', display: 'flex', gap: '2px', borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceHi }}>
+                                        {Object.keys(LANG_MAP).map(l => (
+                                            <button key={l} onClick={() => setActiveSolLang(l)}
+                                                style={{
+                                                    padding: '8px 16px', border: 'none', borderBottom: activeSolLang === l ? `2px solid ${C.secondary}` : '2px solid transparent',
+                                                    backgroundColor: 'transparent', color: activeSolLang === l ? C.secondary : C.outline,
+                                                    fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em',
+                                                    cursor: 'pointer', transition: 'all 0.15s',
+                                                }}
+                                            >{l}{solCodes[l]?.trim() ? ' ✓' : ''}</button>
+                                        ))}
                                     </div>
                                     <div style={{ padding: '16px 24px', height: '280px' }}>
                                         <Editor
                                             height="100%"
-                                            language={LANG_MAP[solLanguage]?.monaco || 'java'}
-                                            value={solCode}
-                                            onChange={v => setSolCode(v || '')}
+                                            language={LANG_MAP[activeSolLang]?.monaco || 'java'}
+                                            value={solCodes[activeSolLang] || ''}
+                                            onChange={v => setSolCodes(prev => ({ ...prev, [activeSolLang]: v || '' }))}
                                             theme="vs-dark"
                                             options={{ minimap: { enabled: false }, fontSize: 13, lineNumbers: 'on', scrollBeyondLastLine: false, wordWrap: 'on', padding: { top: 12 } }}
                                             loading={<SkeletonLoader compact rows={3} />}
@@ -1194,13 +1189,14 @@ const PracticeSolve = () => {
                                     </div>
                                     <div style={{ padding: '0 24px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         <textarea value={solExplanation} onChange={e => setSolExplanation(e.target.value)}
-                                            placeholder="Explain your approach, time complexity, and any optimizations..."
-                                            style={{ minHeight: '80px', padding: '12px 14px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'Geist', sans-serif", fontSize: '13px', lineHeight: '1.7', resize: 'vertical', outline: 'none' }} />
+                                            placeholder="Explain your approach, time complexity, and optimizations...\n\nUse **bold** for emphasis, `code` for inline code, and blank lines for paragraphs."
+                                            rows={5}
+                                            style={{ width: '100%', padding: '12px 14px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', lineHeight: '1.7', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
                                         <input type="text" value={solImageUrl} onChange={e => setSolImageUrl(e.target.value)} placeholder="Image URL — diagram, whiteboard, etc. (optional)"
                                             style={{ padding: '10px 14px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', outline: 'none' }} />
-                                        <button onClick={handleAddSolution} disabled={solSaving || !solCode.trim()}
-                                            style={{ alignSelf: 'flex-end', padding: '10px 32px', border: 'none', borderRadius: '3px', backgroundColor: solSaving || !solCode.trim() ? C.surfaceHi : C.secondary, color: solSaving || !solCode.trim() ? C.outline : C.bg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: solSaving || !solCode.trim() ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
-                                            onMouseEnter={e => { if (!solSaving && solCode.trim()) e.currentTarget.style.filter = 'brightness(1.1)'; }}
+                                        <button onClick={handleAddSolution} disabled={solSaving || Object.values(solCodes).every(c => !c.trim())}
+                                            style={{ alignSelf: 'flex-end', padding: '10px 32px', border: 'none', borderRadius: '3px', backgroundColor: solSaving || Object.values(solCodes).every(c => !c.trim()) ? C.surfaceHi : C.secondary, color: solSaving || Object.values(solCodes).every(c => !c.trim()) ? C.outline : C.bg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: solSaving || Object.values(solCodes).every(c => !c.trim()) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
+                                            onMouseEnter={e => { if (!solSaving && !Object.values(solCodes).every(c => !c.trim())) e.currentTarget.style.filter = 'brightness(1.1)'; }}
                                             onMouseLeave={e => { e.currentTarget.style.filter = ''; }}
                                         >
                                             {solSaving ? 'Saving...' : 'Submit Solution'}
@@ -1255,30 +1251,30 @@ const PracticeSolve = () => {
                                                     <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, color: C.onBg }}>
                                                         {sol.userName || 'Anonymous'}
                                                     </span>
-                                                    {!isEditing && (
-                                                        <span style={{
-                                                            padding: '2px 8px', borderRadius: '2px',
+                                                    {!isEditing && Object.keys(sol.codes || {}).map(l => (
+                                                        <span key={l} style={{
+                                                            padding: '2px 6px', borderRadius: '2px', marginRight: '4px',
                                                             fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', letterSpacing: '0.12em',
                                                             color: C.secondary, textTransform: 'uppercase',
                                                             backgroundColor: `${C.secondary}12`, border: `1px solid ${C.secondary}30`,
                                                         }}>
-                                                            {sol.language}
+                                                            {l}
                                                         </span>
-                                                    )}
+                                                    ))}
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                                                     {isEditing && (
-                                                        <div style={{ display: 'flex', gap: '2px', backgroundColor: C.surfaceHi, border: `1px solid ${C.border}` }}>
+                                                        <div style={{ display: 'flex', gap: '2px' }}>
                                                             {Object.keys(LANG_MAP).map(l => (
-                                                                <button key={l} onClick={() => setEditLang(l)}
+                                                                <button key={l} onClick={() => setEditActiveLang(l)}
                                                                     style={{
-                                                                        padding: '4px 10px', border: 'none',
-                                                                        backgroundColor: editLang === l ? C.secondary : 'transparent',
-                                                                        color: editLang === l ? C.bg : C.outline,
+                                                                        padding: '4px 10px', border: 'none', borderBottom: editActiveLang === l ? `2px solid ${C.secondary}` : '2px solid transparent',
+                                                                        backgroundColor: 'transparent',
+                                                                        color: editActiveLang === l ? C.secondary : C.outline,
                                                                         fontFamily: "'JetBrains Mono', monospace", fontSize: '9px',
                                                                         cursor: 'pointer', transition: 'all 0.15s',
                                                                     }}
-                                                                >{l}</button>
+                                                                >{l}{editCodes[l]?.trim() ? ' ✓' : ''}</button>
                                                             ))}
                                                         </div>
                                                     )}
@@ -1318,13 +1314,27 @@ const PracticeSolve = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Code block — Monaco (view or edit) */}
-                                            <div style={{ height: Math.min(320, Math.max(120, (isEditing ? editCode : sol.code).split('\n').length * 20 + 32)) }}>
+                                            {/* Language tabs + view code */}
+                                            {!isEditing && Object.keys(sol.codes || {}).length > 0 && (
+                                                <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${C.border}`, backgroundColor: '#0a0a0a', padding: '0 12px' }}>
+                                                    {Object.keys(sol.codes || {}).filter(l => (sol.codes[l] || '').trim()).map(l => (
+                                                        <button key={l} onClick={() => setViewLang(sol.id === viewLangId ? null : sol.id, l)}
+                                                            style={{
+                                                                padding: '6px 14px', border: 'none', borderBottom: viewLangId === sol.id && viewLang === l ? `2px solid ${C.secondary}` : '2px solid transparent',
+                                                                backgroundColor: 'transparent', color: viewLangId === sol.id && viewLang === l ? C.secondary : C.outline,
+                                                                fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.06em',
+                                                                cursor: 'pointer', transition: 'all 0.15s',
+                                                            }}
+                                                        >{l}</button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <div style={{ height: Math.min(320, Math.max(120, ((isEditing ? (editCodes[editActiveLang] || '') : sol.codes?.[viewLangId === sol.id ? viewLang : Object.keys(sol.codes || {})[0]] || ''))).split('\n').length * 20 + 32)) }}>
                                                 <Editor
                                                     height="100%"
-                                                    language={LANG_MAP[isEditing ? editLang : sol.language]?.monaco || 'java'}
-                                                    value={isEditing ? editCode : sol.code}
-                                                    onChange={isEditing ? v => setEditCode(v || '') : undefined}
+                                                    language={LANG_MAP[isEditing ? editActiveLang : (viewLangId === sol.id ? viewLang : Object.keys(sol.codes || {})[0])]?.monaco || 'java'}
+                                                    value={isEditing ? (editCodes[editActiveLang] || '') : (sol.codes?.[viewLangId === sol.id ? viewLang : Object.keys(sol.codes || {})[0]] || '')}
+                                                    onChange={isEditing ? v => setEditCodes(prev => ({ ...prev, [editActiveLang]: v || '' })) : undefined}
                                                     theme="vs-dark"
                                                     options={{
                                                         readOnly: !isEditing, minimap: { enabled: false },
