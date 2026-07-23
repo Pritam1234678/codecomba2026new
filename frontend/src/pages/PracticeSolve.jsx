@@ -1,3 +1,4 @@
+import PracticeSolutions from '../components/PracticeSolutions';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
@@ -221,28 +222,10 @@ const PracticeSolve = () => {
     const [submissionHistory, setSubmissionHistory] = useState([]);
     const [subHistoryLoading, setSubHistoryLoading] = useState(false);
     const [selectedSub, setSelectedSub] = useState(null);
+    const [solutionsModal, setSolutionsModal] = useState(false);
 
     // Solution tab state
-    const [solutionsModal, setSolutionsModal] = useState(false);
-    const [solutions, setSolutions] = useState([]);
-    const [solutionsLoading, setSolutionsLoading] = useState(false);
-    const [showAddSolution, setShowAddSolution] = useState(false);
-    const [solSaving, setSolSaving] = useState(false);
-    const [solCount, setSolCount] = useState(0);
-    const [activeSolLang, setActiveSolLang] = useState('JAVA');
-    const [solCodes, setSolCodes] = useState({ JAVA: '', CPP: '', PYTHON: '', JAVASCRIPT: '', C: '' });
-    const [solExplanation, setSolExplanation] = useState('');
-    const [solImageUrl, setSolImageUrl] = useState('');
-    const [editingSol, setEditingSol] = useState(null);
-    const [editCodes, setEditCodes] = useState({ JAVA: '', CPP: '', PYTHON: '', JAVASCRIPT: '', C: '' });
-    const [editExplanation, setEditExplanation] = useState('');
-    const [editImageUrl, setEditImageUrl] = useState('');
-    const [editActiveLang, setEditActiveLang] = useState('JAVA');
-    const [viewLangId, setViewLangId] = useState(null);
-    const [viewLang, setViewLangState] = useState(null);
-    const setViewLang = (id, lang) => { setViewLangId(id); setViewLangState(lang); };
-    const [deleteConfirm, setDeleteConfirm] = useState(null);
-    const currentUserId = AuthService.getCurrentUser()?.id;
+                                                                                const currentUserId = AuthService.getCurrentUser()?.id;
 
     // Layout state
     const [leftWidth, setLeftWidth]       = useState(42);
@@ -508,55 +491,8 @@ const PracticeSolve = () => {
         fetchSubmissions();
     };
 
-    const fetchSolutions = () => {
-        setSolutionsLoading(true);
-        api.get(`/practice/solutions/${id}`)
-            .then(res => setSolutions(res.data || []))
-            .catch(() => {})
-            .finally(() => setSolutionsLoading(false));
-        api.get(`/practice/solutions/${id}/count`)
-            .then(res => setSolCount(res.data?.count || 0))
-            .catch(() => {});
-    };
 
-    const openSolutions = () => {
-        setSolutionsModal(true);
-        setShowAddSolution(false);
-        fetchSolutions();
-    };
 
-    const handleAddSolution = async () => {
-        const codes = {};
-        for (const [l, c] of Object.entries(solCodes)) { if (c.trim()) codes[l] = c; }
-        if (Object.keys(codes).length === 0) return;
-        setSolSaving(true);
-        try {
-            await api.post('/practice/solutions', {
-                problemId: parseInt(id),
-                codes,
-                explanation: solExplanation.trim() || null,
-                imageUrl: solImageUrl.trim() || null,
-            });
-            setShowAddSolution(false);
-            setSolCodes({ JAVA: '', CPP: '', PYTHON: '', JAVASCRIPT: '', C: '' });
-            setSolExplanation('');
-            setSolImageUrl('');
-            fetchSolutions();
-        } catch (err) {
-            alert(err.response?.data?.error || 'Failed to save solution');
-        } finally {
-            setSolSaving(false);
-        }
-    };
-
-    const startEdit = (sol) => {
-        setEditingSol(sol.id);
-        const codes = sol.codes || {};
-        setEditCodes({ JAVA: codes.JAVA || '', CPP: codes.CPP || '', PYTHON: codes.PYTHON || '', JAVASCRIPT: codes.JAVASCRIPT || '', C: codes.C || '' });
-        setEditExplanation(sol.explanation || '');
-        setEditImageUrl(sol.imageUrl || '');
-        setEditActiveLang(Object.keys(codes).find(k => codes[k]) || 'JAVA');
-    };
 
     const handleUpdateSolution = async (id) => {
         const codes = {};
@@ -927,7 +863,7 @@ const PracticeSolve = () => {
                                 Submissions
                             </button>
                             <button
-                                onClick={openSolutions}
+                                onClick={() => setSolutionsModal(true)}
                                 style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', border: `1px solid ${C.border}`, color: C.muted, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s' }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
                                 onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
@@ -1109,320 +1045,7 @@ const PracticeSolve = () => {
             )}
 
             {/* ── Solutions Modal ── */}
-            {solutionsModal && (
-                <div style={{
-                    position: 'fixed', inset: 0, zIndex: 1001,
-                    backgroundColor: 'rgba(0,0,0,0.85)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    backdropFilter: 'blur(4px)',
-                }} onClick={() => setSolutionsModal(false)}>
-                    <div style={{
-                        width: 'min(95vw, 1100px)', maxHeight: '90vh',
-                        backgroundColor: C.surfaceLow, border: `1px solid ${C.border}`,
-                        display: 'flex', flexDirection: 'column', borderRadius: '4px',
-                        boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
-                    }} onClick={e => e.stopPropagation()}>
-                        {/* ── Header ── */}
-                        <div style={{
-                            height: '54px', flexShrink: 0, borderBottom: `1px solid ${C.border}`,
-                            backgroundColor: C.surfaceMin, display: 'flex', alignItems: 'center',
-                            justifyContent: 'space-between', padding: '0 24px',
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: `${C.secondary}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <span className="material-symbols-outlined" style={{ fontSize: '18px', color: C.secondary }}>lightbulb</span>
-                                </div>
-                                <div>
-                                    <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', fontWeight: 600, color: C.primary }}>
-                                        Solutions
-                                    </span>
-                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, marginLeft: '10px' }}>
-                                        {solCount} solution{solCount !== 1 ? 's' : ''}
-                                    </span>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <button onClick={() => setShowAddSolution(!showAddSolution)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', border: `1px solid ${showAddSolution ? C.border : C.secondary}`, color: showAddSolution ? C.muted : C.bg, backgroundColor: showAddSolution ? 'transparent' : C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '3px', transition: 'all 0.2s' }}
-                                    onMouseEnter={e => { if (!showAddSolution) { e.currentTarget.style.filter = 'brightness(1.1)'; } else { e.currentTarget.style.borderColor = C.primary; } }}
-                                    onMouseLeave={e => { if (!showAddSolution) { e.currentTarget.style.filter = ''; } else { e.currentTarget.style.borderColor = C.border; } }}
-                                >
-                                    <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{showAddSolution ? 'arrow_back' : 'add'}</span>
-                                    {showAddSolution ? 'Back to List' : 'Add Solution'}
-                                </button>
-                                <button onClick={() => setSolutionsModal(false)}
-                                    style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', backgroundColor: 'transparent', color: C.outline, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
-                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${C.error}15`; e.currentTarget.style.color = C.error; }}
-                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.outline; }}
-                                >
-                                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>close</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                            {showAddSolution ? (
-                                <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                                    {/* Language tabs */}
-                                    <div style={{ padding: '16px 24px 0', display: 'flex', gap: '2px', borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceHi }}>
-                                        {Object.keys(LANG_MAP).map(l => (
-                                            <button key={l} onClick={() => setActiveSolLang(l)}
-                                                style={{
-                                                    padding: '8px 16px', border: 'none', borderBottom: activeSolLang === l ? `2px solid ${C.secondary}` : '2px solid transparent',
-                                                    backgroundColor: 'transparent', color: activeSolLang === l ? C.secondary : C.outline,
-                                                    fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em',
-                                                    cursor: 'pointer', transition: 'all 0.15s',
-                                                }}
-                                            >{l}{solCodes[l]?.trim() ? ' ✓' : ''}</button>
-                                        ))}
-                                    </div>
-                                    <div style={{ padding: '16px 24px', height: '280px' }}>
-                                        <Editor
-                                            height="100%"
-                                            language={LANG_MAP[activeSolLang]?.monaco || 'java'}
-                                            value={solCodes[activeSolLang] || ''}
-                                            onChange={v => setSolCodes(prev => ({ ...prev, [activeSolLang]: v || '' }))}
-                                            theme="vs-dark"
-                                            options={{ minimap: { enabled: false }, fontSize: 13, lineNumbers: 'on', scrollBeyondLastLine: false, wordWrap: 'on', padding: { top: 12 } }}
-                                            loading={<SkeletonLoader compact rows={3} />}
-                                        />
-                                    </div>
-                                    <div style={{ padding: '0 24px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        <textarea value={solExplanation} onChange={e => setSolExplanation(e.target.value)}
-                                            placeholder="Explain your approach, time complexity, and optimizations...\n\nUse **bold** for emphasis, `code` for inline code, and blank lines for paragraphs."
-                                            rows={5}
-                                            style={{ width: '100%', padding: '12px 14px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', lineHeight: '1.7', resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
-                                        <input type="text" value={solImageUrl} onChange={e => setSolImageUrl(e.target.value)} placeholder="Image URL — diagram, whiteboard, etc. (optional)"
-                                            style={{ padding: '10px 14px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', outline: 'none' }} />
-                                        <button onClick={handleAddSolution} disabled={solSaving || Object.values(solCodes).every(c => !c.trim())}
-                                            style={{ alignSelf: 'flex-end', padding: '10px 32px', border: 'none', borderRadius: '3px', backgroundColor: solSaving || Object.values(solCodes).every(c => !c.trim()) ? C.surfaceHi : C.secondary, color: solSaving || Object.values(solCodes).every(c => !c.trim()) ? C.outline : C.bg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: solSaving || Object.values(solCodes).every(c => !c.trim()) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
-                                            onMouseEnter={e => { if (!solSaving && !Object.values(solCodes).every(c => !c.trim())) e.currentTarget.style.filter = 'brightness(1.1)'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.filter = ''; }}
-                                        >
-                                            {solSaving ? 'Saving...' : 'Submit Solution'}
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : solutionsLoading ? (
-                                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <SkeletonLoader compact rows={4} />
-                                </div>
-                            ) : solutions.length === 0 ? (
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', color: C.outline }}>
-                                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <span className="material-symbols-outlined" style={{ fontSize: '28px', color: C.border }}>lightbulb</span>
-                                    </div>
-                                    <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', color: C.muted }}>No solutions yet</span>
-                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>Be the first to share your solution.</span>
-                                    <button onClick={() => setShowAddSolution(true)}
-                                        style={{ marginTop: '4px', padding: '10px 24px', border: `1px solid ${C.secondary}`, color: C.secondary, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '3px', transition: 'all 0.2s' }}
-                                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; }}
-                                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.secondary; }}
-                                    >
-                                        Add Solution
-                                    </button>
-                                </div>
-                            ) : (
-                                <div style={{ overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {solutions.map((sol, idx) => {
-                                        const isOwner = sol.userId === currentUserId;
-                                        const isEditing = editingSol === sol.id;
-                                        return (
-                                        <div key={sol.id || idx} style={{
-                                            border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin,
-                                            overflow: 'hidden', borderRadius: '3px',
-                                        }}>
-                                            {/* Card header */}
-                                            <div style={{
-                                                padding: '12px 18px', borderBottom: `1px solid ${C.border}`,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                                backgroundColor: '#0e0d0c',
-                                            }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                    <div style={{
-                                                        width: '28px', height: '28px', borderRadius: '50%',
-                                                        backgroundColor: C.surfaceHi, border: `1px solid ${C.border}`,
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                        fontFamily: "'Geist', sans-serif", fontSize: '11px', fontWeight: 700,
-                                                        color: C.primary,
-                                                    }}>
-                                                        {(sol.userName || 'A')[0].toUpperCase()}
-                                                    </div>
-                                                    <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, color: C.onBg }}>
-                                                        {sol.userName || 'Anonymous'}
-                                                    </span>
-                                                    {!isEditing && Object.keys(sol.codes || {}).map(l => (
-                                                        <span key={l} style={{
-                                                            padding: '2px 6px', borderRadius: '2px', marginRight: '4px',
-                                                            fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', letterSpacing: '0.12em',
-                                                            color: C.secondary, textTransform: 'uppercase',
-                                                            backgroundColor: `${C.secondary}12`, border: `1px solid ${C.secondary}30`,
-                                                        }}>
-                                                            {l}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                                    {isEditing && (
-                                                        <div style={{ display: 'flex', gap: '2px' }}>
-                                                            {Object.keys(LANG_MAP).map(l => (
-                                                                <button key={l} onClick={() => setEditActiveLang(l)}
-                                                                    style={{
-                                                                        padding: '4px 10px', border: 'none', borderBottom: editActiveLang === l ? `2px solid ${C.secondary}` : '2px solid transparent',
-                                                                        backgroundColor: 'transparent',
-                                                                        color: editActiveLang === l ? C.secondary : C.outline,
-                                                                        fontFamily: "'JetBrains Mono', monospace", fontSize: '9px',
-                                                                        cursor: 'pointer', transition: 'all 0.15s',
-                                                                    }}
-                                                                >{l}{editCodes[l]?.trim() ? ' ✓' : ''}</button>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                    {isOwner && !isEditing && (
-                                                        <div style={{ display: 'flex', gap: '4px' }}>
-                                                            <button onClick={() => startEdit(sol)}
-                                                                style={{ padding: '4px 10px', border: `1px solid ${C.border}`, backgroundColor: 'transparent', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', cursor: 'pointer', borderRadius: '2px', transition: 'all 0.15s' }}
-                                                                onMouseEnter={e => { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; }}
-                                                                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.outline; }}
-                                                            >
-                                                                <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>edit</span>
-                                                            </button>
-                                                            <button onClick={() => setDeleteConfirm(sol.id)}
-                                                                style={{ padding: '4px 10px', border: `1px solid ${C.border}`, backgroundColor: 'transparent', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', cursor: 'pointer', borderRadius: '2px', transition: 'all 0.15s' }}
-                                                                onMouseEnter={e => { e.currentTarget.style.borderColor = C.error; e.currentTarget.style.color = C.error; }}
-                                                                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.outline; }}
-                                                            >
-                                                                <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>delete</span>
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                    {isEditing && (
-                                                        <div style={{ display: 'flex', gap: '4px' }}>
-                                                            <button onClick={() => handleUpdateSolution(sol.id)}
-                                                                style={{ padding: '4px 12px', border: `1px solid ${C.secondary}`, backgroundColor: C.secondary, color: C.bg, fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.06em', cursor: 'pointer', borderRadius: '2px' }}
-                                                            >Save</button>
-                                                            <button onClick={() => setEditingSol(null)}
-                                                                style={{ padding: '4px 12px', border: `1px solid ${C.border}`, backgroundColor: 'transparent', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', cursor: 'pointer', borderRadius: '2px' }}
-                                                            >Cancel</button>
-                                                        </div>
-                                                    )}
-                                                    {!isEditing && (
-                                                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline }}>
-                                                            {new Date(sol.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Language tabs + view code */}
-                                            {!isEditing && Object.keys(sol.codes || {}).length > 0 && (
-                                                <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${C.border}`, backgroundColor: '#0a0a0a', padding: '0 12px' }}>
-                                                    {Object.keys(sol.codes || {}).filter(l => (sol.codes[l] || '').trim()).map(l => (
-                                                        <button key={l} onClick={() => setViewLang(sol.id === viewLangId ? null : sol.id, l)}
-                                                            style={{
-                                                                padding: '6px 14px', border: 'none', borderBottom: viewLangId === sol.id && viewLang === l ? `2px solid ${C.secondary}` : '2px solid transparent',
-                                                                backgroundColor: 'transparent', color: viewLangId === sol.id && viewLang === l ? C.secondary : C.outline,
-                                                                fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.06em',
-                                                                cursor: 'pointer', transition: 'all 0.15s',
-                                                            }}
-                                                        >{l}</button>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            <div style={{ height: Math.min(320, Math.max(120, ((isEditing ? (editCodes[editActiveLang] || '') : sol.codes?.[viewLangId === sol.id ? viewLang : Object.keys(sol.codes || {})[0]] || ''))).split('\n').length * 20 + 32)) }}>
-                                                <Editor
-                                                    height="100%"
-                                                    language={LANG_MAP[isEditing ? editActiveLang : (viewLangId === sol.id ? viewLang : Object.keys(sol.codes || {})[0])]?.monaco || 'java'}
-                                                    value={isEditing ? (editCodes[editActiveLang] || '') : (sol.codes?.[viewLangId === sol.id ? viewLang : Object.keys(sol.codes || {})[0]] || '')}
-                                                    onChange={isEditing ? v => setEditCodes(prev => ({ ...prev, [editActiveLang]: v || '' })) : undefined}
-                                                    theme="vs-dark"
-                                                    options={{
-                                                        readOnly: !isEditing, minimap: { enabled: false },
-                                                        fontSize: 12, lineNumbers: 'on',
-                                                        scrollBeyondLastLine: false, wordWrap: 'on',
-                                                        padding: { top: 10, bottom: 10 },
-                                                        domReadOnly: !isEditing, contextmenu: false,
-                                                    }}
-                                                    loading={<div style={{ height: '100%', backgroundColor: '#0a0a0a' }} />}
-                                                />
-                                            </div>
-
-                                            {(isEditing ? (
-                                                <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: '10px', borderTop: `1px solid ${C.border}` }}>
-                                                    <textarea value={editExplanation} onChange={e => setEditExplanation(e.target.value)}
-                                                        placeholder="Explain your approach..."
-                                                        style={{ minHeight: '70px', padding: '10px 14px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'Geist', sans-serif", fontSize: '12px', lineHeight: '1.6', resize: 'vertical', outline: 'none' }} />
-                                                    <input type="text" value={editImageUrl} onChange={e => setEditImageUrl(e.target.value)} placeholder="Image URL (optional)"
-                                                        style={{ padding: '8px 14px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', outline: 'none' }} />
-                                                </div>
-                                            ) : (sol.explanation || sol.imageUrl) && (
-                                                <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '12px', borderTop: `1px solid ${C.border}` }}>
-                                                    {sol.explanation && (
-                                                        <div style={{ display: 'flex', gap: '10px' }}>
-                                                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', marginTop: '3px', flexShrink: 0 }}>
-                                                                Approach
-                                                            </span>
-                                                            <p style={{ margin: 0, fontFamily: "'Geist', sans-serif", fontSize: '13px', color: C.muted, lineHeight: '1.7' }}>
-                                                                {sol.explanation}
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                    {sol.imageUrl && (
-                                                        <img src={sol.imageUrl} alt="solution diagram"
-                                                            style={{ maxWidth: '100%', maxHeight: '280px', border: `1px solid ${C.border}`, borderRadius: '2px', objectFit: 'contain' }} />
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ── Delete Confirm Popup ── */}
-            {deleteConfirm && (
-                <div style={{
-                    position: 'fixed', inset: 0, zIndex: 2000,
-                    backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }} onClick={() => setDeleteConfirm(null)}>
-                    <div style={{
-                        backgroundColor: C.surfaceLow, border: `1px solid ${C.border}`,
-                        padding: '28px 32px', maxWidth: '380px', width: '90%',
-                        display: 'flex', flexDirection: 'column', gap: '20px',
-                        borderRadius: '6px', boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
-                    }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
-                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: `${C.error}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: C.error }}>delete</span>
-                            </div>
-                            <div>
-                                <p style={{ margin: '0 0 6px', fontFamily: "'Geist', sans-serif", fontSize: '15px', fontWeight: 600, color: C.onBg }}>Delete Solution</p>
-                                <p style={{ margin: 0, fontFamily: "'Geist', sans-serif", fontSize: '13px', color: C.outline, lineHeight: '1.5' }}>
-                                    Are you sure? This action cannot be undone.
-                                </p>
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                            <button onClick={() => setDeleteConfirm(null)}
-                                style={{ padding: '8px 20px', border: `1px solid ${C.border}`, backgroundColor: 'transparent', color: C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '3px', transition: 'all 0.15s' }}
-                                onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
-                            >Cancel</button>
-                            <button onClick={handleDeleteSolution}
-                                style={{ padding: '8px 24px', border: 'none', backgroundColor: C.error, color: C.bg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '3px', transition: 'all 0.15s' }}
-                                onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.1)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.filter = ''; }}
-                            >Delete</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
+            
             <style>{`
                 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300; }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -1431,7 +1054,9 @@ const PracticeSolve = () => {
                 ::-webkit-scrollbar-thumb { background: #50453b; border-radius: 2px; }
                 ::-webkit-scrollbar-thumb:hover { background: #9d8e83; }
             `}</style>
-        </div>
+        
+            {solutionsModal && <PracticeSolutions problemId={parseInt(id)} currentUserId={currentUserId} onClose={() => setSolutionsModal(false)} />}
+            </div>
     );
 };
 
