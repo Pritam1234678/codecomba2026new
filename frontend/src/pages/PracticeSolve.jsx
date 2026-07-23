@@ -9,6 +9,8 @@ import api from '../services/api';
 import AuthService from '../services/auth.service';
 import SolutionPanel from '../components/SolutionPanel';
 
+const GITHUB_CLIENT_ID = 'Ov23liUoISbhd4bLiNSa';
+
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
     bg:         '#131313',
@@ -225,6 +227,7 @@ const PracticeSolve = () => {
     const [selectedSub, setSelectedSub] = useState(null);
     const [solutionsModal, setSolutionsModal] = useState(false);
     const [leftTab, setLeftTab] = useState('description');
+    const [githubConnected, setGithubConnected] = useState(false);
 
     // Solution tab state
                                                                                 const currentUserId = AuthService.getCurrentUser()?.id;
@@ -246,7 +249,20 @@ const PracticeSolve = () => {
     // Keep runningRef in sync — useState setter is batched, ref is instant
     useEffect(() => { runningRef.current = running; }, [running]);
 
-    // ── SSE connection — auto-reconnects on error ──────────────────────────────
+    // ── GitHub OAuth callback ──────────────────────────────────────────────
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        if (code) {
+            window.history.replaceState({}, '', window.location.pathname);
+            api.post('/github/connect', { code })
+                .then(() => setGithubConnected(true))
+                .catch(() => {});
+        }
+        api.get('/github/status')
+            .then(res => setGithubConnected(res.data?.connected || false))
+            .catch(() => {});
+    }, []);
     useEffect(() => {
         const user = AuthService.getCurrentUser();
         if (!user?.token) return;
@@ -651,6 +667,16 @@ const PracticeSolve = () => {
                         </button>
                         <button onClick={() => setLeftTab('solutions')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 20px', border: 'none', borderBottom: leftTab === 'solutions' ? `2px solid ${C.secondary}` : '2px solid transparent', backgroundColor: 'transparent', color: leftTab === 'solutions' ? C.secondary : C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em', cursor: 'pointer', transition: 'all 0.15s' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>lightbulb</span>Solutions
+                        </button>
+                        <div style={{ flex: 1 }} />
+                        <button onClick={() => window.open(`https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=repo`, '_self')}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', margin: '6px 8px', border: githubConnected ? `1px solid ${C.success}` : `1px solid ${C.border}`, color: githubConnected ? C.success : C.outline, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '3px', flexShrink: 0, transition: 'all 0.15s' }}
+                            onMouseEnter={e => { if (!githubConnected) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = githubConnected ? C.success : C.border; e.currentTarget.style.color = githubConnected ? C.success : C.outline; }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>
+                                {githubConnected ? 'check_circle' : 'link'}
+                            </span>
+                            {githubConnected ? 'GitHub ✓' : 'Connect GitHub'}
                         </button>
                         <div style={{ flex: 1 }} />
                         <button onClick={openSubmissions}
