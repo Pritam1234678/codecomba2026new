@@ -127,7 +127,14 @@ function App() {
     if (code) {
       window.history.replaceState({}, '', location.pathname);
       api.post('/github/connect', { code })
-        .then(() => localStorage.setItem('github_connected', 'true'))
+        .then(() => {
+          localStorage.setItem('github_connected', 'true');
+          const redirect = localStorage.getItem('github_redirect');
+          if (redirect) {
+            localStorage.removeItem('github_redirect');
+            window.location.href = redirect;
+          }
+        })
         .catch(() => {});
     }
   }, [location.search, location.pathname]);
