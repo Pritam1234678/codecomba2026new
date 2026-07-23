@@ -652,6 +652,14 @@ const PracticeSolve = () => {
                         <button onClick={() => setLeftTab('solutions')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 20px', border: 'none', borderBottom: leftTab === 'solutions' ? `2px solid ${C.secondary}` : '2px solid transparent', backgroundColor: 'transparent', color: leftTab === 'solutions' ? C.secondary : C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em', cursor: 'pointer', transition: 'all 0.15s' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>lightbulb</span>Solutions
                         </button>
+                        <div style={{ flex: 1 }} />
+                        <button onClick={handleRun} disabled={running}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px', margin: '6px 12px', border: `1px solid ${C.secondary}`, color: running ? C.outline : C.bg, backgroundColor: running ? 'transparent' : C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: running ? 'not-allowed' : 'pointer', borderRadius: '3px', opacity: running ? 0.5 : 1, transition: 'all 0.2s', flexShrink: 0 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1", animation: running ? 'spin 1s linear infinite' : 'none' }}>
+                                {running ? 'sync' : 'play_arrow'}
+                            </span>
+                            {running ? 'Running...' : 'Run'}
+                        </button>
                     </div>
                     {leftTab === 'description' ? (
                     <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -875,25 +883,6 @@ const PracticeSolve = () => {
                             >
                                 <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>history</span>
                                 Submissions
-                            </button>
-                            <button
-                                onClick={() => setSolutionsModal(true)}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', border: `1px solid ${C.border}`, color: C.muted, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s' }}
-                                onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
-                            >
-                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>lightbulb</span>
-                                Solutions
-                            </button>
-                            <button
-                                onClick={handleRun}
-                                disabled={running}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 28px', border: `1px solid ${C.secondary}`, color: running ? C.outline : C.bg, backgroundColor: running ? 'transparent' : C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: running ? 'not-allowed' : 'pointer', opacity: running ? 0.5 : 1, transition: 'all 0.2s' }}
-                            >
-                                <span className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1", animation: running ? 'spin 1s linear infinite' : 'none' }}>
-                                    {running ? 'sync' : 'play_arrow'}
-                                </span>
-                                {running ? 'Running...' : 'Run'}
                             </button>
                         </div>
                     </div>
