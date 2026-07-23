@@ -675,17 +675,20 @@ const PracticeSolve = () => {
                             <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>lightbulb</span>Solutions
                         </button>
                         <div style={{ flex: 1 }} />
-                        <button onClick={() => {
-                            localStorage.setItem('github_redirect', window.location.href);
-                            window.location.href = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=repo`;
-                        }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', margin: '6px 8px', border: githubConnected ? `1px solid ${C.success}` : `1px solid ${C.border}`, color: githubConnected ? C.success : C.outline, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '3px', flexShrink: 0, transition: 'all 0.15s' }}
+                        <button
+                            onClick={() => {
+                                if (githubConnected) return;
+                                localStorage.setItem('github_redirect', window.location.href);
+                                window.location.href = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=repo`;
+                            }}
+                            disabled={githubConnected}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', margin: '6px 8px', border: githubConnected ? `1px solid ${C.success}` : `1px solid ${C.border}`, color: githubConnected ? C.success : C.outline, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: githubConnected ? 'default' : 'pointer', borderRadius: '3px', flexShrink: 0, transition: 'all 0.15s', opacity: githubConnected ? 0.8 : 1 }}
                             onMouseEnter={e => { if (!githubConnected) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
                             onMouseLeave={e => { e.currentTarget.style.borderColor = githubConnected ? C.success : C.border; e.currentTarget.style.color = githubConnected ? C.success : C.outline; }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>
                                 {githubConnected ? 'check_circle' : 'link'}
                             </span>
-                            {githubConnected ? 'GitHub ✓' : 'Connect GitHub'}
+                            {githubConnected ? 'Connected ✓' : 'Connect GitHub'}
                         </button>
                         <div style={{ flex: 1 }} />
                         <button onClick={openSubmissions}

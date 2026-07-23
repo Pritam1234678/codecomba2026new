@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
@@ -17,6 +19,12 @@ public class GitHubService {
     private static final String GITHUB_API = "https://api.github.com";
     private static final String REPO_NAME = "CodeCoder";
     private final RestTemplate rest = new RestTemplate();
+    {
+        var f = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        f.setConnectTimeout(10_000);
+        f.setReadTimeout(15_000);
+        rest.setRequestFactory(f);
+    }
 
     @Value("${GITHUB_CLIENT_ID:}")
     private String clientId;
@@ -31,14 +39,18 @@ public class GitHubService {
     private com.example.codecombat2026.repository.PracticeSubmissionRepository practiceSubmissionRepository;
 
     public Map<String, String> exchangeToken(String code) {
-        Map<String, String> body = new HashMap<>();
-        body.put("client_id", clientId);
-        body.put("client_secret", clientSecret);
-        body.put("code", code);
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("client_id", clientId);
+        body.add("client_secret", clientSecret);
+        body.add("code", code);
         try {
-            var resp = rest.postForEntity("https://github.com/login/oauth/access_token", body, Map.class);
+            HttpHeaders h = new HttpHeaders();
+            h.setAccept(List.of(MediaType.APPLICATION_JSON));
+            h.set("User-Agent", "CodeCoder");
+            var resp = rest.postForEntity("https://github.com/login/oauth/access_token",
+                new HttpEntity<>(body, h), Map.class);
             String token = (String) resp.getBody().get("access_token");
-            if (token == null) throw new RuntimeException("No token in response");
+            if (token == null) throw new RuntimeException("No token in response: " + resp.getBody());
             var userResp = rest.exchange(GITHUB_API + "/user",
                 HttpMethod.GET, authHeaders(token), Map.class);
             String username = (String) userResp.getBody().get("login");
@@ -86,15 +98,24 @@ public class GitHubService {
 
     private void ensureRepo(String token) {
         try {
-            rest.exchange(GITHUB_API + "/user/repos", HttpMethod.GET, authHeaders(token), Map.class);
-        } catch (Exception e) {
-            Map<String, Object> body = new HashMap<>();
-            body.put("name", REPO_NAME);
-            body.put("private", false);
-            body.put("auto_init", true);
-            body.put("description", "CodeCoder practice solutions — auto-synced");
-            rest.postForEntity(GITHUB_API + "/user/repos", authJson(token, body), Map.class);
-        }
+            var resp = rest.exchange(GITHUB_API + "/repos/" + getUser(token) + "/" + REPO_NAME,
+                HttpMethod.GET, authHeaders(token), Map.class);
+            if (resp.getStatusCode() == HttpStatus.OK) return;
+        } catch (Exception ignored) {}
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("name", REPO_NAME);
+        body.put("private", false);
+        body.put("auto_init", true);
+        body.put("description", "CodeCoder practice solutions — auto-synced");
+        rest.postForEntity(GITHUB_API + "/user/repos", authJson(token, body), Map.class);
+    }
+
+    private String getUser(String token) {
+        try {
+            var resp = rest.exchange(GITHUB_API + "/user", HttpMethod.GET, authHeaders(token), Map.class);
+            return (String) resp.getBody().get("login");
+        } catch (Exception e) { return null; }
     }
 
     private int countFiles(String token, String owner, String slug, String lang) {
