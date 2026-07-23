@@ -99,6 +99,10 @@ public class SubmissionWorkerPool {
     @Lazy
     private PracticeService practiceService;
 
+    @Autowired
+    @Lazy
+    private GitHubService githubService;
+
     @PostConstruct
     public void startWorkers() {
         instanceId = ManagementFactory.getRuntimeMXBean().getName(); // pid@host
@@ -465,6 +469,16 @@ public class SubmissionWorkerPool {
                 } catch (Exception e) {
                     log.warn("Practice points award failed for user {} problem {}: {}",
                         job.getUserId(), job.getProblemId(), e.getMessage());
+                }
+
+                // GitHub auto-push on AC practice submission
+                try {
+                    String problemTitle = cacheService.getProblemTitle(job.getProblemId());
+                    if (problemTitle == null) problemTitle = "Problem-" + job.getProblemId();
+                    githubService.pushSolution(job.getUserId(), submissionId,
+                        problemTitle, job.getLanguage(), job.getCode(), job.getUserName());
+                } catch (Exception e) {
+                    log.warn("GitHub auto-push failed: {}", e.getMessage());
                 }
             }
         } else {

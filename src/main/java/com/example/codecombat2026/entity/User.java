@@ -48,6 +48,13 @@ public class User {
     @Column(name = "total_points", nullable = false)
     private Integer totalPoints = 0;
 
+    @Column(name = "github_token", length = 512)
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String githubToken;
+
+    @Column(name = "github_username", length = 255)
+    private String githubUsername;
+
     @Column(nullable = false)
     private Boolean enabled = true;
 

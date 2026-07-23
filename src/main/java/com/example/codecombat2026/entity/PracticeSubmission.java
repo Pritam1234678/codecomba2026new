@@ -56,4 +56,7 @@ public class PracticeSubmission {
 
     @Column(name = "problem_name")
     private String problemName;
+
+    @Column(name = "github_pushed")
+    private Boolean githubPushed = false;
 }

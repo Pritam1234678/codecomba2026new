@@ -111,4 +111,19 @@ public class CacheService {
         try { redis.delete(key); }
         catch (Exception ignored) {}
     }
+
+    public String getProblemTitle(Long problemId) {
+        try {
+            String cached = get("problem:" + problemId);
+            if (cached != null) {
+                var node = objectMapper.readTree(cached);
+                var titleNode = node.get("title");
+                return titleNode != null ? titleNode.asText() : null;
+            }
+        } catch (Exception ignored) {}
+        try {
+            return problemRepository.findById(problemId)
+                .map(p -> p.getTitle()).orElse(null);
+        } catch (Exception ignored) { return null; }
+    }
 }

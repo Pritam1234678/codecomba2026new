@@ -39,5 +39,10 @@ public interface PracticeSubmissionRepository extends JpaRepository<PracticeSubm
                      @Param("total") int total,
                      @Param("time") Double time,
                      @Param("score") int score,
-                     @Param("details") String details);
+                      @Param("details") String details);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE PracticeSubmission p SET p.githubPushed = true WHERE p.id = :id")
+    void updateGithubPushed(@Param("id") Long id);
 }
