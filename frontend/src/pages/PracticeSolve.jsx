@@ -748,7 +748,7 @@ const PracticeSolve = () => {
                         )}
                     </div>
                     ) : (
-                        <SolutionPanel problemId={parseInt(id)} />
+                        <SolutionPanel problemId={parseInt(id)} currentUserId={currentUserId} />
                     )}
                 </section>
 
