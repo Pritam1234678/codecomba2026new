@@ -4,33 +4,97 @@ You are a coding agent. Your task: read questions from the Excel sheet and inser
 
 ---
 
-## Step 1: Connect to Database
+## Environment / VM Info
 
-The PostgreSQL database runs on a remote VM. Connect via SSH tunnel or directly:
+| Item | Value |
+|------|-------|
+| VM IP | `161.118.187.201` |
+| SSH User | `ubuntu` |
+| SSH Key | `cc-vm_key.pem` (in repo root) |
+| DB Host | `localhost` (inside VM) |
+| DB Port | `5432` |
+| DB Name | `codecombat` |
+| DB User | `postgres` |
+| DB Password | `postgres` |
+| Backend Port | `8080` (Spring Boot) |
+| Backend Service | `codecombat` (systemd) |
+| Backend WAR | `/home/ubuntu/app.war` |
+| Repo Path | `/home/ubuntu/codecombat` |
+| Env File | `/home/ubuntu/codecombat/.env` |
+| Sheet File | `Sheets/Deloitte_100_Coding_Questions.xlsx` (in repo) |
 
+### Quick SSH
 ```bash
-# SSH tunnel (if DB only allows localhost)
-ssh -L 5432:localhost:5432 ubuntu@161.118.187.201 -i cc-vm_key.pem
+ssh -i cc-vm_key.pem ubuntu@161.118.187.201
+```
 
-# Then connect
+### Quick DB Connect (from inside VM)
+```bash
 PGPASSWORD=postgres psql -h localhost -U postgres -d codecombat
 ```
 
-Or use Python:
-```python
-import psycopg2
-conn = psycopg2.connect(
-    host="161.118.187.201",  # or localhost if tunneled
-    port=5432,
-    dbname="codecombat",
-    user="postgres",
-    password="postgres"
-)
+### Quick DB Connect (from your machine via SSH tunnel)
+```bash
+ssh -L 5432:localhost:5432 -i cc-vm_key.pem ubuntu@161.118.187.201
+# Then in another terminal:
+PGPASSWORD=postgres psql -h localhost -U postgres -d codecombat
 ```
 
 ---
 
-## Step 2: Read the Excel Sheet
+## Step 0: Check Which Problems Already Exist
+
+Before generating, check what's already in the DB to avoid duplicates:
+
+```bash
+ssh -i cc-vm_key.pem ubuntu@161.118.187.201 "PGPASSWORD=postgres psql -h localhost -U postgres -d codecombat -t -c 'SELECT LOWER(title) FROM problems ORDER BY title;'"
+```
+
+Or from Python:
+```python
+import psycopg2
+conn = psycopg2.connect(host="161.118.187.201", port=5432, dbname="codecombat", user="postgres", password="postgres")
+cur = conn.cursor()
+cur.execute("SELECT LOWER(title) FROM problems")
+existing = {row[0].strip() for row in cur.fetchall()}
+```
+
+### Useful DB Queries
+```sql
+-- List all problems
+SELECT id, title, level, topics, active FROM problems ORDER BY id;
+
+-- Count problems
+SELECT COUNT(*) FROM problems;
+
+-- Check snippets for a problem
+SELECT problem_id, language, LENGTH(solution_template) as chars FROM code_snippets WHERE problem_id = 69;
+
+-- Find problem by name
+SELECT * FROM problems WHERE LOWER(title) LIKE '%two sum%';
+
+-- List all tables
+\dt
+
+-- Table structures
+\d problems
+\d code_snippets
+```
+
+### Check Backend Health
+```bash
+curl -s http://161.118.187.201:8080/api/health
+# → {"status":"UP"}
+```
+
+### Restart Backend (after bulk inserts to clear cache)
+```bash
+ssh -i cc-vm_key.pem ubuntu@161.118.187.201 "sudo systemctl restart codecombat"
+```
+
+---
+
+## Step 1: Read the Excel Sheet (Skip Existing)
 
 ```python
 import openpyxl
