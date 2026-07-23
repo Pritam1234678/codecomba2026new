@@ -7,6 +7,7 @@ import ProblemService from '../services/problem.service';
 import SkeletonLoader from '../components/SkeletonLoader';
 import api from '../services/api';
 import AuthService from '../services/auth.service';
+import SolutionPanel from '../components/SolutionPanel';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -223,6 +224,7 @@ const PracticeSolve = () => {
     const [subHistoryLoading, setSubHistoryLoading] = useState(false);
     const [selectedSub, setSelectedSub] = useState(null);
     const [solutionsModal, setSolutionsModal] = useState(false);
+    const [leftTab, setLeftTab] = useState('description');
 
     // Solution tab state
                                                                                 const currentUserId = AuthService.getCurrentUser()?.id;
@@ -641,8 +643,17 @@ const PracticeSolve = () => {
             {/* ── Workspace ── */}
             <main id="ps-workspace" style={{ flex: 1, display: 'flex', overflow: 'hidden', cursor: isDragging ? 'col-resize' : 'auto' }}>
 
-                {/* ── Left Pane: Problem Statement ── */}
+                {/* ── Left Pane ── */}
                 <section style={{ width: `${leftWidth}%`, flexShrink: 0, backgroundColor: C.surfaceLow, borderRight: `1px solid ${C.border}`, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ height: '44px', flexShrink: 0, borderBottom: `1px solid ${C.border}`, display: 'flex', backgroundColor: C.surfaceMin }}>
+                        <button onClick={() => setLeftTab('description')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 20px', border: 'none', borderBottom: leftTab === 'description' ? `2px solid ${C.secondary}` : '2px solid transparent', backgroundColor: 'transparent', color: leftTab === 'description' ? C.secondary : C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em', cursor: 'pointer', transition: 'all 0.15s' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>description</span>Description
+                        </button>
+                        <button onClick={() => setLeftTab('solutions')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 20px', border: 'none', borderBottom: leftTab === 'solutions' ? `2px solid ${C.secondary}` : '2px solid transparent', backgroundColor: 'transparent', color: leftTab === 'solutions' ? C.secondary : C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em', cursor: 'pointer', transition: 'all 0.15s' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>lightbulb</span>Solutions
+                        </button>
+                    </div>
+                    {leftTab === 'description' ? (
                     <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
                         {/* Difficulty + status */}
@@ -736,6 +747,9 @@ const PracticeSolve = () => {
                             </div>
                         )}
                     </div>
+                    ) : (
+                        <SolutionPanel problemId={parseInt(id)} />
+                    )}
                 </section>
 
                 {/* Drag Divider */}
