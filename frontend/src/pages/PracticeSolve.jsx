@@ -653,12 +653,11 @@ const PracticeSolve = () => {
                             <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>lightbulb</span>Solutions
                         </button>
                         <div style={{ flex: 1 }} />
-                        <button onClick={handleRun} disabled={running}
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px', margin: '6px 12px', border: `1px solid ${C.secondary}`, color: running ? C.outline : C.bg, backgroundColor: running ? 'transparent' : C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: running ? 'not-allowed' : 'pointer', borderRadius: '3px', opacity: running ? 0.5 : 1, transition: 'all 0.2s', flexShrink: 0 }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1", animation: running ? 'spin 1s linear infinite' : 'none' }}>
-                                {running ? 'sync' : 'play_arrow'}
-                            </span>
-                            {running ? 'Running...' : 'Run'}
+                        <button onClick={openSubmissions}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', margin: '6px 12px', border: `1px solid ${C.border}`, color: C.outline, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '3px', flexShrink: 0, transition: 'all 0.15s' }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.outline; }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>history</span>Submissions
                         </button>
                     </div>
                     {leftTab === 'description' ? (
@@ -876,13 +875,14 @@ const PracticeSolve = () => {
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <button
-                                onClick={openSubmissions}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 18px', border: `1px solid ${C.border}`, color: C.muted, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s' }}
-                                onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
+                                onClick={handleRun}
+                                disabled={running}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 28px', border: `1px solid ${C.secondary}`, color: running ? C.outline : C.bg, backgroundColor: running ? 'transparent' : C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: running ? 'not-allowed' : 'pointer', opacity: running ? 0.5 : 1, transition: 'all 0.2s' }}
                             >
-                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>history</span>
-                                Submissions
+                                <span className="material-symbols-outlined" style={{ fontSize: '16px', fontVariationSettings: "'FILL' 1", animation: running ? 'spin 1s linear infinite' : 'none' }}>
+                                    {running ? 'sync' : 'play_arrow'}
+                                </span>
+                                {running ? 'Running...' : 'Run'}
                             </button>
                         </div>
                     </div>
