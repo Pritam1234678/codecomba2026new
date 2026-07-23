@@ -108,8 +108,8 @@ export default function SolutionPanel({ problemId, currentUserId }) {
                                 loading={<SkeletonLoader compact rows={3} />} />
                         </div>
                         <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <textarea value={formExplanation} onChange={e => setFormExplanation(e.target.value)} placeholder="Explain your approach..." rows={2}
-                                style={{ padding: '8px 12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'Geist', sans-serif", fontSize: '11px', lineHeight: '1.5', resize: 'vertical', outline: 'none' }} />
+                            <textarea value={formExplanation} onChange={e => setFormExplanation(e.target.value)} placeholder="Explain your approach..." rows={5}
+                                style={{ padding: '8px 12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'Geist', sans-serif", fontSize: '11px', lineHeight: '1.5', resize: 'vertical', outline: 'none', minHeight: '100px' }} />
                             <input type="text" value={formImageUrl} onChange={e => setFormImageUrl(e.target.value)} placeholder="Image URL (optional)"
                                 style={{ padding: '7px 12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', outline: 'none' }} />
                             <button onClick={handleCreate} disabled={saving || Object.values(formCodes).every(c => !c.trim())}
@@ -180,8 +180,8 @@ export default function SolutionPanel({ problemId, currentUserId }) {
                             })()}
                             {editing ? (
                                 <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '8px', borderTop: `1px solid ${C.border}` }}>
-                                    <textarea value={editExplanation} onChange={e => setEditExplanation(e.target.value)} placeholder="Explain your approach..." rows={2}
-                                        style={{ padding: '8px 12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'Geist', sans-serif", fontSize: '11px', lineHeight: '1.5', resize: 'vertical', outline: 'none' }} />
+                                    <textarea value={editExplanation} onChange={e => setEditExplanation(e.target.value)} placeholder="Explain your approach..." rows={5}
+                                        style={{ padding: '8px 12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'Geist', sans-serif", fontSize: '11px', lineHeight: '1.5', resize: 'vertical', outline: 'none', minHeight: '100px' }} />
                                     <input type="text" value={editImageUrl} onChange={e => setEditImageUrl(e.target.value)} placeholder="Image URL (optional)"
                                         style={{ padding: '7px 12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', outline: 'none' }} />
                                 </div>
