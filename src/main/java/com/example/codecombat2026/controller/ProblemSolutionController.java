@@ -80,6 +80,49 @@ public class ProblemSolutionController {
         return ResponseEntity.ok(Map.of("count", service.countByProblem(problemId)));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<?> update(@PathVariable Long id,
+                                     @RequestBody Map<String, Object> body,
+                                     @AuthenticationPrincipal UserDetailsImpl user) {
+        String language = (String) body.get("language");
+        String code = (String) body.get("code");
+        String explanation = (String) body.get("explanation");
+        String imageUrl = (String) body.get("imageUrl");
+
+        if (language == null || code == null || code.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "language and code are required"));
+        }
+        ProblemSolution.ProblemLanguages lang;
+        try {
+            lang = ProblemSolution.ProblemLanguages.valueOf(language.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid language: " + language));
+        }
+        try {
+            ProblemSolution s = service.update(id, user.getId(), lang, code, explanation, imageUrl);
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("id", s.getId());
+            res.put("language", s.getLanguage().name());
+            res.put("code", s.getCode());
+            res.put("explanation", s.getExplanation());
+            res.put("imageUrl", s.getImageUrl());
+            return ResponseEntity.ok(res);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> delete(@PathVariable Long id,
+                                     @AuthenticationPrincipal UserDetailsImpl user) {
+        try {
+            service.delete(id, user.getId());
+            return ResponseEntity.ok(Map.of("message", "Solution deleted"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     private Long toLong(Object v) {
         if (v instanceof Number) return ((Number) v).longValue();
         if (v instanceof String) try { return Long.parseLong((String) v); } catch (Exception ignored) {}
