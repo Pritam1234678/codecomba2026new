@@ -9,7 +9,7 @@ import api from '../services/api';
 import AuthService from '../services/auth.service';
 import SolutionPanel from '../components/SolutionPanel';
 
-const GITHUB_CLIENT_ID = 'Ov23liRo8Ce6whLuGjIr';
+const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID || 'Ov23liRo8Ce6whLuGjIr';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
