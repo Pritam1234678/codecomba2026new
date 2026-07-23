@@ -1060,129 +1060,196 @@ const PracticeSolve = () => {
             {solutionsModal && (
                 <div style={{
                     position: 'fixed', inset: 0, zIndex: 1001,
-                    backgroundColor: 'rgba(0,0,0,0.75)',
+                    backgroundColor: 'rgba(0,0,0,0.85)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    backdropFilter: 'blur(4px)',
                 }} onClick={() => setSolutionsModal(false)}>
                     <div style={{
-                        width: 'min(92vw, 960px)', maxHeight: '88vh',
+                        width: 'min(95vw, 1100px)', maxHeight: '90vh',
                         backgroundColor: C.surfaceLow, border: `1px solid ${C.border}`,
-                        display: 'flex', flexDirection: 'column',
+                        display: 'flex', flexDirection: 'column', borderRadius: '4px',
+                        boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
                     }} onClick={e => e.stopPropagation()}>
+                        {/* ── Header ── */}
                         <div style={{
-                            height: '52px', flexShrink: 0, borderBottom: `1px solid ${C.border}`,
+                            height: '54px', flexShrink: 0, borderBottom: `1px solid ${C.border}`,
                             backgroundColor: C.surfaceMin, display: 'flex', alignItems: 'center',
-                            justifyContent: 'space-between', padding: '0 20px',
+                            justifyContent: 'space-between', padding: '0 24px',
                         }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <span className="material-symbols-outlined" style={{ fontSize: '18px', color: C.secondary }}>lightbulb</span>
-                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', letterSpacing: '0.08em', color: C.secondary, textTransform: 'uppercase' }}>
-                                    Solutions
-                                </span>
-                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
-                                    — {solCount} solution{solCount !== 1 ? 's' : ''}
-                                </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: `${C.secondary}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '18px', color: C.secondary }}>lightbulb</span>
+                                </div>
+                                <div>
+                                    <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', fontWeight: 600, color: C.primary }}>
+                                        Solutions
+                                    </span>
+                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, marginLeft: '10px' }}>
+                                        {solCount} solution{solCount !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                 <button onClick={() => setShowAddSolution(!showAddSolution)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', border: `1px solid ${C.secondary}`, color: C.secondary, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s' }}
-                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; }}
-                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.secondary; }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', border: `1px solid ${showAddSolution ? C.border : C.secondary}`, color: showAddSolution ? C.muted : C.bg, backgroundColor: showAddSolution ? 'transparent' : C.secondary, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '3px', transition: 'all 0.2s' }}
+                                    onMouseEnter={e => { if (!showAddSolution) { e.currentTarget.style.filter = 'brightness(1.1)'; } else { e.currentTarget.style.borderColor = C.primary; } }}
+                                    onMouseLeave={e => { if (!showAddSolution) { e.currentTarget.style.filter = ''; } else { e.currentTarget.style.borderColor = C.border; } }}
                                 >
-                                    <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>{showAddSolution ? 'arrow_back' : 'add'}</span>
-                                    {showAddSolution ? 'Back' : 'Add Solution'}
+                                    <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>{showAddSolution ? 'arrow_back' : 'add'}</span>
+                                    {showAddSolution ? 'Back to List' : 'Add Solution'}
                                 </button>
                                 <button onClick={() => setSolutionsModal(false)}
-                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.outline, padding: '4px' }}
+                                    style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', backgroundColor: 'transparent', color: C.outline, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = `${C.error}15`; e.currentTarget.style.color = C.error; }}
+                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.outline; }}
                                 >
-                                    <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>close</span>
                                 </button>
                             </div>
                         </div>
 
                         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                             {showAddSolution ? (
-                                <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Language</label>
-                                        <select value={solLanguage} onChange={e => setSolLanguage(e.target.value)}
-                                            style={{ padding: '6px 12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceHi, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>
-                                            {Object.keys(LANG_MAP).map(l => <option key={l} value={l}>{LANG_MAP[l].label}</option>)}
-                                        </select>
+                                <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ padding: '20px 24px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Language</label>
+                                            <div style={{ display: 'flex', gap: '2px', backgroundColor: C.surfaceHi, border: `1px solid ${C.border}` }}>
+                                                {Object.keys(LANG_MAP).map(l => (
+                                                    <button key={l} onClick={() => setSolLanguage(l)}
+                                                        style={{
+                                                            padding: '6px 14px', border: 'none',
+                                                            backgroundColor: solLanguage === l ? C.secondary : 'transparent',
+                                                            color: solLanguage === l ? C.bg : C.outline,
+                                                            fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
+                                                            letterSpacing: '0.08em', cursor: 'pointer',
+                                                            transition: 'all 0.15s',
+                                                        }}
+                                                    >
+                                                        {l}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <textarea value={solCode} onChange={e => setSolCode(e.target.value)}
-                                        placeholder="Paste your solution code here..."
-                                        style={{ minHeight: '220px', padding: '14px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', lineHeight: '1.6', resize: 'vertical' }} />
-                                    <textarea value={solExplanation} onChange={e => setSolExplanation(e.target.value)}
-                                        placeholder="Explanation (optional)..."
-                                        style={{ minHeight: '80px', padding: '12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'Geist', sans-serif", fontSize: '13px', lineHeight: '1.6', resize: 'vertical' }} />
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Image URL (optional)</label>
-                                        <input type="text" value={solImageUrl} onChange={e => setSolImageUrl(e.target.value)} placeholder="https://..."
-                                            style={{ flex: 1, padding: '6px 12px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceHi, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }} />
+                                    <div style={{ padding: '16px 24px', height: '280px' }}>
+                                        <Editor
+                                            height="100%"
+                                            language={LANG_MAP[solLanguage]?.monaco || 'java'}
+                                            value={solCode}
+                                            onChange={v => setSolCode(v || '')}
+                                            theme="vs-dark"
+                                            options={{ minimap: { enabled: false }, fontSize: 13, lineNumbers: 'on', scrollBeyondLastLine: false, wordWrap: 'on', padding: { top: 12 } }}
+                                            loading={<SkeletonLoader compact rows={3} />}
+                                        />
                                     </div>
-                                    <button onClick={handleAddSolution} disabled={solSaving || !solCode.trim()}
-                                        style={{ alignSelf: 'flex-end', padding: '10px 28px', border: 'none', backgroundColor: solSaving || !solCode.trim() ? C.surfaceHi : C.secondary, color: solSaving || !solCode.trim() ? C.outline : C.bg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: solSaving || !solCode.trim() ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
-                                    >
-                                        {solSaving ? 'Saving...' : 'Submit Solution'}
-                                    </button>
+                                    <div style={{ padding: '0 24px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        <textarea value={solExplanation} onChange={e => setSolExplanation(e.target.value)}
+                                            placeholder="Explain your approach, time complexity, and any optimizations..."
+                                            style={{ minHeight: '80px', padding: '12px 14px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'Geist', sans-serif", fontSize: '13px', lineHeight: '1.7', resize: 'vertical', outline: 'none' }} />
+                                        <input type="text" value={solImageUrl} onChange={e => setSolImageUrl(e.target.value)} placeholder="Image URL — diagram, whiteboard, etc. (optional)"
+                                            style={{ padding: '10px 14px', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', outline: 'none' }} />
+                                        <button onClick={handleAddSolution} disabled={solSaving || !solCode.trim()}
+                                            style={{ alignSelf: 'flex-end', padding: '10px 32px', border: 'none', borderRadius: '3px', backgroundColor: solSaving || !solCode.trim() ? C.surfaceHi : C.secondary, color: solSaving || !solCode.trim() ? C.outline : C.bg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: solSaving || !solCode.trim() ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
+                                            onMouseEnter={e => { if (!solSaving && solCode.trim()) e.currentTarget.style.filter = 'brightness(1.1)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.filter = ''; }}
+                                        >
+                                            {solSaving ? 'Saving...' : 'Submit Solution'}
+                                        </button>
+                                    </div>
                                 </div>
                             ) : solutionsLoading ? (
                                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <SkeletonLoader compact rows={3} />
+                                    <SkeletonLoader compact rows={4} />
                                 </div>
                             ) : solutions.length === 0 ? (
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: C.outline }}>
-                                    <span className="material-symbols-outlined" style={{ fontSize: '40px', color: C.border }}>lightbulb</span>
-                                    <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px' }}>No solutions yet</span>
-                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>Be the first to share a solution!</span>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', color: C.outline }}>
+                                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <span className="material-symbols-outlined" style={{ fontSize: '28px', color: C.border }}>lightbulb</span>
+                                    </div>
+                                    <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', color: C.muted }}>No solutions yet</span>
+                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>Be the first to share your solution.</span>
+                                    <button onClick={() => setShowAddSolution(true)}
+                                        style={{ marginTop: '4px', padding: '10px 24px', border: `1px solid ${C.secondary}`, color: C.secondary, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '3px', transition: 'all 0.2s' }}
+                                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.secondary; e.currentTarget.style.color = C.bg; }}
+                                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.secondary; }}
+                                    >
+                                        Add Solution
+                                    </button>
                                 </div>
                             ) : (
-                                <div style={{ overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div style={{ overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                     {solutions.map((sol, idx) => (
                                         <div key={sol.id || idx} style={{
                                             border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin,
-                                            overflow: 'hidden',
+                                            overflow: 'hidden', borderRadius: '3px',
                                         }}>
+                                            {/* Card header */}
                                             <div style={{
-                                                padding: '10px 16px', borderBottom: `1px solid ${C.border}`,
+                                                padding: '12px 18px', borderBottom: `1px solid ${C.border}`,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                                backgroundColor: C.surfaceHi,
+                                                backgroundColor: '#0e0d0c',
                                             }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                    <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, color: C.primary }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                    <div style={{
+                                                        width: '28px', height: '28px', borderRadius: '50%',
+                                                        backgroundColor: C.surfaceHi, border: `1px solid ${C.border}`,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        fontFamily: "'Geist', sans-serif", fontSize: '11px', fontWeight: 700,
+                                                        color: C.primary,
+                                                    }}>
+                                                        {(sol.userName || 'A')[0].toUpperCase()}
+                                                    </div>
+                                                    <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, color: C.onBg }}>
                                                         {sol.userName || 'Anonymous'}
                                                     </span>
                                                     <span style={{
-                                                        padding: '2px 8px', border: `1px solid ${C.border}`,
-                                                        fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em',
+                                                        padding: '2px 8px', borderRadius: '2px',
+                                                        fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', letterSpacing: '0.12em',
                                                         color: C.secondary, textTransform: 'uppercase',
+                                                        backgroundColor: `${C.secondary}12`, border: `1px solid ${C.secondary}30`,
                                                     }}>
                                                         {sol.language}
                                                     </span>
                                                 </div>
                                                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline }}>
-                                                    {new Date(sol.createdAt).toLocaleDateString()}
+                                                    {new Date(sol.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                                                 </span>
                                             </div>
-                                            <pre style={{
-                                                margin: 0, padding: '14px 16px',
-                                                fontFamily: "'JetBrains Mono', monospace", fontSize: '12px',
-                                                color: C.onBg, lineHeight: '1.7', whiteSpace: 'pre-wrap',
-                                                overflowX: 'auto', backgroundColor: '#0a0a0a',
-                                                borderBottom: sol.explanation || sol.imageUrl ? `1px solid ${C.border}` : 'none',
-                                            }}>
-                                                {sol.code}
-                                            </pre>
+
+                                            {/* Code block — Monaco read-only */}
+                                            <div style={{ height: Math.min(320, Math.max(120, sol.code.split('\n').length * 20 + 32)) }}>
+                                                <Editor
+                                                    height="100%"
+                                                    language={LANG_MAP[sol.language]?.monaco || 'java'}
+                                                    value={sol.code}
+                                                    theme="vs-dark"
+                                                    options={{
+                                                        readOnly: true, minimap: { enabled: false },
+                                                        fontSize: 12, lineNumbers: 'on',
+                                                        scrollBeyondLastLine: false, wordWrap: 'on',
+                                                        padding: { top: 10, bottom: 10 },
+                                                        domReadOnly: true, contextmenu: false,
+                                                    }}
+                                                    loading={<div style={{ height: '100%', backgroundColor: '#0a0a0a' }} />}
+                                                />
+                                            </div>
+
                                             {(sol.explanation || sol.imageUrl) && (
-                                                <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                                <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: '12px', borderTop: `1px solid ${C.border}` }}>
                                                     {sol.explanation && (
-                                                        <p style={{ margin: 0, fontFamily: "'Geist', sans-serif", fontSize: '13px', color: C.muted, lineHeight: '1.6' }}>
-                                                            {sol.explanation}
-                                                        </p>
+                                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', marginTop: '3px', flexShrink: 0 }}>
+                                                                Approach
+                                                            </span>
+                                                            <p style={{ margin: 0, fontFamily: "'Geist', sans-serif", fontSize: '13px', color: C.muted, lineHeight: '1.7' }}>
+                                                                {sol.explanation}
+                                                            </p>
+                                                        </div>
                                                     )}
                                                     {sol.imageUrl && (
-                                                        <img src={sol.imageUrl} alt="solution"
-                                                            style={{ maxWidth: '100%', maxHeight: '300px', border: `1px solid ${C.border}`, objectFit: 'contain' }} />
+                                                        <img src={sol.imageUrl} alt="solution diagram"
+                                                            style={{ maxWidth: '100%', maxHeight: '280px', border: `1px solid ${C.border}`, borderRadius: '2px', objectFit: 'contain' }} />
                                                     )}
                                                 </div>
                                             )}
