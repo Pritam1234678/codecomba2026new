@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import api from '../services/api';
 import SkeletonLoader from './SkeletonLoader';
@@ -114,8 +114,7 @@ export default function PracticeSolutions({ problemId, currentUserId, onClose })
         setActiveLang('JAVA');
     };
 
-    // Init on mount
-    useState(() => { fetchAll(); });
+    useEffect(() => { fetchAll(); }, [problemId]);
 
     return (
         <div style={{

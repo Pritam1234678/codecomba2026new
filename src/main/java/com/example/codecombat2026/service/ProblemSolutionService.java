@@ -18,7 +18,7 @@ public class ProblemSolutionService {
 
     private static final String LIST_KEY_PREFIX  = "solutions:list:";
     private static final String COUNT_KEY_PREFIX = "solutions:count:";
-    private static final Duration TTL = Duration.ofMinutes(5);
+    private static final Duration TTL = Duration.ofMinutes(15);
 
     @Autowired
     private ProblemSolutionRepository repository;
