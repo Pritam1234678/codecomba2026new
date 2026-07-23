@@ -476,7 +476,7 @@ public class SubmissionWorkerPool {
                     String problemTitle = cacheService.getProblemTitle(job.getProblemId());
                     if (problemTitle == null) problemTitle = "Problem-" + job.getProblemId();
                     githubService.pushSolution(job.getUserId(), submissionId,
-                        problemTitle, job.getLanguage(), job.getCode(), job.getUserName());
+                        problemTitle, job.getLanguage(), job.getCode(), null);
                 } catch (Exception e) {
                     log.warn("GitHub auto-push failed: {}", e.getMessage());
                 }
