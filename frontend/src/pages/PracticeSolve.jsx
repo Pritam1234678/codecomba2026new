@@ -233,11 +233,12 @@ const PracticeSolve = () => {
     const [solImageUrl, setSolImageUrl] = useState('');
     const [solSaving, setSolSaving] = useState(false);
     const [solCount, setSolCount] = useState(0);
-    const [editingSol, setEditingSol] = useState(null); // solution being edited
+    const [editingSol, setEditingSol] = useState(null);
     const [editCode, setEditCode] = useState('');
     const [editLang, setEditLang] = useState('JAVA');
     const [editExplanation, setEditExplanation] = useState('');
     const [editImageUrl, setEditImageUrl] = useState('');
+    const [deleteConfirm, setDeleteConfirm] = useState(null);
     const currentUserId = AuthService.getCurrentUser()?.id;
 
     // Layout state
@@ -571,13 +572,15 @@ const PracticeSolve = () => {
         }
     };
 
-    const handleDeleteSolution = async (id) => {
-        if (!window.confirm('Delete this solution?')) return;
+    const handleDeleteSolution = async () => {
+        if (!deleteConfirm) return;
         try {
-            await api.delete(`/practice/solutions/${id}`);
+            await api.delete(`/practice/solutions/${deleteConfirm}`);
+            setDeleteConfirm(null);
             fetchSolutions();
         } catch (err) {
             alert(err.response?.data?.error || 'Failed to delete');
+            setDeleteConfirm(null);
         }
     };
 
@@ -1285,7 +1288,7 @@ const PracticeSolve = () => {
                                                             >
                                                                 <span className="material-symbols-outlined" style={{ fontSize: '13px' }}>edit</span>
                                                             </button>
-                                                            <button onClick={() => handleDeleteSolution(sol.id)}
+                                                            <button onClick={() => setDeleteConfirm(sol.id)}
                                                                 style={{ padding: '4px 10px', border: `1px solid ${C.border}`, backgroundColor: 'transparent', color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', cursor: 'pointer', borderRadius: '2px', transition: 'all 0.15s' }}
                                                                 onMouseEnter={e => { e.currentTarget.style.borderColor = C.error; e.currentTarget.style.color = C.error; }}
                                                                 onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.outline; }}
@@ -1362,6 +1365,46 @@ const PracticeSolve = () => {
                                     })}
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Delete Confirm Popup ── */}
+            {deleteConfirm && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 2000,
+                    backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }} onClick={() => setDeleteConfirm(null)}>
+                    <div style={{
+                        backgroundColor: C.surfaceLow, border: `1px solid ${C.border}`,
+                        padding: '28px 32px', maxWidth: '380px', width: '90%',
+                        display: 'flex', flexDirection: 'column', gap: '20px',
+                        borderRadius: '6px', boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: `${C.error}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '20px', color: C.error }}>delete</span>
+                            </div>
+                            <div>
+                                <p style={{ margin: '0 0 6px', fontFamily: "'Geist', sans-serif", fontSize: '15px', fontWeight: 600, color: C.onBg }}>Delete Solution</p>
+                                <p style={{ margin: 0, fontFamily: "'Geist', sans-serif", fontSize: '13px', color: C.outline, lineHeight: '1.5' }}>
+                                    Are you sure? This action cannot be undone.
+                                </p>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                            <button onClick={() => setDeleteConfirm(null)}
+                                style={{ padding: '8px 20px', border: `1px solid ${C.border}`, backgroundColor: 'transparent', color: C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '3px', transition: 'all 0.15s' }}
+                                onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.color = C.primary; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}
+                            >Cancel</button>
+                            <button onClick={handleDeleteSolution}
+                                style={{ padding: '8px 24px', border: 'none', backgroundColor: C.error, color: C.bg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '3px', transition: 'all 0.15s' }}
+                                onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.1)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.filter = ''; }}
+                            >Delete</button>
                         </div>
                     </div>
                 </div>
