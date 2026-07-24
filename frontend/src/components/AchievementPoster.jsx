@@ -408,6 +408,8 @@ export const STREAK_TIERS = [
     { name: 'Unstoppable',     min: 222, accent: '#e9c176' },
     { name: 'Eternal Flame',   min: 555, accent: '#e9c176' },
 ];
+
+export const TIERS = [
     { name: 'Hello World',    min: 50,   accent: '#f1bc8b' },
     { name: 'Bug Hunter',     min: 100,  accent: '#4ade80' },
     { name: 'Problem Solver', min: 500,  accent: '#e9c176' },
