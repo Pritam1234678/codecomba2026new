@@ -28,6 +28,7 @@ export default function Sheets() {
     const [problems, setProblems] = useState([]);
     const [solved, setSolved] = useState({});
     const [loading, setLoading] = useState(true);
+    const [sheetStats, setSheetStats] = useState(null);
     const [spotlight, setSpotlight] = useState({ x: 50, y: 50 });
     const ctaRef = useRef(null);
 
@@ -36,7 +37,8 @@ export default function Sheets() {
     }, []);
 
     useEffect(() => {
-        api.get('/user/submissions').then(r => {
+        // Check solved from practice submissions
+        api.get('/submissions/user').then(r => {
             const map = {};
             (r.data || []).forEach(s => {
                 if (s.status === 'AC' && s.problemId) map[s.problemId] = true;
@@ -52,14 +54,30 @@ export default function Sheets() {
             const r = await api.get(`/sheets/${sheet.id}`);
             const pids = r.data?.problemIds || [];
             const all = await api.get('/problems');
-            const filtered = (all.data || []).filter(p => pids.includes(p.id));
-            setProblems(filtered.map((p, i) => ({
-                id: p.id,
-                no: i + 1,
-                name: p.title,
-                difficulty: p.level || 'Medium',
-                topic: p.topics?.split(',')[0]?.trim() || '—',
-            })));
+            const filtered = (all.data || [])
+                .filter(p => pids.includes(p.id) && p.active)
+                .map((p, i) => ({
+                    id: p.id,
+                    no: i + 1,
+                    name: p.title,
+                    difficulty: p.level || 'Medium',
+                    topic: p.topics || '—',
+                }));
+
+            // Compute stats
+            const easyCount = filtered.filter(p => p.difficulty === 'EASY').length;
+            const mediumCount = filtered.filter(p => p.difficulty === 'MEDIUM').length;
+            const hardCount = filtered.filter(p => p.difficulty === 'HARD').length;
+            const topicsSet = new Set(filtered.map(p => p.topic?.split(',')[0]?.trim()).filter(Boolean));
+            setSheetStats({
+                total: filtered.length,
+                easy: easyCount,
+                medium: mediumCount,
+                hard: hardCount,
+                topics: topicsSet.size,
+                difficulty: easyCount > mediumCount ? 'Easy' : mediumCount > hardCount ? 'Medium' : 'Hard',
+            });
+            setProblems(filtered);
         } catch (e) {
             setProblems([]);
         }
@@ -131,8 +149,12 @@ export default function Sheets() {
                                         <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span> Back
                                     </button>
                                     <div>
-                                        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 600, color: C.primary, margin: '0 0 4px' }}>{selected.name}</h2>
-                                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>{selected.company} · {problems.length} problems</span>
+                                                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 600, color: C.primary, margin: '0 0 4px' }}>{selected.name}</h2>
+                                                {sheetStats && (
+                                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
+                                                        {selected.company} · {sheetStats.total} problems · {sheetStats.easy}E {sheetStats.medium}M {sheetStats.hard}H · {sheetStats.topics} topics
+                                                    </span>
+                                                )}
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
