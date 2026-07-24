@@ -276,8 +276,6 @@ const Days = ({ n, accent, locked }) => (
     </div>
 );
 
-);
-
 // ── 7. STREAK WALKER — 10 days, soft amber glow ──────────────────────────
 function StreakWalker({ locked, accent = '#f1bc8b' }) {
     return (
