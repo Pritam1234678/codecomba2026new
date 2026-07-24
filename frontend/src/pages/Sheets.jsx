@@ -58,7 +58,7 @@ export default function Sheets() {
             <div style={{ position: 'fixed', inset: 0, opacity: 0.03, pointerEvents: 'none', zIndex: 0,
                 backgroundImage: `repeating-linear-gradient(-45deg, transparent, transparent 40px, ${C.borderSolid} 40px, ${C.borderSolid} 41px)` }} />
 
-            <div style={{ position: 'relative', zIndex: 1, maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '40px 24px' : '72px 64px' }}>
+            <div style={{ position: 'relative', zIndex: 1, padding: isMobile ? '40px 24px' : '72px 64px' }}>
 
                 {/* ── Hero ── */}
                 <motion.header
