@@ -27,7 +27,6 @@ export default function ActivityGrid({ userId }) {
     const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
     const [loading, setLoading] = useState(true);
     const [maxStreak, setMaxStreak] = useState(0);
-    const [currentStreak, setCurrentStreak] = useState(0);
 
     useEffect(() => {
         const fetchActivity = async () => {
@@ -57,7 +56,6 @@ export default function ActivityGrid({ userId }) {
             try {
                 const pr = await api.get('/user/profile');
                 setMaxStreak(pr.data?.maxStreak || 0);
-                setCurrentStreak(pr.data?.currentStreak || 0);
             } catch (e) { }
             setLoading(false);
         };
