@@ -4,7 +4,7 @@ import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
 import api from '../services/api';
 import AuthService from '../services/auth.service';
 import useResponsive from '../hooks/useResponsive';
-import AchievementPoster, { TIERS } from '../components/AchievementPoster';
+import AchievementPoster, { TIERS, STREAK_TIERS } from '../components/AchievementPoster';
 import SkeletonLoader from '../components/SkeletonLoader';
 
 const C = {
@@ -178,6 +178,7 @@ export default function Socials() {
     const shownName = profile?.fullName || currentUser?.username || 'Player';
     const initials = shownName.charAt(0).toUpperCase();
     const userPoints = stats?.totalPoints ?? profile?.totalPoints ?? 0;
+    const userStreak = profile?.maxStreak ?? 0;
 
     return (
         <div ref={containerRef} style={{ minHeight: '100vh', backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", position: 'relative', overflow: 'hidden' }}>
@@ -423,6 +424,28 @@ export default function Socials() {
                         );
                         return <div key={t.name} style={span}><AchievementPoster tier={t} unlocked={unlocked} /></div>;
                     })}
+                </div>
+
+                {/* Streak Achievements */}
+                <div style={{ marginTop: '2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1.5rem' }}>
+                        <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '24px', fontWeight: 600, color: C.secondary }}>Streak Milestones</span>
+                        <div style={{ width: '40px', height: '1px', background: C.border, alignSelf: 'center' }} />
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>days</span>
+                    </div>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr',
+                        gap: '2px',
+                    }}>
+                        {STREAK_TIERS.map((t, i) => {
+                            const unlocked = userStreak >= t.min;
+                            const span = isMobile ? {} : (
+                                i === 1 || i === 4 ? { gridColumn: 'span 2' } : {}
+                            );
+                            return <div key={t.name} style={span}><AchievementPoster tier={t} unlocked={unlocked} /></div>;
+                        })}
+                    </div>
                 </div>
             </div>
 
