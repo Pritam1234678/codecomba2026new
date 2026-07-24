@@ -103,6 +103,10 @@ public class SubmissionWorkerPool {
     @Lazy
     private GitHubService githubService;
 
+    @Autowired
+    @Lazy
+    private StreakService streakService;
+
     @PostConstruct
     public void startWorkers() {
         instanceId = ManagementFactory.getRuntimeMXBean().getName(); // pid@host
@@ -458,6 +462,11 @@ public class SubmissionWorkerPool {
                 } catch (Exception ignored) {}
             }
 
+            // Update streak for all real submissions (contest + practice)
+            if (!job.isTestRun() && job.getDuelId() == null) {
+                try { streakService.updateStreak(job.getUserId()); } catch (Exception ignored) {}
+            }
+
             // 5a. Practice mode — award points on first AC
             //     contestId is null for practice, so the leaderboard gate above
             //     already skipped it. Practice scoring uses user_problem_solved
@@ -470,6 +479,10 @@ public class SubmissionWorkerPool {
                     log.warn("Practice points award failed for user {} problem {}: {}",
                         job.getUserId(), job.getProblemId(), e.getMessage());
                 }
+
+                // Update streak on practice AC
+                try { streakService.updateStreak(job.getUserId()); } catch (Exception ignored) {}
+            }
 
                 // GitHub auto-push on AC practice submission
                 try {
@@ -484,6 +497,8 @@ public class SubmissionWorkerPool {
         } else {
             // 2b/3b/4b. Duel branch — no leaderboard, no caches.
             // Hand off to DuelService for room state + win adjudication.
+            // Also update streak for duel submission.
+            try { streakService.updateStreak(job.getUserId()); } catch (Exception ignored) {}
             try {
                 duelService.onDuelVerdict(
                     job.getDuelId(), job.getUserId(), submissionId,

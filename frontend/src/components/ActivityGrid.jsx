@@ -26,6 +26,8 @@ export default function ActivityGrid({ userId }) {
     const [hovered, setHovered] = useState(null);
     const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
     const [loading, setLoading] = useState(true);
+    const [maxStreak, setMaxStreak] = useState(0);
+    const [currentStreak, setCurrentStreak] = useState(0);
 
     useEffect(() => {
         const fetchActivity = async () => {
@@ -50,6 +52,12 @@ export default function ActivityGrid({ userId }) {
                 (duels.data || []).forEach(d => addEntry(d.endedAt, 'duel'));
 
                 setActivity(days);
+            } catch (e) { }
+            // Fetch user profile for max streak
+            try {
+                const pr = await api.get('/user/profile');
+                setMaxStreak(pr.data?.maxStreak || 0);
+                setCurrentStreak(pr.data?.currentStreak || 0);
             } catch (e) { }
             setLoading(false);
         };
@@ -136,8 +144,12 @@ export default function ActivityGrid({ userId }) {
                 </div>
                 <div style={{ display: 'flex', gap: '28px' }}>
                     <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', display: 'block' }}>Streak</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', display: 'block' }}>Current</span>
                         <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 300, color: C.secondary }}>{currentStreak}d</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', display: 'block' }}>Best</span>
+                        <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 300, color: C.secondary }}>{maxStreak}d</span>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', display: 'block' }}>Submissions</span>

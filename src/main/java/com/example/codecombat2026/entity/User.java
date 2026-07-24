@@ -55,6 +55,15 @@ public class User {
     @Column(name = "github_username", length = 255)
     private String githubUsername;
 
+    @Column(name = "max_streak")
+    private Integer maxStreak = 0;
+
+    @Column(name = "current_streak")
+    private Integer currentStreak = 0;
+
+    @Column(name = "last_active_date")
+    private java.time.LocalDate lastActiveDate;
+
     @Column(nullable = false)
     private Boolean enabled = true;
 
