@@ -22,6 +22,8 @@ export default function AdminSheets() {
     const [sheetProblems, setSheetProblems] = useState({});
     const [searchProblems, setSearchProblems] = useState('');
     const [deleteId, setDeleteId] = useState(null);
+    const [problemPage, setProblemPage] = useState(0);
+    const PROBLEM_PAGE_SIZE = 20;
 
     useEffect(() => {
         Promise.all([api.get('/admin/sheets'), api.get('/problems')])
@@ -39,6 +41,8 @@ export default function AdminSheets() {
     const handleExpand = (id) => {
         if (expandedId === id) { setExpandedId(null); return; }
         setExpandedId(id);
+        setProblemPage(0);
+        setSearchProblems('');
         if (!sheetProblems[id]) fetchSheetProblems(id);
     };
 
@@ -99,6 +103,8 @@ export default function AdminSheets() {
     const filteredProblems = allProblems.filter(p =>
         !searchProblems || p.title?.toLowerCase().includes(searchProblems.toLowerCase())
     );
+    const problemTotalPages = Math.ceil(filteredProblems.length / PROBLEM_PAGE_SIZE);
+    const pagedProblems = filteredProblems.slice(problemPage * PROBLEM_PAGE_SIZE, (problemPage + 1) * PROBLEM_PAGE_SIZE);
 
     const sheetProblemList = (id) => {
         const pids = sheetProblems[id] || [];
@@ -190,7 +196,7 @@ export default function AdminSheets() {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', gap: '12px', flexWrap: 'wrap' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderBottom: `1px solid ${C.border}`, paddingBottom: '6px', flex: 1, maxWidth: '360px' }}>
                                                     <span className="material-symbols-outlined" style={{ fontSize: '16px', color: C.outline }}>search</span>
-                                                    <input value={searchProblems} onChange={e => setSearchProblems(e.target.value)} placeholder="Filter problems..."
+                                                    <input value={searchProblems} onChange={e => { setSearchProblems(e.target.value); setProblemPage(0); }} placeholder="Filter problems..."
                                                         style={{ background: 'none', border: 'none', outline: 'none', color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', width: '100%' }} />
                                                 </div>
                                                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -235,8 +241,9 @@ export default function AdminSheets() {
                                                 {filteredProblems.length === 0 ? (
                                                     <div style={{ padding: '32px', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin }}>No problems match</div>
                                                 ) : (
+                                                    <>
                                                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
-                                                        {filteredProblems.map((p, idx) => {
+                                                        {pagedProblems.map((p, idx) => {
                                                             const isInSheet = (sheetProblems[sheet.id] || []).includes(p.id);
                                                             const diffColor = p.level === 'EASY' ? '#f1bc8b' : p.level === 'MEDIUM' ? C.secondary : C.error;
                                                             const randomHeight = 100 + ((p.id * 7) % 60);
@@ -300,6 +307,26 @@ export default function AdminSheets() {
                                                             );
                                                         })}
                                                     </div>
+                                                )}
+                                                    {problemTotalPages > 1 && (
+                                                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '14px' }}>
+                                                            <button onClick={() => setProblemPage(p => Math.max(0, p - 1))} disabled={problemPage === 0}
+                                                                style={{ padding: '4px 12px', border: `1px solid ${C.border}`, backgroundColor: 'transparent', color: problemPage === 0 ? C.border : C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', cursor: problemPage === 0 ? 'not-allowed' : 'pointer' }}>← Prev</button>
+                                                            {Array.from({length: problemTotalPages}, (_,i) => i).filter(n => n === 0 || n === problemTotalPages-1 || Math.abs(n - problemPage) <= 2).reduce((acc, n, idx, arr) => { if(idx>0 && n-arr[idx-1]>1) acc.push('…'); acc.push(n); return acc; }, []).map((item, idx) => item === '…' ? (
+                                                                <span key={`e${idx}`} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline, padding: '0 2px' }}>…</span>
+                                                            ) : (
+                                                                <button key={item} onClick={() => setProblemPage(item)}
+                                                                    style={{ width: '26px', height: '26px', border: `1px solid ${problemPage === item ? C.secondary : C.border}`, backgroundColor: problemPage === item ? C.secondary : 'transparent', color: problemPage === item ? C.bg : C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', cursor: 'pointer', borderRadius: '2px' }}>
+                                                                    {item + 1}
+                                                                </button>
+                                                            ))}
+                                                            <button onClick={() => setProblemPage(p => Math.min(problemTotalPages-1, p+1))} disabled={problemPage >= problemTotalPages-1}
+                                                                style={{ padding: '4px 12px', border: `1px solid ${C.border}`, backgroundColor: 'transparent', color: problemPage >= problemTotalPages-1 ? C.border : C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', cursor: problemPage >= problemTotalPages-1 ? 'not-allowed' : 'pointer' }}>Next →</button>
+                                                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: C.outline, marginLeft: '8px' }}>
+                                                                {problemPage * PROBLEM_PAGE_SIZE + 1}–{Math.min((problemPage + 1) * PROBLEM_PAGE_SIZE, filteredProblems.length)} of {filteredProblems.length}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 )}
                                             </div>
                                         </div>
