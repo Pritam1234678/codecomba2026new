@@ -38,7 +38,7 @@ export default function Sheets() {
 
     useEffect(() => {
         // Check solved from practice submissions
-        api.get('/submissions/user').then(r => {
+        api.get('/practice/submissions/user').then(r => {
             const map = {};
             (r.data || []).forEach(s => {
                 if (s.status === 'AC' && s.problemId) map[s.problemId] = true;

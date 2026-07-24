@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -37,6 +39,7 @@ public class PracticeController {
     @Autowired private UserProblemSolvedRepository solvedRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private PracticeService practiceService;
+    @Autowired private com.example.codecombat2026.repository.PracticeSubmissionRepository practiceSubmissionRepository;
     @Autowired private org.springframework.data.redis.core.StringRedisTemplate redis;
     @Autowired private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
@@ -205,6 +208,24 @@ public class PracticeController {
     /** Invalidate submission history cache for a user+problem. */
     public void evictSubmissionCache(Long userId, Long problemId) {
         try { redis.delete("practice:submissions:" + userId + ":" + problemId); } catch (Exception ignored) {}
+    }
+
+    /** Fetch all practice submissions for the current user (for solved status). */
+    @GetMapping("/submissions/user")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getAllUserSubmissions(@AuthenticationPrincipal UserDetailsImpl user) {
+        List<PracticeSubmission> subs = practiceSubmissionRepository.findByUserIdOrderBySubmittedAtDesc(user.getId());
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (PracticeSubmission s : subs) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", s.getId());
+            m.put("problemId", s.getProblemId());
+            m.put("status", s.getStatus() != null ? s.getStatus().name() : null);
+            m.put("language", s.getLanguage() != null ? s.getLanguage().name() : null);
+            m.put("submittedAt", s.getSubmittedAt());
+            result.add(m);
+        }
+        return ResponseEntity.ok(result);
     }
 
     /** User's overall practice stats. */
