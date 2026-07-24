@@ -227,33 +227,80 @@ export default function AdminSheets() {
                                                 </div>
                                             )}
 
-                                            {/* Available problems */}
+                                            {/* Available problems — card grid */}
                                             <div>
-                                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.12em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
+                                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.12em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '12px' }}>
                                                     Available problems ({filteredProblems.length})
                                                 </span>
-                                                <div style={{ maxHeight: '300px', overflowY: 'auto', border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin }}>
-                                                    {filteredProblems.length === 0 ? (
-                                                        <div style={{ padding: '24px', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>No problems match</div>
-                                                    ) : (
-                                                        filteredProblems.map(p => {
+                                                {filteredProblems.length === 0 ? (
+                                                    <div style={{ padding: '32px', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, border: `1px solid ${C.border}`, backgroundColor: C.surfaceMin }}>No problems match</div>
+                                                ) : (
+                                                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
+                                                        {filteredProblems.map((p, idx) => {
                                                             const isInSheet = (sheetProblems[sheet.id] || []).includes(p.id);
+                                                            const diffColor = p.level === 'EASY' ? C.success : p.level === 'MEDIUM' ? C.secondary : C.error;
+                                                            const randomHeight = 100 + ((p.id * 7) % 60);
                                                             return (
-                                                                <div key={p.id} onClick={() => toggleProblem(sheet.id, p.id, !isInSheet)}
-                                                                    style={{ padding: '10px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', transition: 'background-color 0.1s' }}
-                                                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = C.surfaceHi}
-                                                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                                                    <span className="material-symbols-outlined" style={{ fontSize: '16px', color: isInSheet ? C.success : C.border, fontVariationSettings: "'FILL' 1", flexShrink: 0 }}>
-                                                                        {isInSheet ? 'check_box' : 'check_box_outline_blank'}
-                                                                    </span>
-                                                                    <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', color: isInSheet ? C.success : C.onBg, flex: 1 }}>{p.title}</span>
-                                                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: C.outline, letterSpacing: '0.06em', padding: '2px 8px', border: `1px solid ${C.borderSolid}` }}>{p.level}</span>
-                                                                    {p.topics && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: C.outline }}>{p.topics.split(',')[0]?.trim()}</span>}
-                                                                </div>
+                                                                <motion.div
+                                                                    key={p.id}
+                                                                    initial={{ opacity: 0, scale: 0.92, y: 12 }}
+                                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                                    transition={{ duration: 0.3, delay: idx * 0.02 }}
+                                                                    whileHover={{ y: -3, boxShadow: `0 8px 24px rgba(241,188,139,0.08)` }}
+                                                                    onClick={() => toggleProblem(sheet.id, p.id, !isInSheet)}
+                                                                    style={{
+                                                                        cursor: 'pointer',
+                                                                        border: isInSheet ? `1px solid ${C.success}40` : `1px solid ${C.border}`,
+                                                                        backgroundColor: isInSheet ? `${C.success}05` : C.surfaceMin,
+                                                                        padding: '16px',
+                                                                        display: 'flex', flexDirection: 'column', gap: '10px',
+                                                                        transition: 'all 0.2s',
+                                                                        position: 'relative', overflow: 'hidden',
+                                                                        minHeight: `${randomHeight}px`,
+                                                                    }}>
+                                                                    {/* Left accent */}
+                                                                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', backgroundColor: isInSheet ? C.success : diffColor, opacity: 0.5 }} />
+
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                                                        <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 500, color: isInSheet ? C.success : C.onBg, lineHeight: 1.4, flex: 1 }}>
+                                                                            {p.title}
+                                                                        </span>
+                                                                        <motion.div
+                                                                            animate={{ scale: isInSheet ? [1, 1.2, 1] : 1 }}
+                                                                            transition={{ duration: 0.3 }}
+                                                                            style={{ flexShrink: 0, marginTop: '2px' }}>
+                                                                            {isInSheet ? (
+                                                                                <span className="material-symbols-outlined" style={{ fontSize: '18px', color: C.success, fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                                                                            ) : (
+                                                                                <span className="material-symbols-outlined" style={{ fontSize: '18px', color: C.border }}>add_circle</span>
+                                                                            )}
+                                                                        </motion.div>
+                                                                    </div>
+
+                                                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: 'auto' }}>
+                                                                        <span style={{
+                                                                            padding: '2px 8px', borderRadius: '2px',
+                                                                            fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', letterSpacing: '0.08em',
+                                                                            border: `1px solid ${diffColor}30`, color: diffColor, textTransform: 'uppercase',
+                                                                        }}>
+                                                                            {p.level}
+                                                                        </span>
+                                                                        {p.topics?.split(',')[0]?.trim() && (
+                                                                            <span style={{ padding: '2px 8px', borderRadius: '2px', fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: C.outline, border: `1px solid ${C.border}` }}>
+                                                                                {p.topics.split(',')[0].trim()}
+                                                                            </span>
+                                                                        )}
+                                                                        {p.topics?.split(',')[1]?.trim() && (
+                                                                            <span style={{ padding: '2px 8px', borderRadius: '2px', fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: C.outline, border: `1px solid ${C.border}` }}>
+                                                                                {p.topics.split(',')[1].trim()}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </motion.div>
                                                             );
-                                                        })
-                                                    )}
-                                                </div>
+                                                        })}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </motion.div>
