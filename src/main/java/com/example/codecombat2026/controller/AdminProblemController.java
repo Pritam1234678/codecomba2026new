@@ -132,6 +132,7 @@ public class AdminProblemController {
         if (problemDetails.getLevel() != null && !problemDetails.getLevel().isBlank()) {
             problem.setLevel(problemDetails.getLevel());
         }
+        problem.setTopics(problemDetails.getTopics());
 
         Problem saved = problemRepository.save(problem);
         problemService.evictProblem(id);
