@@ -117,6 +117,43 @@ export default function Sheets() {
 
                 {!selected ? (
                     <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}>
+                        {/* Feature highlight cards */}
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: '12px', marginBottom: '32px' }}>
+                            {[
+                                { icon: 'checklist', title: 'Track Progress', desc: 'Mark problems solved. Watch your completion bar fill as you master each topic.' },
+                                { icon: 'tactic', title: 'Company Specific', desc: 'Curated by real interview experiences. Focus on what actually gets asked.' },
+                                { icon: 'license', title: 'Structured Path', desc: 'Problems organized by topic and difficulty. Build skills incrementally.' },
+                            ].map((f, i) => (
+                                <motion.div key={f.title} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.1 }}
+                                    style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceLow, padding: '24px', display: 'flex', flexDirection: 'column', gap: '10px', transition: 'border-color 0.3s' }}
+                                    onMouseEnter={e => e.currentTarget.style.borderColor = C.borderSolid}
+                                    onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: '22px', color: C.secondary }}>{f.icon}</span>
+                                    <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '14px', fontWeight: 600, color: C.primary }}>{f.title}</span>
+                                    <span style={{ fontSize: '13px', color: C.outline, lineHeight: 1.5 }}>{f.desc}</span>
+                                </motion.div>
+                            ))}
+                        </div>
+
+                        {/* Stats strip */}
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr 1fr', gap: '1px', backgroundColor: C.border, marginBottom: '24px' }}>
+                            {[
+                                { value: sheets.length, label: 'Sheets', sub: 'Available Now' },
+                                { value: '100+', label: 'Problems', sub: 'Curated Collection' },
+                                { value: '15+', label: 'Topics', sub: 'Full Coverage' },
+                                { value: 'Free', label: 'Access', sub: 'No Limits' },
+                            ].map((s, i) => (
+                                <div key={s.label} style={{ backgroundColor: C.surfaceLow, padding: '20px', textAlign: 'center' }}>
+                                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 300, color: C.secondary, marginBottom: '4px' }}>{s.value}</div>
+                                    <div style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, color: C.primary }}>{s.label}</div>
+                                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: C.outline, letterSpacing: '0.06em', marginTop: '4px' }}>{s.sub}</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase', marginBottom: '12px' }}>
+                            Available Sheets
+                        </div>
                         {sheets.map(sheet => (
                             <div key={sheet.id} onClick={() => navigate(`/sheets/${(sheet.company || sheet.name || '').toLowerCase().replace(/\s+/g, '-')}`)} ref={ctaRef}
                                 onMouseMove={e => { if (ctaRef.current) { const r = ctaRef.current.getBoundingClientRect(); setSpotlight({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 }); } }}
