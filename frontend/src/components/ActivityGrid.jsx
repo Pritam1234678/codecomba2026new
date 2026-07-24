@@ -17,10 +17,14 @@ const INTENSITY = [
     'rgba(233,193,118,1)',
 ];
 
+const DAY_LABELS = ['Mon', '', 'Wed', '', 'Fri', '', 'Sun'];
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 export default function ActivityGrid({ userId }) {
     const { isMobile } = useResponsive();
     const [activity, setActivity] = useState({});
     const [hovered, setHovered] = useState(null);
+    const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -33,15 +37,17 @@ export default function ActivityGrid({ userId }) {
                 ]);
 
                 const days = {};
-                const addDay = (dateStr) => {
+                const addEntry = (dateStr, type) => {
                     if (!dateStr) return;
                     const d = dateStr.substring(0, 10);
-                    days[d] = (days[d] || 0) + 1;
+                    if (!days[d]) days[d] = { total: 0, practice: 0, contest: 0, duel: 0 };
+                    days[d].total++;
+                    days[d][type]++;
                 };
 
-                (subs.data || []).forEach(s => addDay(s.submittedAt));
-                (practice.data || []).forEach(s => addDay(s.submittedAt));
-                (duels.data || []).forEach(d => addDay(d.endedAt));
+                (subs.data || []).forEach(s => addEntry(s.submittedAt, 'contest'));
+                (practice.data || []).forEach(s => addEntry(s.submittedAt, 'practice'));
+                (duels.data || []).forEach(d => addEntry(d.endedAt, 'duel'));
 
                 setActivity(days);
             } catch (e) { }
@@ -50,158 +56,143 @@ export default function ActivityGrid({ userId }) {
         fetchActivity();
     }, [userId]);
 
-    const { weeks, months, totalDays, activeDays, currentStreak, maxCount } = useMemo(() => {
+    const { weeks, months, totalDays, activeDays, currentStreak } = useMemo(() => {
         const start = new Date('2026-05-01');
         const today = new Date();
         today.setHours(23, 59, 59, 999);
 
         const allDays = [];
-        const monthsList = [];
         let current = new Date(start);
-        let weekIndex = 0;
-        let monthIndex = -1;
-        let lastMonth = -1;
 
         while (current <= today) {
             const dateStr = current.toISOString().substring(0, 10);
-            const month = current.getMonth();
-
-            if (month !== lastMonth) {
-                lastMonth = month;
-                monthIndex++;
-                const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                monthsList.push({ index: weekIndex, label: names[month] });
-            }
-
-            const count = activity[dateStr] || 0;
-            allDays.push({
-                date: dateStr,
-                count,
-                level: count === 0 ? 0 : Math.min(5, Math.ceil(count / 2)),
-                dayOfWeek: current.getDay(),
-            });
+            const data = activity[dateStr];
+            const count = data ? data.total : 0;
+            const level = count === 0 ? 0 : Math.min(5, Math.ceil(count / 2));
+            allDays.push({ date: dateStr, count, level, data: data || { total: 0, practice: 0, contest: 0, duel: 0 } });
             current.setDate(current.getDate() + 1);
         }
 
-        // Pad start to align with Monday
-        const startDayOfWeek = start.getDay();
-        const padStart = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
+        // Pad to align Monday start
+        const startDOW = start.getDay();
+        const padStart = startDOW === 0 ? 6 : startDOW - 1;
         for (let i = 0; i < padStart; i++) allDays.unshift(null);
 
-        // Group into weeks
+        // Group into weeks (Monday-Sunday)
         const weeksArr = [];
         for (let i = 0; i < allDays.length; i += 7) {
-            weeksArr.push(allDays.slice(i, i + 7));
+            const week = allDays.slice(i, i + 7);
+            while (week.length < 7) week.push(null);
+            weeksArr.push({ days: week, index: weeksArr.length });
         }
+
+        // Month positions
+        const monthsArr = [];
+        let lastMonth = -1;
+        weeksArr.forEach((week, wi) => {
+            const firstDay = week.days.find(d => d !== null);
+            if (firstDay) {
+                const m = parseInt(firstDay.date.substring(5, 7)) - 1;
+                if (m !== lastMonth) {
+                    lastMonth = m;
+                    monthsArr.push({ weekIndex: wi, label: MONTH_NAMES[m] });
+                }
+            }
+        });
 
         const active = allDays.filter(d => d && d.count > 0).length;
         let streak = 0;
-        const now = today.toISOString().substring(0, 10);
         for (let i = allDays.length - 1; i >= 0; i--) {
             const d = allDays[i];
             if (!d) continue;
-            if (activity[d.date] && activity[d.date] > 0) streak++;
+            if (activity[d.date] && activity[d.date].total > 0) streak++;
             else break;
         }
 
-        const max = Math.max(1, ...Object.values(activity));
-
-        return {
-            weeks: weeksArr,
-            months: monthsList,
-            totalDays: allDays.filter(Boolean).length,
-            activeDays: active,
-            currentStreak: streak,
-            maxCount: max,
-        };
+        return { weeks: weeksArr, months: monthsArr, totalDays: allDays.filter(Boolean).length, activeDays: active, currentStreak: streak };
     }, [activity]);
 
     if (loading) return null;
 
-    const dayLabels = ['', 'Mon', '', 'Wed', '', 'Fri', ''];
+    const totalSubs = Object.values(activity).reduce((a, b) => a + b.total, 0);
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}
             style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceLow, padding: isMobile ? '20px' : '28px 32px', marginBottom: '24px', position: 'relative', overflow: 'hidden' }}
         >
-            {/* Decorative corner accent */}
-            <div style={{ position: 'absolute', top: 0, right: 0, width: '120px', height: '120px', background: `radial-gradient(circle at 100% 0%, ${C.secondary}10, transparent 70%)`, pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: 0, right: 0, width: '140px', height: '140px', background: `radial-gradient(circle at 100% 0%, ${C.secondary}10, transparent 70%)`, pointerEvents: 'none' }} />
 
-            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                 <div>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
-                        Activity
-                    </span>
-                    <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '24px', fontWeight: 600, color: C.primary }}>
-                        {activeDays} day{activeDays !== 1 ? 's' : ''} active
-                    </span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Activity</span>
+                    <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '24px', fontWeight: 600, color: C.primary }}>{activeDays} day{activeDays !== 1 ? 's' : ''} active</span>
                 </div>
-                <div style={{ display: 'flex', gap: '24px' }}>
+                <div style={{ display: 'flex', gap: '28px' }}>
                     <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', display: 'block' }}>Current Streak</span>
-                        <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 300, color: C.secondary }}>
-                            {currentStreak} day{currentStreak !== 1 ? 's' : ''}
-                        </span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', display: 'block' }}>Streak</span>
+                        <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 300, color: C.secondary }}>{currentStreak}d</span>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', display: 'block' }}>Total Submissions</span>
-                        <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 300, color: C.secondary }}>
-                            {Object.values(activity).reduce((a, b) => a + b, 0)}
-                        </span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.1em', color: C.outline, textTransform: 'uppercase', display: 'block' }}>Submissions</span>
+                        <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 300, color: C.secondary }}>{totalSubs}</span>
                     </div>
                 </div>
             </div>
 
-            {/* Grid */}
-            <div style={{ overflowX: 'auto', paddingBottom: '8px' }}>
+            <div style={{ overflowX: 'auto', paddingBottom: '4px' }}>
                 {/* Month labels */}
-                <div style={{ display: 'flex', marginLeft: '28px', marginBottom: '4px' }}>
-                    {months.filter((_, i) => i === 0 || months[i].index - months[i-1].index >= 4).map((m, i) => (
-                        <span key={i} style={{
-                            fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: C.outline,
-                            letterSpacing: '0.06em', marginLeft: i === 0 ? `${m.index * 14 + 2}px` : `${(m.index - months[i-1].index) * 14 - 6}px`,
-                        }}>
-                            {m.label}
-                        </span>
-                    ))}
+                <div style={{ display: 'flex', marginLeft: '30px', marginBottom: '6px', height: '16px', position: 'relative' }}>
+                    {months.map((m, i) => {
+                        const left = 30 + m.weekIndex * 14;
+                        const prevLeft = i > 0 ? 30 + months[i - 1].weekIndex * 14 : -100;
+                        const gap = left - prevLeft;
+                        return (
+                            <span key={i} style={{
+                                position: 'absolute', left: `${left}px`,
+                                fontFamily: "'JetBrains Mono', monospace", fontSize: '9px',
+                                color: C.outline, letterSpacing: '0.06em',
+                                minWidth: gap > 60 ? `${Math.min(gap - 4, 80)}px` : 'auto',
+                            }}>
+                                {gap > 30 ? m.label : ''}
+                            </span>
+                        );
+                    })}
                 </div>
 
-                <div style={{ display: 'flex', gap: '2px' }}>
+                <div style={{ display: 'flex', gap: '3px' }}>
                     {/* Day labels */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginRight: '6px', paddingTop: '2px' }}>
-                        {dayLabels.map((l, i) => (
-                            <div key={i} style={{ width: '22px', height: '12px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '7px', color: C.outline, letterSpacing: '0.04em' }}>{l}</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginRight: '4px', paddingTop: '2px' }}>
+                        {DAY_LABELS.map((l, i) => (
+                            <div key={i} style={{ width: '24px', height: '12px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                                {l ? <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '7px', color: C.outline, letterSpacing: '0.04em' }}>{l}</span> : null}
                             </div>
                         ))}
                     </div>
 
-                    {/* Activity dots */}
-                    <div style={{ display: 'flex', gap: '2px' }}>
+                    {/* Dots */}
+                    <div style={{ display: 'flex', gap: '3px' }}>
                         {weeks.map((week, wi) => (
-                            <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                {week.map((day, di) => {
+                            <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                {week.days.map((day, di) => {
                                     if (!day) return <div key={di} style={{ width: '12px', height: '12px' }} />;
                                     return (
                                         <motion.div
                                             key={day.date}
                                             initial={{ scale: 0, opacity: 0 }}
                                             animate={{ scale: 1, opacity: 1 }}
-                                            transition={{ delay: wi * 0.003 + di * 0.001, duration: 0.3 }}
-                                            whileHover={{ scale: 2.5, zIndex: 10, transition: { duration: 0.1 } }}
-                                            onMouseEnter={() => setHovered(day)}
+                                            transition={{ delay: wi * 0.004 + di * 0.002, duration: 0.25 }}
+                                            whileHover={{ scale: 2.8, zIndex: 20, transition: { duration: 0.1 } }}
+                                            onMouseEnter={e => {
+                                                setHovered(day);
+                                                setHoverPos({ x: e.clientX, y: e.clientY });
+                                            }}
                                             onMouseLeave={() => setHovered(null)}
                                             style={{
-                                                width: '12px', height: '12px',
-                                                borderRadius: '50%',
+                                                width: '12px', height: '12px', borderRadius: '50%',
                                                 backgroundColor: INTENSITY[day.level],
-                                                cursor: 'pointer',
-                                                position: 'relative',
-                                                zIndex: hovered?.date === day.date ? 10 : 0,
+                                                cursor: 'pointer', position: 'relative',
+                                                zIndex: hovered?.date === day.date ? 20 : 0,
                                             }}
                                         />
                                     );
@@ -221,15 +212,38 @@ export default function ActivityGrid({ userId }) {
                 </div>
             </div>
 
-            {/* Tooltip */}
-            {hovered && hovered.count > 0 && (
+            {/* Hover tooltip */}
+            {hovered && (
                 <div style={{
-                    fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.onBg,
-                    marginTop: '8px', padding: '4px 10px', display: 'inline-block',
+                    position: 'fixed', left: `${hoverPos.x + 14}px`, top: `${hoverPos.y - 10}px`,
+                    zIndex: 100, pointerEvents: 'none',
                     border: `1px solid ${C.border}`, backgroundColor: C.surfaceLow,
+                    padding: '10px 14px', borderRadius: '4px', boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.onBg,
+                    display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '180px',
                 }}>
-                    {new Date(hovered.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                    {' — '}{hovered.count} submission{hovered.count > 1 ? 's' : ''}
+                    <span style={{ color: C.primary, fontWeight: 600, fontSize: '11px' }}>
+                        {new Date(hovered.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                    <span style={{ color: C.muted }}>{hovered.count} total submission{hovered.count !== 1 ? 's' : ''}</span>
+                    {hovered.data.contest > 0 && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: C.secondary }} />
+                            {hovered.data.contest} contest
+                        </span>
+                    )}
+                    {hovered.data.practice > 0 && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: C.primary }} />
+                            {hovered.data.practice} practice
+                        </span>
+                    )}
+                    {hovered.data.duel > 0 && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#f4bb92' }} />
+                            {hovered.data.duel} duel
+                        </span>
+                    )}
                 </div>
             )}
         </motion.div>
