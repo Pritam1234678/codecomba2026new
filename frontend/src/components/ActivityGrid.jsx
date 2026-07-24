@@ -56,7 +56,7 @@ export default function ActivityGrid({ userId }) {
         fetchActivity();
     }, [userId]);
 
-    const { weeks, months, totalDays, activeDays, currentStreak } = useMemo(() => {
+    const { weeks, months, monthGaps, totalDays, activeDays, currentStreak } = useMemo(() => {
         const start = new Date('2026-05-01');
         const today = new Date();
         today.setHours(23, 59, 59, 999);
@@ -86,14 +86,16 @@ export default function ActivityGrid({ userId }) {
             weeksArr.push({ days: week, index: weeksArr.length });
         }
 
-        // Month positions
+        // Month positions with week gaps
         const monthsArr = [];
         let lastMonth = -1;
+        const monthGaps = new Set(); // week indices where a gap should appear
         weeksArr.forEach((week, wi) => {
             const firstDay = week.days.find(d => d !== null);
             if (firstDay) {
                 const m = parseInt(firstDay.date.substring(5, 7)) - 1;
                 if (m !== lastMonth) {
+                    if (lastMonth !== -1) monthGaps.add(wi);
                     lastMonth = m;
                     monthsArr.push({ weekIndex: wi, label: MONTH_NAMES[m] });
                 }
@@ -101,7 +103,11 @@ export default function ActivityGrid({ userId }) {
         });
 
         const active = allDays.filter(d => d && d.count > 0).length;
+
+        // Streak: count consecutive days from today backwards
         let streak = 0;
+        const todayStr = today.toISOString().substring(0, 10);
+        // Include today and yesterday in streak check
         for (let i = allDays.length - 1; i >= 0; i--) {
             const d = allDays[i];
             if (!d) continue;
@@ -109,7 +115,7 @@ export default function ActivityGrid({ userId }) {
             else break;
         }
 
-        return { weeks: weeksArr, months: monthsArr, totalDays: allDays.filter(Boolean).length, activeDays: active, currentStreak: streak };
+        return { weeks: weeksArr, months: monthsArr, monthGaps, totalDays: allDays.filter(Boolean).length, activeDays: active, currentStreak: streak };
     }, [activity]);
 
     if (loading) return null;
@@ -173,7 +179,7 @@ export default function ActivityGrid({ userId }) {
                     {/* Dots */}
                     <div style={{ display: 'flex', gap: '3px' }}>
                         {weeks.map((week, wi) => (
-                            <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginRight: monthGaps.has(wi) ? '6px' : '0px' }}>
                                 {week.days.map((day, di) => {
                                     if (!day) return <div key={di} style={{ width: '12px', height: '12px' }} />;
                                     return (
