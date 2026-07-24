@@ -20,6 +20,7 @@ const ADMIN_NAV = [
     { label: 'Dashboard', icon: 'admin_panel_settings', to: '/admin/dashboard' },
     { label: 'Contests', icon: 'military_tech', to: '/admin/contests' },
     { label: 'Problems', icon: 'code', to: '/admin/problems' },
+    { label: 'Sheets', icon: 'dataset', to: '/admin/sheets' },
     { label: 'Duel', icon: 'swords', to: '/admin/duels' },
     { label: 'Into the Web', icon: 'public', to: '/admin/web-contest' },
     { label: 'Proctoring', icon: 'shield', to: '/admin/proctoring' },

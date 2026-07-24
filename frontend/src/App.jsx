@@ -32,6 +32,7 @@ const UserDashboard = lazy(() => import('./pages/UserDashboard'));
 const Practice = lazy(() => import('./pages/Practice'));
 const PracticeSolve = lazy(() => import('./pages/PracticeSolve'));
 const Sheets = lazy(() => import('./pages/Sheets'));
+const AdminSheets = lazy(() => import('./pages/AdminSheets'));
 const WebContest = lazy(() => import('./pages/WebContest'));
 const WebIde = lazy(() => import('./pages/WebIde'));
 const WebContestList = lazy(() => import('./pages/WebContestList'));
@@ -181,6 +182,7 @@ function App() {
       <Route path="/admin/leaderboard" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><Leaderboard /></AdminRoute>)}</div>} />
       <Route path="/admin/leaderboard/:contestId" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><ContestLeaderboard /></AdminRoute>)}</div>} />
       <Route path="/admin/platform-details" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><PlatformDetails /></AdminRoute>)}</div>} />
+      <Route path="/admin/sheets" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><AdminSheets /></AdminRoute>)}</div>} />
 
       {/* User Routes */}
       <Route path="/dashboard" element={<div className="p-8 flex-1">{lazyWrap(<UserRoute><UserDashboard /></UserRoute>)}</div>} />
