@@ -3,7 +3,7 @@
 [cmd]: https://commandcode.ai/
 
 # communication
-- Respond in Hinglish (Hindi + English mix) — match the user's communication style. Confidence: 0.75
+- Respond in Hinglish (Hindi + English mix) — match the user's communication style. Confidence: 0.90
 
 # architecture
 - Frontend is deployed on Vercel — do NOT build, modify, or deploy frontend to the VM; only backend runs on the Oracle VM. Confidence: 0.75
@@ -25,3 +25,5 @@
 - When the user says "delete history" during proctoring testing, run full cleanup of proctoring data: SQL (screenshots, events, admin_audit, consent_acks, sessions, registrations), Valkey/Redis (proctoring:*), and disk screenshots — all scoped to the test user. Confidence: 0.70
 - After code changes, deploy backend to VM: git push → ssh VM → git pull → ./mvnw -DskipTests clean package -q → cp target WAR to ~/app.war → sudo systemctl restart codecombat. Frontend is separate (Vercel). Confidence: 0.70
 
+# coding-problems
+See [coding-problems/taste.md](coding-problems/taste.md)
