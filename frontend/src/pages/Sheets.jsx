@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../services/api';
 import useResponsive from '../hooks/useResponsive';
@@ -23,6 +23,7 @@ const C = {
 export default function Sheets() {
     const { isMobile } = useResponsive();
     const navigate = useNavigate();
+    const { slug } = useParams();
     const [sheets, setSheets] = useState([]);
     const [selected, setSelected] = useState(null);
     const [problems, setProblems] = useState([]);
@@ -33,8 +34,14 @@ export default function Sheets() {
     const ctaRef = useRef(null);
 
     useEffect(() => {
-        api.get('/sheets').then(r => setSheets(r.data || [])).catch(() => {}).finally(() => setLoading(false));
-    }, []);
+        api.get('/sheets').then(r => {
+            setSheets(r.data || []);
+            if (slug) {
+                const s = (r.data || []).find(sh => (sh.company || sh.name || '').toLowerCase().replace(/\s+/g, '-') === slug);
+                if (s) openSheet(s);
+            }
+        }).catch(() => {}).finally(() => setLoading(false));
+    }, [slug]);
 
     useEffect(() => {
         // Check solved from practice submissions
@@ -107,7 +114,7 @@ export default function Sheets() {
                 {!selected ? (
                     <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}>
                         {sheets.map(sheet => (
-                            <div key={sheet.id} onClick={() => openSheet(sheet)} ref={ctaRef}
+                            <div key={sheet.id} onClick={() => navigate(`/sheets/${(sheet.company || sheet.name || '').toLowerCase().replace(/\s+/g, '-')}`)} ref={ctaRef}
                                 onMouseMove={e => { if (ctaRef.current) { const r = ctaRef.current.getBoundingClientRect(); setSpotlight({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 }); } }}
                                 style={{ border: `1px solid ${C.border}`, backgroundColor: C.surfaceLow, cursor: 'pointer', overflow: 'hidden', position: 'relative', transition: 'border-color 0.3s, box-shadow 0.3s' }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = C.borderSolid; e.currentTarget.style.boxShadow = '0 0 60px rgba(241,188,139,0.06)'; }}
@@ -143,7 +150,7 @@ export default function Sheets() {
                         <motion.div key="detail" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
                             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                    <button onClick={() => setSelected(null)} style={{ padding: '10px 20px', border: `1px solid ${C.border}`, backgroundColor: 'transparent', color: C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s' }}
+                                    <button onClick={() => { setSelected(null); navigate('/sheets'); }} style={{ padding: '10px 20px', border: `1px solid ${C.border}`, backgroundColor: 'transparent', color: C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s' }}
                                         onMouseEnter={e => { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; }}
                                         onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; }}>
                                         <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>arrow_back</span> Back

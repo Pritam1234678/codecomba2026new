@@ -193,6 +193,7 @@ function App() {
       <Route path="/practice" element={lazyWrap(<UserRoute><Practice /></UserRoute>)} />
       <Route path="/practice/:id" element={lazyWrap(<UserRoute><PracticeSolve /></UserRoute>)} />
       <Route path="/sheets" element={lazyWrap(<UserRoute><Sheets /></UserRoute>)} />
+      <Route path="/sheets/:slug" element={lazyWrap(<UserRoute><Sheets /></UserRoute>)} />
       <Route path="/web-contest" element={lazyWrap(<UserRoute><WebContestList /></UserRoute>)} />
       <Route path="/web-contest/:problemId" element={lazyWrap(<UserRoute><WebContest /></UserRoute>)} />
       <Route path="/web-contest/:problemId/ide" element={lazyWrap(<UserRoute><WebIde /></UserRoute>)} />
