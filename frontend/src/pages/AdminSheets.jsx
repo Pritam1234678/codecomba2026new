@@ -238,7 +238,7 @@ export default function AdminSheets() {
                                                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
                                                         {filteredProblems.map((p, idx) => {
                                                             const isInSheet = (sheetProblems[sheet.id] || []).includes(p.id);
-                                                            const diffColor = p.level === 'EASY' ? C.success : p.level === 'MEDIUM' ? C.secondary : C.error;
+                                                            const diffColor = p.level === 'EASY' ? '#f1bc8b' : p.level === 'MEDIUM' ? C.secondary : C.error;
                                                             const randomHeight = 100 + ((p.id * 7) % 60);
                                                             return (
                                                                 <motion.div
@@ -250,8 +250,8 @@ export default function AdminSheets() {
                                                                     onClick={() => toggleProblem(sheet.id, p.id, !isInSheet)}
                                                                     style={{
                                                                         cursor: 'pointer',
-                                                                        border: isInSheet ? `1px solid ${C.success}40` : `1px solid ${C.border}`,
-                                                                        backgroundColor: isInSheet ? `${C.success}05` : C.surfaceMin,
+                                                                        border: isInSheet ? `1px solid ${C.borderSolid}` : `1px solid ${C.border}`,
+                                                                        backgroundColor: isInSheet ? `${C.primary}05` : C.surfaceMin,
                                                                         padding: '16px',
                                                                         display: 'flex', flexDirection: 'column', gap: '10px',
                                                                         transition: 'all 0.2s',
@@ -259,10 +259,10 @@ export default function AdminSheets() {
                                                                         minHeight: `${randomHeight}px`,
                                                                     }}>
                                                                     {/* Left accent */}
-                                                                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', backgroundColor: isInSheet ? C.success : diffColor, opacity: 0.5 }} />
+                                                                    <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', backgroundColor: isInSheet ? C.secondary : diffColor, opacity: 0.6 }} />
 
                                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                                                                        <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 500, color: isInSheet ? C.success : C.onBg, lineHeight: 1.4, flex: 1 }}>
+                                                                        <span style={{ fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 500, color: isInSheet ? C.secondary : C.onBg, lineHeight: 1.4, flex: 1 }}>
                                                                             {p.title}
                                                                         </span>
                                                                         <motion.div
@@ -270,7 +270,7 @@ export default function AdminSheets() {
                                                                             transition={{ duration: 0.3 }}
                                                                             style={{ flexShrink: 0, marginTop: '2px' }}>
                                                                             {isInSheet ? (
-                                                                                <span className="material-symbols-outlined" style={{ fontSize: '18px', color: C.success, fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                                                                                <span className="material-symbols-outlined" style={{ fontSize: '18px', color: C.secondary, fontVariationSettings: "'FILL' 1" }}>check_circle</span>
                                                                             ) : (
                                                                                 <span className="material-symbols-outlined" style={{ fontSize: '18px', color: C.border }}>add_circle</span>
                                                                             )}
