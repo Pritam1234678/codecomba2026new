@@ -462,11 +462,6 @@ public class SubmissionWorkerPool {
                 } catch (Exception ignored) {}
             }
 
-            // Update streak for all real submissions (contest + practice)
-            if (!job.isTestRun() && job.getDuelId() == null) {
-                try { streakService.updateStreak(job.getUserId()); } catch (Exception ignored) {}
-            }
-
             // 5a. Practice mode — award points on first AC
             //     contestId is null for practice, so the leaderboard gate above
             //     already skipped it. Practice scoring uses user_problem_solved
@@ -482,7 +477,6 @@ public class SubmissionWorkerPool {
 
                 // Update streak on practice AC
                 try { streakService.updateStreak(job.getUserId()); } catch (Exception ignored) {}
-            }
 
                 // GitHub auto-push on AC practice submission
                 try {
