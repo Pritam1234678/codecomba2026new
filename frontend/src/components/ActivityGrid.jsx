@@ -29,7 +29,7 @@ export default function ActivityGrid({ userId }) {
                 const [subs, practice, duels] = await Promise.all([
                     api.get('/submissions/user').catch(() => ({ data: [] })),
                     api.get('/practice/submissions/user').catch(() => ({ data: [] })),
-                    api.get('/duel/history').catch(() => ({ data: [] })),
+                    api.get('/user/duel-history').catch(() => ({ data: [] })),
                 ]);
 
                 const days = {};
@@ -41,7 +41,7 @@ export default function ActivityGrid({ userId }) {
 
                 (subs.data || []).forEach(s => addDay(s.submittedAt));
                 (practice.data || []).forEach(s => addDay(s.submittedAt));
-                (duels.data || []).forEach(d => addDay(d.startedAt || d.createdAt));
+                (duels.data || []).forEach(d => addDay(d.endedAt));
 
                 setActivity(days);
             } catch (e) { }
