@@ -30,6 +30,8 @@ export default function Sheets() {
     const [solved, setSolved] = useState({});
     const [loading, setLoading] = useState(true);
     const [sheetStats, setSheetStats] = useState(null);
+    const [page, setPage] = useState(0);
+    const PAGE_SIZE = 25;
     const [spotlight, setSpotlight] = useState({ x: 50, y: 50 });
     const ctaRef = useRef(null);
 
@@ -95,6 +97,8 @@ export default function Sheets() {
         ? Math.round((Object.keys(solved).filter(id => problems.find(p => p.id === parseInt(id))).length / problems.length) * 100)
         : 0;
     const solvedInSheet = problems.filter(p => solved[p.id]).length;
+    const totalPages = Math.ceil(problems.length / PAGE_SIZE);
+    const paginated = problems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
     return (
         <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", minHeight: '100vh' }}>
@@ -185,7 +189,7 @@ export default function Sheets() {
                                         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.muted }}>Loading...</span>
                                     </div>
                                 ) : (
-                                    problems.map((p, i) => {
+                                    paginated.map((p, i) => {
                                         const isSolved = solved[p.id];
                                         return (
                                             <motion.div key={p.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
@@ -216,6 +220,40 @@ export default function Sheets() {
                                     })
                                 )}
                             </motion.div>
+
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '24px' }}>
+                                    <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                                        style={{ padding: '6px 14px', border: `1px solid ${page === 0 ? C.border : C.borderSolid}`, backgroundColor: 'transparent', color: page === 0 ? C.border : C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', cursor: page === 0 ? 'not-allowed' : 'pointer', transition: 'all 0.15s' }}
+                                        onMouseEnter={e => { if (page > 0) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                                        onMouseLeave={e => { e.currentTarget.style.borderColor = page === 0 ? C.border : C.borderSolid; e.currentTarget.style.color = page === 0 ? C.border : C.muted; }}>
+                                        ← Prev
+                                    </button>
+                                    {Array.from({ length: totalPages }, (_, i) => i).filter(n => n === 0 || n === totalPages - 1 || Math.abs(n - page) <= 2).reduce((acc, n, idx, arr) => {
+                                        if (idx > 0 && n - arr[idx - 1] > 1) acc.push('…');
+                                        acc.push(n); return acc;
+                                    }, []).map((item, idx) => item === '…' ? (
+                                        <span key={`e${idx}`} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, padding: '0 4px' }}>…</span>
+                                    ) : (
+                                        <button key={item} onClick={() => setPage(item)}
+                                            style={{ width: '32px', height: '32px', border: `1px solid ${page === item ? C.secondary : C.border}`, backgroundColor: page === item ? C.secondary : 'transparent', color: page === item ? C.bg : C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', cursor: 'pointer', transition: 'all 0.15s', borderRadius: '2px' }}
+                                            onMouseEnter={e => { if (page !== item) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                                            onMouseLeave={e => { if (page !== item) { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.muted; } }}>
+                                            {item + 1}
+                                        </button>
+                                    ))}
+                                    <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
+                                        style={{ padding: '6px 14px', border: `1px solid ${page >= totalPages - 1 ? C.border : C.borderSolid}`, backgroundColor: 'transparent', color: page >= totalPages - 1 ? C.border : C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', transition: 'all 0.15s' }}
+                                        onMouseEnter={e => { if (page < totalPages - 1) { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; } }}
+                                        onMouseLeave={e => { e.currentTarget.style.borderColor = page >= totalPages - 1 ? C.border : C.borderSolid; e.currentTarget.style.color = page >= totalPages - 1 ? C.border : C.muted; }}>
+                                        Next →
+                                    </button>
+                                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline, marginLeft: '10px' }}>
+                                        {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, problems.length)} of {problems.length}
+                                    </span>
+                                </div>
+                            )}
                         </motion.div>
                     </AnimatePresence>
                 )}
