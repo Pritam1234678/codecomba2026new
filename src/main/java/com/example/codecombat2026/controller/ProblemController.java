@@ -44,7 +44,8 @@ public class ProblemController {
                         p.getExample2(),
                         p.getExample3(),
                         p.getImages(),
-                        p.getTopics()))
+                        p.getTopics(),
+                        p.getLevel()))
                 .collect(java.util.stream.Collectors.toList());
     }
 
@@ -70,7 +71,8 @@ public class ProblemController {
                 p.getExample2(),
                 p.getExample3(),
                 p.getImages(),
-                p.getTopics());
+                p.getTopics(),
+                p.getLevel());
         return ResponseEntity.ok(dto);
     }
 
@@ -95,7 +97,8 @@ public class ProblemController {
                         p.getExample2(),
                         p.getExample3(),
                         p.getImages(),
-                        p.getTopics()))
+                        p.getTopics(),
+                        p.getLevel()))
                 .collect(java.util.stream.Collectors.toList());
     }
 

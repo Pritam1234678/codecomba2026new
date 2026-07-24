@@ -16,6 +16,7 @@ public class ProblemDTO {
     private String example3;
     private String images;
     private String topics;
+    private String level;
 
     // Constructors
     public ProblemDTO() {
@@ -25,6 +26,22 @@ public class ProblemDTO {
             String outputFormat, String constraints, Double timeLimit,
             Integer memoryLimit, Boolean active, Long contestId,
             String example1, String example2, String example3, String images) {
+        this(id, title, description, inputFormat, outputFormat, constraints, timeLimit,
+            memoryLimit, active, contestId, example1, example2, example3, images, null, null);
+    }
+
+    public ProblemDTO(Long id, String title, String description, String inputFormat,
+            String outputFormat, String constraints, Double timeLimit,
+            Integer memoryLimit, Boolean active, Long contestId,
+            String example1, String example2, String example3, String images, String topics) {
+        this(id, title, description, inputFormat, outputFormat, constraints, timeLimit,
+            memoryLimit, active, contestId, example1, example2, example3, images, topics, null);
+    }
+
+    public ProblemDTO(Long id, String title, String description, String inputFormat,
+            String outputFormat, String constraints, Double timeLimit,
+            Integer memoryLimit, Boolean active, Long contestId,
+            String example1, String example2, String example3, String images, String topics, String level) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -39,15 +56,8 @@ public class ProblemDTO {
         this.example2 = example2;
         this.example3 = example3;
         this.images = images;
-    }
-
-    public ProblemDTO(Long id, String title, String description, String inputFormat,
-            String outputFormat, String constraints, Double timeLimit,
-            Integer memoryLimit, Boolean active, Long contestId,
-            String example1, String example2, String example3, String images, String topics) {
-        this(id, title, description, inputFormat, outputFormat, constraints, timeLimit,
-            memoryLimit, active, contestId, example1, example2, example3, images);
         this.topics = topics;
+        this.level = level;
     }
 
     // Getters and Setters
@@ -170,4 +180,7 @@ public class ProblemDTO {
     public void setTopics(String topics) {
         this.topics = topics;
     }
+
+    public String getLevel() { return level; }
+    public void setLevel(String level) { this.level = level; }
 }

@@ -125,7 +125,8 @@ public class ContestController {
                             p.getInputFormat(), p.getOutputFormat(), p.getConstraints(),
                             p.getTimeLimit(), p.getMemoryLimit(), p.getActive(),
                             p.getContestId(), p.getExample1(), p.getExample2(),
-                            p.getExample3(), p.getImages(), p.getTopics()))
+                            p.getExample3(), p.getImages(), p.getTopics(),
+                            p.getLevel()))
                     .collect(Collectors.toList())
                 : List.of();
 
