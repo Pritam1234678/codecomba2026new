@@ -8,7 +8,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/sheets")
@@ -18,7 +21,23 @@ public class AdminSheetsController {
     @Autowired private SheetService sheetService;
 
     @GetMapping
-    public List<PracticeSheet> getAll() { return sheetService.getAll(); }
+    public List<Map<String, Object>> getAll() {
+        List<PracticeSheet> sheets = sheetService.getAll();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (PracticeSheet s : sheets) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", s.getId());
+            m.put("name", s.getName());
+            m.put("company", s.getCompany());
+            m.put("description", s.getDescription());
+            m.put("tags", s.getTags());
+            m.put("active", s.getActive());
+            m.put("createdAt", s.getCreatedAt());
+            m.put("problemCount", sheetService.getSheetProblems(s.getId()).size());
+            result.add(m);
+        }
+        return result;
+    }
 
     @PostMapping
     public PracticeSheet create(@RequestBody PracticeSheet sheet) {
