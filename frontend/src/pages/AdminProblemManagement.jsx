@@ -38,7 +38,7 @@ const AdminProblemManagement = () => {
     const [deleteModal, setDeleteModal] = useState({ show: false, problemId: null, problemTitle: '' });
     const [toast, setToast] = useState(null);
     const [page, setPage] = useState(0);
-    const PAGE_SIZE = 9;
+    const PAGE_SIZE = 25;
 
     useEffect(() => { loadProblems(); }, []);
     useEffect(() => { setPage(0); }, [search, levelFilter]);
