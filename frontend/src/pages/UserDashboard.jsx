@@ -6,6 +6,7 @@ import AuthService from '../services/auth.service';
 import useResponsive from '../hooks/useResponsive';
 
 import SkeletonLoader from '../components/SkeletonLoader';
+import ActivityGrid from '../components/ActivityGrid';
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
     bg:         '#131313',
@@ -208,6 +209,9 @@ export default function UserDashboard() {
                         ))}
                     </div>
                 </motion.div>
+
+                {/* ── Activity Graph ── */}
+                <ActivityGrid userId={user?.id} />
 
                 {/* ── Submissions + Skill Vector ── */}
                 <motion.div
