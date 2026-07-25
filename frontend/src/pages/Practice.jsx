@@ -42,9 +42,10 @@ const Practice = () => {
 
     useEffect(() => {
         setLoading(true);
-        const p = page - 1; // convert to 0-based
+        const p = page - 1;
+        const filterParam = filter === 'ALL' ? null : filter;
         Promise.all([
-            PracticeService.listProblems(p, PAGE_SIZE),
+            PracticeService.listProblems(p, PAGE_SIZE, filterParam, search || null),
             PracticeService.stats()
         ])
             .then(([pRes, sRes]) => {
@@ -54,7 +55,7 @@ const Practice = () => {
             })
             .catch(console.error)
             .finally(() => setLoading(false));
-    }, [page]);
+    }, [page, filter, search]);
 
     // Reset to page 1 whenever filter/search changes
     useEffect(() => { setPage(1); }, [filter, search]);
@@ -86,7 +87,10 @@ const Practice = () => {
                     <div style={{ display: 'flex', gap: '0', border: `1px solid ${C.border}`, backgroundColor: C.surfaceLow }}>
                         <StatCell label="Points" value={stats.totalPoints} accent={C.secondary} />
                         <StatCell label="Solved" value={stats.solvedCount} accent={C.success} divider />
-                        <StatCell label="Total" value={problems.length} divider />
+                        <StatCell label="Total" value={stats.totalProblems} divider />
+                        <StatCell label="Easy" value={stats.easyCount} />
+                        <StatCell label="Medium" value={stats.mediumCount} divider />
+                        <StatCell label="Hard" value={stats.hardCount} />
                     </div>
                 </div>
             </motion.section>
@@ -107,11 +111,11 @@ const Practice = () => {
                 {/* Filter tabs */}
                 <div style={{ display: 'flex', border: `1px solid ${C.border}` }}>
                     {[
-                        { key: 'ALL',      label: 'All',     count: stats.totalProblems },
-                        { key: 'UNSOLVED', label: 'Unsolved', count: '' },
-                        { key: 'SOLVED',   label: 'Solved',   count: '' },
-                        { key: 'EASY',     label: 'Easy',     count: stats.easyCount },
-                        { key: 'MEDIUM',   label: 'Medium',   count: stats.mediumCount },
+                        { key: 'ALL',      label: 'All' },
+                        { key: 'UNSOLVED', label: 'Unsolved' },
+                        { key: 'SOLVED',   label: 'Solved' },
+                        { key: 'EASY',     label: 'Easy' },
+                        { key: 'MEDIUM',   label: 'Medium' },
                         { key: 'HARD',     label: 'Hard' },
                     ].map((f, i, arr) => (
                         <button key={f.key} onClick={() => setFilter(f.key)}
@@ -126,7 +130,7 @@ const Practice = () => {
                                 transition: 'all 0.2s',
                             }}
                         >
-                            {f.label}{f.count !== undefined && f.count !== '' ? ` (${f.count})` : ''}
+                            {f.label}
                         </button>
                     ))}
                 </div>

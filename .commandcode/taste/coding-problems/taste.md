@@ -6,7 +6,8 @@
 - Use class name "CodeCoder" instead of "Solution" in all test harnesses (Java, C++, Python). Confidence: 0.85
 - Include exactly 10 test cases in each harness (5 visible + 5 hidden). Confidence: 0.85
 - Do NOT include solution hints or tips in the harness comments — only the problem requirement. Confidence: 0.75
-- When inserting a coding problem into the DB, also update remaining.md — decrement the remaining count and remove the problem from the table. Confidence: 0.65
+- When inserting a coding problem into the DB, also update remaining.md — decrement the remaining count and remove the problem from the table. Confidence: 0.72
 - Deploy coding problem scripts to VM using: python3 compile check → scp → ssh run + cleanup (python3 ... && rm ...; echo '===done'). Confidence: 0.70
 - When user says "next" after a problem is created and deployed, create the next problem in sequence (increment S.No and follow the order in remaining.md) — do NOT skip problems even if they appear later in the table. Update remaining.md ✓, create and deploy the next Python script, then ask about the following problem. Confidence: 0.75
 - Write coding problem descriptions in English with proper line-by-line or bullet-point example explanations. Confidence: 0.70
+- After deploying a coding problem to the DB, update its status in Have_To_Add.md sheet from ❌ to ✅. Confidence: 0.60

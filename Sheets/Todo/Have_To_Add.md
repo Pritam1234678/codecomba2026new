@@ -60,9 +60,9 @@
 
 | Sr No | Topic | Subtopic | Problem Name | Link | Difficulty | Status |
 |---|---|---|---|---|---|---|
-| 1 | Arrays | Array Basics | Find Element at a Given Index | [Link](https://www.geeksforgeeks.org/problems/c-array-print-an-element-set-25933/1) | ★☆☆ Easy | ❌ |
-| 2 | Arrays | Array Basics | Min and Max in Array | [Link](https://www.geeksforgeeks.org/problems/find-minimum-and-maximum-element-in-an-array4428/1) | ★☆☆ Easy | ❌ |
-| 3 | Arrays | Array Basics | Sum of Array | [Link](https://www.geeksforgeeks.org/problems/sum-of-array2326/1) | ★☆☆ Easy | ❌ |
+| 1 | Arrays | Array Basics | Find Element at a Given Index | [Link](https://www.geeksforgeeks.org/problems/c-array-print-an-element-set-25933/1) | ★☆☆ Easy | ✅ |
+| 2 | Arrays | Array Basics | Min and Max in Array | [Link](https://www.geeksforgeeks.org/problems/find-minimum-and-maximum-element-in-an-array4428/1) | ★☆☆ Easy | ✅ |
+| 3 | Arrays | Array Basics | Sum of Array | [Link](https://www.geeksforgeeks.org/problems/sum-of-array2326/1) | ★☆☆ Easy | ✅ |
 | 4 | Arrays | Array Basics | Sum of Digits | [Link](https://www.geeksforgeeks.org/problems/sum-of-digits1742/1) | ★☆☆ Easy | ❌ |
 | 5 | Arrays | Array Basics | Check If Array is Sorted | [Link](https://www.geeksforgeeks.org/problems/check-if-an-array-is-sorted0701/1) | ★☆☆ Easy | ❌ |
 | 6 | Arrays | Array Basics | Alternates In Array | [Link](https://www.geeksforgeeks.org/problems/print-alternate-elements-of-an-array/0) | ★☆☆ Easy | ❌ |

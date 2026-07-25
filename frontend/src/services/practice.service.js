@@ -1,6 +1,11 @@
 import api from './api';
 
-const listProblems = (page = 0, size = 25) => api.get('/practice/problems', { params: { page, size } });
+const listProblems = (page = 0, size = 25, filter = null, search = null) => {
+    const params = { page, size };
+    if (filter) params.filter = filter;
+    if (search) params.search = search;
+    return api.get('/practice/problems', { params });
+};
 
 const getProblem = (id) => api.get(`/practice/problems/${id}`);
 

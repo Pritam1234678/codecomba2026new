@@ -51,7 +51,9 @@ public class PracticeController {
     public ResponseEntity<?> listProblems(
             @AuthenticationPrincipal UserDetailsImpl user,
             @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size) {
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String search) {
         Set<Long> solvedIds = getSolvedIds(user.getId());
 
         List<Problem> allProblems;
@@ -75,6 +77,20 @@ public class PracticeController {
         List<Problem> active = allProblems.stream()
                 .filter(p -> Boolean.TRUE.equals(p.getActive()))
                 .toList();
+
+        // Apply server-side filters
+        if (filter != null && !filter.isBlank()) {
+            active = active.stream().filter(p -> switch (filter.toUpperCase()) {
+                case "SOLVED" -> solvedIds.contains(p.getId());
+                case "UNSOLVED" -> !solvedIds.contains(p.getId());
+                case "EASY", "MEDIUM", "HARD" -> filter.equalsIgnoreCase(p.getLevel());
+                default -> true;
+            }).toList();
+        }
+        if (search != null && !search.isBlank()) {
+            String q = search.toLowerCase();
+            active = active.stream().filter(p -> p.getTitle() != null && p.getTitle().toLowerCase().contains(q)).toList();
+        }
 
         if (page == null || size == null) {
             List<PracticeProblemDTO> all = active.stream()
