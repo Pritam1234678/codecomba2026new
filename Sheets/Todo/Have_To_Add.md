@@ -66,7 +66,7 @@
 | 4 | Arrays | Array Basics | Sum of Digits | [Link](https://www.geeksforgeeks.org/problems/sum-of-digits1742/1) | ★☆☆ Easy | ✅ |
 | 5 | Arrays | Array Basics | Check If Array is Sorted | [Link](https://www.geeksforgeeks.org/problems/check-if-an-array-is-sorted0701/1) | ★☆☆ Easy | ✅ |
 | 6 | Arrays | Array Basics | Alternates In Array | [Link](https://www.geeksforgeeks.org/problems/print-alternate-elements-of-an-array/0) | ★☆☆ Easy | ✅ |
-| 7 | Arrays | Core Manipulations | Remove Duplicates from Array | [Link](https://leetcode.com/problems/remove-duplicates-from-sorted-array/description/) | ★☆☆ Easy | ❌ |
+| 7 | Arrays | Core Manipulations | Remove Duplicates from Array | [Link](https://leetcode.com/problems/remove-duplicates-from-sorted-array/description/) | ★☆☆ Easy | ✅ |
 | 8 | Arrays | Core Manipulations | Second Largest in Array | [Link](https://www.geeksforgeeks.org/problems/second-largest3735/1) | ★☆☆ Easy | ❌ |
 | 9 | Arrays | Core Manipulations | Reverse an Array | [Link](https://www.geeksforgeeks.org/problems/reverse-an-array/1) | ★☆☆ Easy | ❌ |
 | 11 | Arrays | Core Manipulations | Segregate 0s and 1s | [Link](https://www.geeksforgeeks.org/problems/segregate-0s-and-1s5106/1) | ★☆☆ Easy | ❌ |
