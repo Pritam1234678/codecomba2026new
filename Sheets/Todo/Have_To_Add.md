@@ -64,8 +64,8 @@
 | 2 | Arrays | Array Basics | Min and Max in Array | [Link](https://www.geeksforgeeks.org/problems/find-minimum-and-maximum-element-in-an-array4428/1) | ★☆☆ Easy | ✅ |
 | 3 | Arrays | Array Basics | Sum of Array | [Link](https://www.geeksforgeeks.org/problems/sum-of-array2326/1) | ★☆☆ Easy | ✅ |
 | 4 | Arrays | Array Basics | Sum of Digits | [Link](https://www.geeksforgeeks.org/problems/sum-of-digits1742/1) | ★☆☆ Easy | ✅ |
-| 5 | Arrays | Array Basics | Check If Array is Sorted | [Link](https://www.geeksforgeeks.org/problems/check-if-an-array-is-sorted0701/1) | ★☆☆ Easy | ❌ |
-| 6 | Arrays | Array Basics | Alternates In Array | [Link](https://www.geeksforgeeks.org/problems/print-alternate-elements-of-an-array/0) | ★☆☆ Easy | ❌ |
+| 5 | Arrays | Array Basics | Check If Array is Sorted | [Link](https://www.geeksforgeeks.org/problems/check-if-an-array-is-sorted0701/1) | ★☆☆ Easy | ✅ |
+| 6 | Arrays | Array Basics | Alternates In Array | [Link](https://www.geeksforgeeks.org/problems/print-alternate-elements-of-an-array/0) | ★☆☆ Easy | ✅ |
 | 7 | Arrays | Core Manipulations | Remove Duplicates from Array | [Link](https://leetcode.com/problems/remove-duplicates-from-sorted-array/description/) | ★☆☆ Easy | ❌ |
 | 8 | Arrays | Core Manipulations | Second Largest in Array | [Link](https://www.geeksforgeeks.org/problems/second-largest3735/1) | ★☆☆ Easy | ❌ |
 | 9 | Arrays | Core Manipulations | Reverse an Array | [Link](https://www.geeksforgeeks.org/problems/reverse-an-array/1) | ★☆☆ Easy | ❌ |
