@@ -33,7 +33,7 @@ const Practice = () => {
     const { isMobile } = useResponsive();
     const navigate = useNavigate();
     const [problems, setProblems] = useState([]);
-    const [stats, setStats]       = useState({ totalPoints: 0, solvedCount: 0 });
+    const [stats, setStats]       = useState({ totalPoints: 0, solvedCount: 0, totalProblems: 0, easyCount: 0, mediumCount: 0, hardCount: 0 });
     const [totalProblems, setTotalProblems] = useState(0);
     const [loading, setLoading]   = useState(true);
     const [filter, setFilter]     = useState('ALL'); // ALL | UNSOLVED | SOLVED | EASY | MEDIUM | HARD
@@ -107,11 +107,11 @@ const Practice = () => {
                 {/* Filter tabs */}
                 <div style={{ display: 'flex', border: `1px solid ${C.border}` }}>
                     {[
-                        { key: 'ALL',      label: 'All' },
-                        { key: 'UNSOLVED', label: 'Unsolved' },
-                        { key: 'SOLVED',   label: 'Solved' },
-                        { key: 'EASY',     label: 'Easy' },
-                        { key: 'MEDIUM',   label: 'Medium' },
+                        { key: 'ALL',      label: 'All',     count: stats.totalProblems },
+                        { key: 'UNSOLVED', label: 'Unsolved', count: '' },
+                        { key: 'SOLVED',   label: 'Solved',   count: '' },
+                        { key: 'EASY',     label: 'Easy',     count: stats.easyCount },
+                        { key: 'MEDIUM',   label: 'Medium',   count: stats.mediumCount },
                         { key: 'HARD',     label: 'Hard' },
                     ].map((f, i, arr) => (
                         <button key={f.key} onClick={() => setFilter(f.key)}
@@ -126,7 +126,7 @@ const Practice = () => {
                                 transition: 'all 0.2s',
                             }}
                         >
-                            {f.label}
+                            {f.label}{f.count !== undefined && f.count !== '' ? ` (${f.count})` : ''}
                         </button>
                     ))}
                 </div>

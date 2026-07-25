@@ -258,6 +258,24 @@ public class PracticeController {
         Map<String, Object> resp = new HashMap<>();
         resp.put("totalPoints", u != null && u.getTotalPoints() != null ? u.getTotalPoints() : 0);
         resp.put("solvedCount", solvedCount);
+
+        // Global counts from cache
+        try {
+            String cached = redis.opsForValue().get("problems:all");
+            if (cached != null) {
+                List<Problem> all = objectMapper.readValue(cached,
+                    new com.fasterxml.jackson.core.type.TypeReference<List<Problem>>() {});
+                long active = all.stream().filter(p -> Boolean.TRUE.equals(p.getActive())).count();
+                long easy = all.stream().filter(p -> Boolean.TRUE.equals(p.getActive()) && "EASY".equals(p.getLevel())).count();
+                long medium = all.stream().filter(p -> Boolean.TRUE.equals(p.getActive()) && "MEDIUM".equals(p.getLevel())).count();
+                long hard = all.stream().filter(p -> Boolean.TRUE.equals(p.getActive()) && "HARD".equals(p.getLevel())).count();
+                resp.put("totalProblems", active);
+                resp.put("easyCount", easy);
+                resp.put("mediumCount", medium);
+                resp.put("hardCount", hard);
+            }
+        } catch (Exception ignored) {}
+
         return ResponseEntity.ok(resp);
     }
 
