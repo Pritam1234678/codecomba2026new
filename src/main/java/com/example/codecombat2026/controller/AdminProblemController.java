@@ -32,9 +32,9 @@ public class AdminProblemController {
     @Autowired private ObjectMapper objectMapper;
 
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getAllProblems(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "24") int size) {
+    public ResponseEntity<?> getAllProblems(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         String key = "problems:all";
         List<Problem> allProblems;
         try {
@@ -51,6 +51,11 @@ public class AdminProblemController {
             }
         } catch (Exception ignored) {
             allProblems = problemRepository.findAll();
+        }
+
+        // Backward compatible: return all if no pagination params
+        if (page == null || size == null) {
+            return ResponseEntity.ok(allProblems);
         }
 
         int total = allProblems.size();
