@@ -21,6 +21,8 @@ export default function AdminSheets() {
     const [form, setForm] = useState({ name: '', company: '', description: '', tags: '', active: true });
     const [sheetProblems, setSheetProblems] = useState({});
     const [searchProblems, setSearchProblems] = useState('');
+    const [topicFilter, setTopicFilter] = useState('ALL');
+    const [topics, setTopics] = useState([]);
     const [deleteId, setDeleteId] = useState(null);
     const [problemPage, setProblemPage] = useState(0);
     const PROBLEM_PAGE_SIZE = 20;
@@ -29,6 +31,7 @@ export default function AdminSheets() {
         Promise.all([api.get('/admin/sheets'), api.get('/problems')])
             .then(([sr, pr]) => { setSheets(sr.data || []); setAllProblems(pr.data || []); })
             .catch(() => {}).finally(() => setLoading(false));
+        api.get('/playlist/topics').then(r => setTopics(r.data || [])).catch(() => {});
     }, []);
 
     const fetchSheetProblems = async (sheetId) => {
@@ -43,6 +46,7 @@ export default function AdminSheets() {
         setExpandedId(id);
         setProblemPage(0);
         setSearchProblems('');
+        setTopicFilter('ALL');
         if (!sheetProblems[id]) fetchSheetProblems(id);
     };
 
@@ -100,9 +104,15 @@ export default function AdminSheets() {
         setSheetProblems(p => ({ ...p, [sheetId]: [] }));
     };
 
-    const filteredProblems = allProblems.filter(p =>
-        !searchProblems || p.title?.toLowerCase().includes(searchProblems.toLowerCase())
-    );
+    const filteredProblems = allProblems.filter(p => {
+        if (searchProblems && !p.title?.toLowerCase().includes(searchProblems.toLowerCase())) return false;
+        if (topicFilter !== 'ALL') {
+            const ts = (p.topics || '').toLowerCase();
+            const filter = topicFilter.toLowerCase().replace(/-/g, ' ');
+            if (!ts.includes(filter)) return false;
+        }
+        return true;
+    });
     const problemTotalPages = Math.ceil(filteredProblems.length / PROBLEM_PAGE_SIZE);
     const pagedProblems = filteredProblems.slice(problemPage * PROBLEM_PAGE_SIZE, (problemPage + 1) * PROBLEM_PAGE_SIZE);
 
@@ -209,6 +219,20 @@ export default function AdminSheets() {
                                                         onMouseEnter={e => { e.currentTarget.style.backgroundColor = C.error; e.currentTarget.style.color = C.bg; }}
                                                         onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = C.error; }}>Clear All</button>
                                                 </div>
+                                            </div>
+
+                                            {/* Topic filter buttons */}
+                                            <div style={{ display: 'flex', gap: '4px', marginBottom: '14px', flexWrap: 'wrap' }}>
+                                                <button onClick={() => { setTopicFilter('ALL'); setProblemPage(0); }}
+                                                    style={{ padding: '4px 12px', border: `1px solid ${topicFilter === 'ALL' ? C.secondary : C.border}`, backgroundColor: topicFilter === 'ALL' ? C.secondary : 'transparent', color: topicFilter === 'ALL' ? C.bg : C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '2px', transition: 'all 0.15s' }}>
+                                                    ALL
+                                                </button>
+                                                {topics.slice(0, 15).map(t => (
+                                                    <button key={t.slug} onClick={() => { setTopicFilter(t.slug); setProblemPage(0); }}
+                                                        style={{ padding: '4px 12px', border: `1px solid ${topicFilter === t.slug ? C.secondary : C.border}`, backgroundColor: topicFilter === t.slug ? C.secondary : 'transparent', color: topicFilter === t.slug ? C.bg : C.muted, fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', borderRadius: '2px', transition: 'all 0.15s' }}>
+                                                        {t.name} ({t.count})
+                                                    </button>
+                                                ))}
                                             </div>
 
                                             {/* Current problems in sheet */}

@@ -70,12 +70,12 @@
 | 8 | Arrays | Core Manipulations | Second Largest in Array | [Link](https://www.geeksforgeeks.org/problems/second-largest3735/1) | ★☆☆ Easy | ✅ |
 | 9 | Arrays | Core Manipulations | Reverse an Array | [Link](https://www.geeksforgeeks.org/problems/reverse-an-array/1) | ★☆☆ Easy | ✅ |
 | 11 | Arrays | Core Manipulations | Segregate 0s and 1s | [Link](https://www.geeksforgeeks.org/problems/segregate-0s-and-1s5106/1) | ★☆☆ Easy | ✅ |
-| 12 | Arrays | Core Manipulations | Maximum Consecutive Ones | [Link](https://leetcode.com/problems/max-consecutive-ones/description/) | ★☆☆ Easy | ❌ |
-| 13 | Arrays | Core Manipulations | Palindromic Array | [Link](https://www.geeksforgeeks.org/problems/palindromic-array-1587115620/1) | ★☆☆ Easy | ❌ |
-| 14 | Arrays | Core Manipulations | Move Zeroes to End | [Link](https://leetcode.com/problems/move-zeroes/description/) | ★☆☆ Easy | ❌ |
-| 15 | Arrays | Core Manipulations | Sort array with 0's 1's and 2's (Dutch Flag) | [Link](https://leetcode.com/problems/sort-colors/) | ★☆☆ Easy | ❌ |
-| 16 | Arrays | Intermediate Problems | Equilibrium Point | [Link](https://www.geeksforgeeks.org/problems/equilibrium-point-1587115620/1) | ★★☆ Medium | ❌ |
-| 17 | Arrays | Intermediate Problems | Reverse Integer | [Link](https://leetcode.com/problems/reverse-integer/description/) | ★★☆ Medium | ❌ |
+| 12 | Arrays | Core Manipulations | Maximum Consecutive Ones | [Link](https://leetcode.com/problems/max-consecutive-ones/description/) | ★☆☆ Easy | ✅ |
+| 13 | Arrays | Core Manipulations | Palindromic Array | [Link](https://www.geeksforgeeks.org/problems/palindromic-array-1587115620/1) | ★☆☆ Easy | ✅ |
+| 14 | Arrays | Core Manipulations | Move Zeroes to End | [Link](https://leetcode.com/problems/move-zeroes/description/) | ★☆☆ Easy | ✅ |
+| 15 | Arrays | Core Manipulations | Sort array with 0's 1's and 2's (Dutch Flag) | [Link](https://leetcode.com/problems/sort-colors/) | ★☆☆ Easy | ✅ |
+| 16 | Arrays | Intermediate Problems | Equilibrium Point | [Link](https://www.geeksforgeeks.org/problems/equilibrium-point-1587115620/1) | ★★☆ Medium | ✅ |
+| 17 | Arrays | Intermediate Problems | Reverse Integer | [Link](https://leetcode.com/problems/reverse-integer/description/) | ★★☆ Medium | ✅ |
 | 18 | Arrays | Intermediate Problems | Leaders in Array | [Link](https://www.geeksforgeeks.org/problems/leaders-in-an-array-1587115620/1?itm_source=geeksforgeeks&itm_medium=article&itm_campaign=practice_card) | ★★☆ Medium | ❌ |
 | 19 | Arrays | Intermediate Problems | Increasing Array | [Link](https://cses.fi/problemset/task/1094) | ★★☆ Medium | ❌ |
 | 20 | Arrays | Intermediate Problems | Rearrange Array Elements by Sign | [Link](https://leetcode.com/problems/rearrange-array-elements-by-sign/) | ★★☆ Medium | ❌ |
