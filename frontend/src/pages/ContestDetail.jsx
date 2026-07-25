@@ -5,7 +5,6 @@ import api from '../services/api';
 import SubmissionService from '../services/submission.service';
 import useResponsive from '../hooks/useResponsive';
 
-import SkeletonLoader from '../components/SkeletonLoader';
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
     bg:         '#131313',
@@ -163,7 +162,7 @@ export default function ContestDetail() {
         }
     };
 
-    if (loading) return <SkeletonLoader />;
+    if (loading) return null;
 
     if (error || !contest) return (
         <div style={{ maxWidth: '600px', margin: '4rem auto', padding: '0 24px', textAlign: 'center' }}>

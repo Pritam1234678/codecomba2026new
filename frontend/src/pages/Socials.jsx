@@ -5,7 +5,6 @@ import api from '../services/api';
 import AuthService from '../services/auth.service';
 import useResponsive from '../hooks/useResponsive';
 import AchievementPoster, { TIERS, STREAK_TIERS } from '../components/AchievementPoster';
-import SkeletonLoader from '../components/SkeletonLoader';
 
 const C = {
     bg: '#131313', surface: '#191919', surfaceHi: '#222222',
@@ -173,7 +172,7 @@ export default function Socials() {
         }
     };
 
-    if (loading) return <SkeletonLoader fullScreen />;
+    if (loading) return null;
 
     const shownName = profile?.fullName || currentUser?.username || 'Player';
     const initials = shownName.charAt(0).toUpperCase();

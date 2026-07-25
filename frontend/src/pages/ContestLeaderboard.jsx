@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import api from '../services/api';
 import useResponsive from '../hooks/useResponsive';
 
-import SkeletonLoader from '../components/SkeletonLoader';
 const C = {
     bg:         '#131313',
     surfaceCon: '#201f1f',
@@ -45,7 +44,7 @@ const ContestLeaderboard = () => {
             .finally(() => setLoading(false));
     }, [contestId]);
 
-    if (loading) return <SkeletonLoader />;
+    if (loading) return null;
 
     if (error) return (
         <div style={{ padding: '48px 64px' }}>
