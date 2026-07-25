@@ -75,25 +75,75 @@ const ProctoredContestTerminated = lazy(() => import('./proctoring/pages/Proctor
 const AdminProctoringDashboard = lazy(() => import('./proctoring/pages/AdminProctoringDashboard'));
 const AdminProctoringSession = lazy(() => import('./proctoring/pages/AdminProctoringSession'));
 
-// Skeleton fallback — shown briefly while a lazy chunk loads
-const SKEL = {
-  background: 'linear-gradient(90deg,#1c1b1b 25%,#272523 50%,#1c1b1b 75%)',
-  backgroundSize: '600px 100%',
-  animation: 'cc-shimmer 1.4s infinite linear',
-  borderRadius: 2,
-};
+// Loading fallback — elegant pulsing glow
 const PageFallback = () => (
-  <div style={{ padding: '2rem 2.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-    <style>{`@keyframes cc-shimmer{0%{background-position:-600px 0}100%{background-position:600px 0}}`}</style>
-    <div style={{ ...SKEL, height: 26, width: '36%' }} />
-    <div style={{ ...SKEL, height: 13, width: '52%' }} />
-    {[0, 1, 2].map(i => (
-      <div key={i} style={{ display: 'flex', gap: '1rem' }}>
-        <div style={{ ...SKEL, height: 44, flex: 1 }} />
-        <div style={{ ...SKEL, height: 44, width: 88 }} />
-        <div style={{ ...SKEL, height: 44, width: 68 }} />
-      </div>
-    ))}
+  <div style={{
+    position: 'fixed', inset: 0, zIndex: 9999,
+    backgroundColor: '#131313',
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center',
+    gap: '32px',
+  }}>
+    <style>{`
+      @keyframes loadPulse {
+        0%, 100% { transform: scale(1); opacity: 0.3; }
+        50% { transform: scale(1.15); opacity: 1; }
+      }
+      @keyframes loadSpin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes loadFade {
+        0% { opacity: 0; transform: translateY(8px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+    `}</style>
+
+    {/* Outer rotating ring */}
+    <div style={{
+      width: '48px', height: '48px', position: 'relative',
+      animation: 'loadSpin 2s linear infinite',
+    }}>
+      <div style={{
+        width: '48px', height: '48px', borderRadius: '50%',
+        border: '2px solid transparent',
+        borderTopColor: '#e9c176',
+        borderRightColor: 'rgba(233,193,118,0.3)',
+      }} />
+    </div>
+
+    {/* Inner pulsing dot */}
+    <div style={{
+      position: 'absolute',
+      width: '48px', height: '48px', top: 0, left: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <div style={{
+        width: '8px', height: '8px', borderRadius: '50%',
+        backgroundColor: '#f1bc8b',
+        boxShadow: '0 0 12px rgba(241,188,139,0.6), 0 0 24px rgba(241,188,139,0.3)',
+        animation: 'loadPulse 1.2s ease-in-out infinite',
+      }} />
+    </div>
+
+    {/* Text */}
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+      animation: 'loadFade 0.4s ease-out',
+    }}>
+      <span style={{
+        fontFamily: "'Playfair Display', serif", fontSize: '16px',
+        fontWeight: 600, color: '#e9c176', letterSpacing: '0.02em',
+      }}>
+        Loading
+      </span>
+      <span style={{
+        fontFamily: "'JetBrains Mono', monospace", fontSize: '9px',
+        letterSpacing: '0.25em', color: '#9d8e83', textTransform: 'uppercase',
+      }}>
+        preparing your workspace
+      </span>
+    </div>
   </div>
 );
 const lazyWrap = (el) => <Suspense fallback={<PageFallback />}>{el}</Suspense>;
