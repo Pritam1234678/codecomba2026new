@@ -69,7 +69,7 @@
 | 7 | Arrays | Core Manipulations | Remove Duplicates from Array | [Link](https://leetcode.com/problems/remove-duplicates-from-sorted-array/description/) | ★☆☆ Easy | ✅ |
 | 8 | Arrays | Core Manipulations | Second Largest in Array | [Link](https://www.geeksforgeeks.org/problems/second-largest3735/1) | ★☆☆ Easy | ✅ |
 | 9 | Arrays | Core Manipulations | Reverse an Array | [Link](https://www.geeksforgeeks.org/problems/reverse-an-array/1) | ★☆☆ Easy | ✅ |
-| 11 | Arrays | Core Manipulations | Segregate 0s and 1s | [Link](https://www.geeksforgeeks.org/problems/segregate-0s-and-1s5106/1) | ★☆☆ Easy | ❌ |
+| 11 | Arrays | Core Manipulations | Segregate 0s and 1s | [Link](https://www.geeksforgeeks.org/problems/segregate-0s-and-1s5106/1) | ★☆☆ Easy | ✅ |
 | 12 | Arrays | Core Manipulations | Maximum Consecutive Ones | [Link](https://leetcode.com/problems/max-consecutive-ones/description/) | ★☆☆ Easy | ❌ |
 | 13 | Arrays | Core Manipulations | Palindromic Array | [Link](https://www.geeksforgeeks.org/problems/palindromic-array-1587115620/1) | ★☆☆ Easy | ❌ |
 | 14 | Arrays | Core Manipulations | Move Zeroes to End | [Link](https://leetcode.com/problems/move-zeroes/description/) | ★☆☆ Easy | ❌ |
