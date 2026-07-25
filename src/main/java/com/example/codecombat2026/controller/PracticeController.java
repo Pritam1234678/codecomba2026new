@@ -50,8 +50,8 @@ public class PracticeController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> listProblems(
             @AuthenticationPrincipal UserDetailsImpl user,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "25") int size) {
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         Set<Long> solvedIds = getSolvedIds(user.getId());
 
         List<Problem> allProblems;
@@ -75,6 +75,17 @@ public class PracticeController {
         List<Problem> active = allProblems.stream()
                 .filter(p -> Boolean.TRUE.equals(p.getActive()))
                 .toList();
+
+        if (page == null || size == null) {
+            List<PracticeProblemDTO> all = active.stream()
+                .map(p -> new PracticeProblemDTO(
+                        p.getId(), p.getTitle(), p.getDescription(),
+                        p.getLevel(), p.getTimeLimit(), p.getMemoryLimit(),
+                        solvedIds.contains(p.getId()),
+                        practiceService.pointsForLevel(p.getLevel())))
+                .toList();
+            return ResponseEntity.ok(all);
+        }
 
         int total = active.size();
         int from = page * size;
