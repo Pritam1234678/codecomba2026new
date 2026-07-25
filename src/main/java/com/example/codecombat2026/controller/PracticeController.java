@@ -45,14 +45,15 @@ public class PracticeController {
 
     private static final java.time.Duration SOLVED_TTL = java.time.Duration.ofMinutes(2);
 
-    /** Returns all active problems with a "solved" flag for the current user. */
+    /** Returns active problems with a "solved" flag, paginated. */
     @GetMapping("/problems")
     @PreAuthorize("isAuthenticated()")
-    public List<PracticeProblemDTO> listProblems(@AuthenticationPrincipal UserDetailsImpl user) {
-        // Cache solved IDs per user (30s TTL, invalidated on AC verdict)
+    public ResponseEntity<?> listProblems(
+            @AuthenticationPrincipal UserDetailsImpl user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
         Set<Long> solvedIds = getSolvedIds(user.getId());
 
-        // Reuse the problems:all cache from ProblemService (60s TTL)
         List<Problem> allProblems;
         try {
             String cached = redis.opsForValue().get("problems:all");
@@ -71,19 +72,28 @@ public class PracticeController {
             allProblems = problemRepository.findAll();
         }
 
-        return allProblems.stream()
+        List<Problem> active = allProblems.stream()
                 .filter(p -> Boolean.TRUE.equals(p.getActive()))
+                .toList();
+
+        int total = active.size();
+        int from = page * size;
+        int to = Math.min(from + size, total);
+
+        List<PracticeProblemDTO> pageItems = active.subList(Math.min(from, total), to).stream()
                 .map(p -> new PracticeProblemDTO(
-                        p.getId(),
-                        p.getTitle(),
-                        p.getDescription(),
-                        p.getLevel(),
-                        p.getTimeLimit(),
-                        p.getMemoryLimit(),
+                        p.getId(), p.getTitle(), p.getDescription(),
+                        p.getLevel(), p.getTimeLimit(), p.getMemoryLimit(),
                         solvedIds.contains(p.getId()),
-                        practiceService.pointsForLevel(p.getLevel())
-                ))
-                .collect(Collectors.toList());
+                        practiceService.pointsForLevel(p.getLevel())))
+                .toList();
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("problems", pageItems);
+        response.put("total", total);
+        response.put("page", page);
+        response.put("size", size);
+        return ResponseEntity.ok(response);
     }
 
     /** Cache-aside for solved IDs — short TTL, invalidated on AC. */

@@ -1,6 +1,6 @@
 import api from './api';
 
-const listProblems = () => api.get('/practice/problems');
+const listProblems = (page = 0, size = 25) => api.get('/practice/problems', { params: { page, size } });
 
 const getProblem = (id) => api.get(`/practice/problems/${id}`);
 

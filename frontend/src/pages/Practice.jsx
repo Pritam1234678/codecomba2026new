@@ -34,35 +34,33 @@ const Practice = () => {
     const navigate = useNavigate();
     const [problems, setProblems] = useState([]);
     const [stats, setStats]       = useState({ totalPoints: 0, solvedCount: 0 });
+    const [totalProblems, setTotalProblems] = useState(0);
     const [loading, setLoading]   = useState(true);
     const [filter, setFilter]     = useState('ALL'); // ALL | UNSOLVED | SOLVED | EASY | MEDIUM | HARD
     const [search, setSearch]     = useState('');
     const [page, setPage]         = useState(1);
 
     useEffect(() => {
-        Promise.all([PracticeService.listProblems(), PracticeService.stats()])
+        setLoading(true);
+        const p = page - 1; // convert to 0-based
+        Promise.all([
+            PracticeService.listProblems(p, PAGE_SIZE),
+            PracticeService.stats()
+        ])
             .then(([pRes, sRes]) => {
-                setProblems(pRes.data);
+                setProblems(pRes.data?.problems || pRes.data || []);
+                setTotalProblems(pRes.data?.total || 0);
                 setStats(sRes.data);
             })
             .catch(console.error)
             .finally(() => setLoading(false));
-    }, []);
+    }, [page]);
 
     // Reset to page 1 whenever filter/search changes
     useEffect(() => { setPage(1); }, [filter, search]);
 
-    const filtered = problems.filter(p => {
-        const matchSearch = p.title.toLowerCase().includes(search.toLowerCase());
-        let matchFilter = true;
-        if (filter === 'SOLVED')   matchFilter = p.solved;
-        else if (filter === 'UNSOLVED') matchFilter = !p.solved;
-        else if (['EASY','MEDIUM','HARD'].includes(filter)) matchFilter = p.level === filter;
-        return matchSearch && matchFilter;
-    });
-
-    const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-    const paginated   = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    const totalPages  = Math.max(1, Math.ceil(totalProblems / PAGE_SIZE));
+    const displayProblems = problems;
 
     return (
         <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", minHeight: '100vh', padding: isMobile ? '24px 16px' : '48px 64px' }}>
@@ -149,7 +147,7 @@ const Practice = () => {
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-                    {paginated.map((p, i) => (
+                    {displayProblems.map((p, i) => (
                         <ProblemCard key={p.id} problem={p} index={i} onSolve={() => navigate(`/practice/${p.id}`)} />
                     ))}
                 </div>
@@ -195,7 +193,7 @@ const Practice = () => {
                     />
 
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: C.outline, marginLeft: '12px', letterSpacing: '0.1em' }}>
-                        {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} / {filtered.length}
+                        {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalProblems)} / {totalProblems}
                     </span>
                 </div>
             )}
