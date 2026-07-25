@@ -64,7 +64,15 @@ const Practice = () => {
     const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const paginated   = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-    if (loading) return null;
+    if (loading) return (
+        <div style={{ backgroundColor: C.bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid transparent', borderTopColor: '#e9c176', borderRightColor: 'rgba(233,193,118,0.3)', animation: 'pSpin 1s linear infinite' }} />
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.2em', color: '#9d8e83', textTransform: 'uppercase' }}>Loading problems...</span>
+            </div>
+            <style>{'@keyframes pSpin{to{transform:rotate(360deg)}}'}</style>
+        </div>
+    );
 
     return (
         <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", minHeight: '100vh', padding: isMobile ? '24px 16px' : '48px 64px' }}>
