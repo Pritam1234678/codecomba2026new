@@ -50,7 +50,10 @@ const AdminProblemManagement = () => {
 
     const loadProblems = () => {
         setLoading(true);
-        api.get('/admin/problems', { params: { page, size: PAGE_SIZE } })
+        const params = { page, size: PAGE_SIZE };
+        if (search) params.search = search;
+        if (levelFilter !== 'ALL') params.level = levelFilter;
+        api.get('/admin/problems', { params })
             .then(res => {
                 setProblems(res.data?.problems || res.data || []);
                 setTotalProblems(res.data?.total || 0);
@@ -129,7 +132,7 @@ const AdminProblemManagement = () => {
                 style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: '1px', backgroundColor: C.border, marginBottom: '2rem' }}
             >
                 {[
-                    { label: 'Total Problems', value: problems.length, accent: true },
+                    { label: 'Total Problems', value: counts.total, accent: true },
                     { label: 'Easy', value: easyCount, accent: false },
                     { label: 'Medium', value: mediumCount, accent: false },
                     { label: 'Hard', value: hardCount, accent: false },

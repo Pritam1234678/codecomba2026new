@@ -48,7 +48,9 @@ public class AdminProblemController {
     @GetMapping
     public ResponseEntity<?> getAllProblems(
             @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size) {
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String level) {
         String key = "problems:all";
         List<Problem> allProblems;
         try {
@@ -68,6 +70,15 @@ public class AdminProblemController {
         }
 
         // Backward compatible: return all if no pagination params
+        // Apply filters
+        if (search != null && !search.isBlank()) {
+            String q = search.toLowerCase();
+            allProblems = allProblems.stream().filter(p -> p.getTitle() != null && p.getTitle().toLowerCase().contains(q)).toList();
+        }
+        if (level != null && !level.isBlank() && !"ALL".equalsIgnoreCase(level)) {
+            allProblems = allProblems.stream().filter(p -> level.equalsIgnoreCase(p.getLevel())).toList();
+        }
+
         if (page == null || size == null) {
             return ResponseEntity.ok(allProblems);
         }
