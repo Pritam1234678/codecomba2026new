@@ -32,6 +32,11 @@ export default function Playlist() {
         if (!topicSlug) return;
         setPage(0);
     }, [topicSlug]);
+
+    useEffect(() => {
+        if (!topicSlug) return;
+        setLoading(true);
+        api.get(`/playlist/${topicSlug}`, { params: { page, size: PAGE_SIZE } })
             .then(r => { setProblems(r.data?.problems || []); setTotal(r.data?.total || 0); })
             .catch(() => {})
             .finally(() => setLoading(false));
