@@ -30,26 +30,38 @@ public class AdminProblemController {
     @Autowired private ObjectMapper objectMapper;
 
     @GetMapping
-    public List<Problem> getAllProblems() {
-        // Reuse the same problems:all cache that ProblemService maintains.
-        // TTL 60s — same as ProblemService.getAllProblems().
+    public ResponseEntity<Map<String, Object>> getAllProblems(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "24") int size) {
         String key = "problems:all";
+        List<Problem> allProblems;
         try {
             String cached = redis.opsForValue().get(key);
             if (cached != null) {
-                return objectMapper.readValue(cached,
+                allProblems = objectMapper.readValue(cached,
                     new com.fasterxml.jackson.core.type.TypeReference<List<Problem>>() {});
+            } else {
+                allProblems = problemRepository.findAll();
+                try {
+                    redis.opsForValue().set(key, objectMapper.writeValueAsString(allProblems),
+                        java.time.Duration.ofMinutes(10));
+                } catch (Exception ignored) {}
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+            allProblems = problemRepository.findAll();
+        }
 
-        List<Problem> problems = problemRepository.findAll();
+        int total = allProblems.size();
+        int from = page * size;
+        int to = Math.min(from + size, total);
+        List<Problem> pageItems = allProblems.subList(Math.min(from, total), to);
 
-        try {
-            redis.opsForValue().set(key, objectMapper.writeValueAsString(problems),
-                java.time.Duration.ofSeconds(60));
-        } catch (Exception ignored) {}
-
-        return problems;
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("problems", pageItems);
+        response.put("total", total);
+        response.put("page", page);
+        response.put("size", size);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/contest/{contestId}")

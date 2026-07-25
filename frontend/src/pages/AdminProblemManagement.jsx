@@ -38,15 +38,19 @@ const AdminProblemManagement = () => {
     const [deleteModal, setDeleteModal] = useState({ show: false, problemId: null, problemTitle: '' });
     const [toast, setToast] = useState(null);
     const [page, setPage] = useState(0);
+    const [totalProblems, setTotalProblems] = useState(0);
     const PAGE_SIZE = 24;
 
-    useEffect(() => { loadProblems(); }, []);
+    useEffect(() => { loadProblems(); }, [page, search, levelFilter]);
     useEffect(() => { setPage(0); }, [search, levelFilter]);
 
     const loadProblems = () => {
         setLoading(true);
-        api.get('/admin/problems')
-            .then(res => setProblems(res.data))
+        api.get('/admin/problems', { params: { page, size: PAGE_SIZE } })
+            .then(res => {
+                setProblems(res.data?.problems || res.data || []);
+                setTotalProblems(res.data?.total || 0);
+            })
             .catch(() => setError('Failed to load problems'))
             .finally(() => setLoading(false));
     };
@@ -68,14 +72,7 @@ const AdminProblemManagement = () => {
             .catch(() => showToast('Failed to delete problem.', 'error'));
     };
 
-    const filtered = problems.filter(p => {
-        const matchSearch = p.title?.toLowerCase().includes(search.toLowerCase());
-        const matchLevel = levelFilter === 'ALL' || p.level === levelFilter;
-        return matchSearch && matchLevel;
-    });
-
-    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-    const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+    const totalPages = Math.max(1, Math.ceil(totalProblems / PAGE_SIZE));
     const easyCount = problems.filter(p => p.level === 'EASY').length;
     const mediumCount = problems.filter(p => p.level === 'MEDIUM').length;
     const hardCount = problems.filter(p => p.level === 'HARD').length;
@@ -151,13 +148,13 @@ const AdminProblemManagement = () => {
 
             {/* ── Problem Cards Grid ── */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 }}>
-                {paginated.length === 0 ? (
+                {problems.length === 0 ? (
                     <div style={{ border: `1px solid ${C.border}`, padding: '4rem', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.outline }}>
                         No problems found.
                     </div>
                 ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-                        {paginated.map((problem, i) => (
+                        {problems.map((problem, i) => (
                             <AdminProblemCard key={problem.id} problem={problem} index={i}
                                 onToggle={() => handleToggleActive(problem.id)}
                                 onDelete={() => setDeleteModal({ show: true, problemId: problem.id, problemTitle: problem.title })}
@@ -171,7 +168,7 @@ const AdminProblemManagement = () => {
                 {totalPages > 1 && (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2rem', padding: '1rem 0', borderTop: `1px solid ${C.border}` }}>
                         <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline, letterSpacing: '0.08em' }}>
-                            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalProblems)} of {totalProblems}
                         </span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <button disabled={page === 0} onClick={() => setPage(p => p - 1)}
