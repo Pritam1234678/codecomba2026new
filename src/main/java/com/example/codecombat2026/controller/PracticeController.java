@@ -43,7 +43,7 @@ public class PracticeController {
     @Autowired private org.springframework.data.redis.core.StringRedisTemplate redis;
     @Autowired private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    private static final java.time.Duration SOLVED_TTL = java.time.Duration.ofSeconds(30);
+    private static final java.time.Duration SOLVED_TTL = java.time.Duration.ofMinutes(2);
 
     /** Returns all active problems with a "solved" flag for the current user. */
     @GetMapping("/problems")
@@ -64,7 +64,7 @@ public class PracticeController {
                 try {
                     redis.opsForValue().set("problems:all",
                         objectMapper.writeValueAsString(allProblems),
-                        java.time.Duration.ofSeconds(60));
+                        java.time.Duration.ofMinutes(10));
                 } catch (Exception ignored) {}
             }
         } catch (Exception ignored) {
