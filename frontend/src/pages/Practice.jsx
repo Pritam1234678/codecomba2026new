@@ -34,7 +34,7 @@ const Practice = () => {
     const navigate = useNavigate();
     const [problems, setProblems] = useState([]);
     const [stats, setStats]       = useState({ totalPoints: 0, solvedCount: 0 });
-    const [loading, setLoading]   = useState(false);
+    const [loading, setLoading]   = useState(true);
     const [filter, setFilter]     = useState('ALL'); // ALL | UNSOLVED | SOLVED | EASY | MEDIUM | HARD
     const [search, setSearch]     = useState('');
     const [page, setPage]         = useState(1);
@@ -135,7 +135,15 @@ const Practice = () => {
             </div>
 
             {/* ── Problem cards grid ── */}
-            {filtered.length === 0 ? (
+            {loading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5rem 0' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid transparent', borderTopColor: '#e9c176', borderRightColor: 'rgba(233,193,118,0.2)', animation: 'pSpin 0.8s linear infinite' }} />
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.15em', color: C.outline, textTransform: 'uppercase' }}>Loading problems...</span>
+                    </div>
+                    <style>{'@keyframes pSpin{to{transform:rotate(360deg)}}'}</style>
+                </div>
+            ) : filtered.length === 0 ? (
                 <div style={{ border: `1px solid ${C.border}`, padding: '4rem', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.outline }}>
                     No problems found
                 </div>
