@@ -34,6 +34,7 @@ const AdminProblemManagement = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [search, setSearch] = useState('');
+    const [searchInput, setSearchInput] = useState('');
     const [levelFilter, setLevelFilter] = useState('ALL');
     const [deleteModal, setDeleteModal] = useState({ show: false, problemId: null, problemTitle: '' });
     const [toast, setToast] = useState(null);
@@ -109,8 +110,9 @@ const AdminProblemManagement = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: `1px solid ${C.border}`, paddingBottom: '8px', width: isMobile ? '100%' : '260px' }}>
                         <span className="material-symbols-outlined" style={{ color: C.outline, fontSize: '18px' }}>search</span>
                         <input
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
+                            value={searchInput}
+                            onChange={e => setSearchInput(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') { setSearch(searchInput); setPage(0); } }}
                             placeholder="SEARCH PROBLEMS..."
                             style={{ background: 'transparent', border: 'none', outline: 'none', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', letterSpacing: '0.08em', color: C.onBg, width: '100%' }}
                         />
