@@ -64,7 +64,7 @@ const Practice = () => {
     const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     const paginated   = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-    if (loading) return <SkeletonLoader />;
+    if (loading) return null;
 
     return (
         <div style={{ backgroundColor: C.bg, color: C.onBg, fontFamily: "'Geist', sans-serif", minHeight: '100vh', padding: isMobile ? '24px 16px' : '48px 64px' }}>
