@@ -141,7 +141,7 @@ const Practice = () => {
                     </div>
                     <style>{'@keyframes pSpin{to{transform:rotate(360deg)}}'}</style>
                 </div>
-            ) : filtered.length === 0 ? (
+            ) : displayProblems.length === 0 ? (
                 <div style={{ border: `1px solid ${C.border}`, padding: '4rem', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: C.outline }}>
                     No problems found
                 </div>
