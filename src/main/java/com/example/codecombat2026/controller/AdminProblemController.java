@@ -31,6 +31,20 @@ public class AdminProblemController {
     @Autowired private StringRedisTemplate redis;
     @Autowired private ObjectMapper objectMapper;
 
+    @GetMapping("/counts")
+    public Map<String, Object> getCounts() {
+        List<Problem> all;
+        try {
+            String cached = redis.opsForValue().get("problems:all");
+            if (cached != null) all = objectMapper.readValue(cached, new com.fasterxml.jackson.core.type.TypeReference<List<Problem>>() {});
+            else all = problemRepository.findAll();
+        } catch (Exception ignored) { all = problemRepository.findAll(); }
+        long easy = all.stream().filter(p -> "EASY".equals(p.getLevel())).count();
+        long medium = all.stream().filter(p -> "MEDIUM".equals(p.getLevel())).count();
+        long hard = all.stream().filter(p -> "HARD".equals(p.getLevel())).count();
+        return Map.of("total", (long) all.size(), "easy", easy, "medium", medium, "hard", hard);
+    }
+
     @GetMapping
     public ResponseEntity<?> getAllProblems(
             @RequestParam(required = false) Integer page,

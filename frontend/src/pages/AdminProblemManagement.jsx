@@ -39,8 +39,12 @@ const AdminProblemManagement = () => {
     const [toast, setToast] = useState(null);
     const [page, setPage] = useState(0);
     const [totalProblems, setTotalProblems] = useState(0);
+    const [counts, setCounts] = useState({ easy: 0, medium: 0, hard: 0, total: 0 });
     const PAGE_SIZE = 24;
 
+    useEffect(() => {
+        api.get('/admin/problems/counts').then(r => setCounts(r.data)).catch(() => {});
+    }, []);
     useEffect(() => { loadProblems(); }, [page, search, levelFilter]);
     useEffect(() => { setPage(0); }, [search, levelFilter]);
 
@@ -73,9 +77,9 @@ const AdminProblemManagement = () => {
     };
 
     const totalPages = Math.max(1, Math.ceil(totalProblems / PAGE_SIZE));
-    const easyCount = problems.filter(p => p.level === 'EASY').length;
-    const mediumCount = problems.filter(p => p.level === 'MEDIUM').length;
-    const hardCount = problems.filter(p => p.level === 'HARD').length;
+    const easyCount = counts.easy;
+    const mediumCount = counts.medium;
+    const hardCount = counts.hard;
 
     if (loading) return <SkeletonLoader />;
     if (error) return (
