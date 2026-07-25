@@ -34,12 +34,13 @@ const Practice = () => {
     const navigate = useNavigate();
     const [problems, setProblems] = useState([]);
     const [stats, setStats]       = useState({ totalPoints: 0, solvedCount: 0 });
-    const [loading, setLoading]   = useState(true);
+    const [loading, setLoading]   = useState(false);
     const [filter, setFilter]     = useState('ALL'); // ALL | UNSOLVED | SOLVED | EASY | MEDIUM | HARD
     const [search, setSearch]     = useState('');
     const [page, setPage]         = useState(1);
 
     useEffect(() => {
+        setLoading(true);
         Promise.all([PracticeService.listProblems(), PracticeService.stats()])
             .then(([pRes, sRes]) => {
                 setProblems(pRes.data);
