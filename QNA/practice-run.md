@@ -1,480 +1,440 @@
-# Practice Run Flow — Complete Architecture
+# Practice Submission Flow — Complete Architecture
 
 ---
 
 ## Ek Line Me Samjho
 
-> User clicks Run → POST /api/practice/run → PracticeService.enqueuePractice() → Valkey queue `practice:queue` → Worker pool judges → SSE verdict + polling fallback → UI shows result
+> User clicks Run → POST /api/practice/run → PracticeService.enqueuePractice() → pushes to `submission:queue` (SAME queue as contest) → Worker pool judges → SSE verdict + polling fallback → UI shows result + GitHub sync + streak update
+
+**Important:** Practice and Contest use the **SAME** Valkey queue (`submission:queue`) and **SAME** worker pool. The only difference is flags in the job and which DB table the result goes to.
+
+---
+
+## Why Same Queue?
+
+Pehle (June 2026) practice ka alag queue tha (`practice:queue`). But workers sirf `submission:queue` se jobs uthate the. Practice jobs kabhi process hi nahi hoti thi — user ko 40 second timeout ke baad error milta tha. July 2026 fix: dono same queue use karte hain.
 
 ---
 
 ## Poora Flow — Big Picture
 
 ```
-USER (Browser)                    Backend (VM1/VM2)                    Valkey          PostgreSQL
-     │                                 │                                │                  │
-     │── POST /api/practice/run ─────►│                                │                  │
-     │                                │── Validate + enqueue ──────────────────────────►│
-     │                                │── LPUSH practice:queue      │                 │
-     │◄── 202 Accepted {subId} ───────│                               │                 │
-     │                                │                                │                 │
-     │                                │   [Worker Pool: 2 on VM1, 4 on VM2]          │
-     │                                │  LMOVE practice:queue                   │
-     │                                │    → practice:processing:vm1:1            │
-     │                                │                                │                 │
-     │                                │   [Worker Thread]                        │
-     │                                │   1. Fetch harness (cache)                │
-     │                                │   2. Inject user code                     │
-     │                                │   3. bwrap + prlimit + execute            │
-     │                                │   4. Parse TC output → verdict            │
-     │                                │   4. sseRegistry.sendVerdict()            │
-     │                                │        → Valkey if no SSE subscriber      │
-     │                                │                                          │
-     │◄─── SSE "verdict" ─────────────│                                │                 │
-     │   (or polling fallback)        │                                │                 │
+USER (Browser)                         BACKEND                       VALKEY              POSTGRESQL
+     │                                     │                            │                      │
+     │── POST /api/practice/run ──────────►│                            │                      │
+     │  {problemId, code, language}        │── Validate + enqueue ─────────────────────────►│
+     │                                     │── LPUSH submission:queue ──►│                    │
+     │◄── 202 Accepted ────────────────────│                            │                      │
+     │                                     │                            │                      │
+     │  [SSE open / polling]               │  [Worker: judge-worker-1]  │                      │
+     │                                     │── LMOVE claim job ────────►│                    │
+     │                                     │── DB → JUDGING ──────────────────────────────►│
+     │                                     │── Fetch harness (cache)    │                    │
+     │                                     │── bwrap sandbox execute     │                    │
+     │                                     │── Parse TC: output          │                    │
+     │                                     │── DB verdict ─────────────────────────────────►│
+     │                                     │── Award points ───────────────────────────────►│
+     │                                     │── GitHub auto-push                            │
+     │                                     │── Streak update                               │
+     │◄── SSE "verdict" ───────────────────│                            │                      │
 ```
 
 ---
 
-## Complete Flow — Step by Step
+## Step 1: User "Run" Button Dabata Hai
 
-### Step 1: User Clicks "Run" on Practice Page
+**File:** `PracticeSolve.jsx`
 
-**Frontend:** `PracticeSolve.jsx` → `handleRun()`
-```javascript
-PracticeService.run(id, code, language)
-  → POST /api/practice/run
-  Body: { problemId: 38, code: "class Solution...", language: "JAVA" }
-  Header: Authorization: Bearer <jwt>
+### Frontend se Request
+
+```
+POST /api/practice/run
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "problemId": 69,
+  "code": "class Solution { public boolean containsDuplicate(int[] nums) { ... } }",
+  "language": "JAVA"
+}
 ```
 
-### Step 2: Controller Validates & Enqueues
+### Frontend Response Handling
 
-**File:** `PracticeController.java` → `runPractice()`
+```
+handleRun() {
+  1. Set running=true, show "Running..." spinner
+  2. POST /api/practice/run → 202 Accepted + {submissionId}
+  3. Wait for verdict via SSE (primary) or polling (fallback)
+  4. On verdict → show result in console panel
+  5. On AC + GitHub connected → show "Pushing..." animation
+}
+```
+
+### Theory: Run vs Submit in Practice
+
+Practice mode me "Run" button hi "Submit" ka kaam karta hai. There's no separate "Submit" button. Har "Run" ek real submission hai (`isTestRun=false`). Karan: practice me leaderboard nahi hai, score count nahi hota — har attempt ek recordable submission hai.
+
+---
+
+## Step 2: Controller Validates + Delegates
+
+**File:** `PracticeController.java`
+
 ```java
 @PostMapping("/run")
-@PreAuthorize("isAuthenticated()")
-public ResponseEntity<?> runPractice(@RequestBody PracticeRunRequest req,
-                                     @AuthenticationPrincipal UserDetailsImpl user) {
-    // 1. Validate code
-    if (req.getCode() == null || req.getCode().isBlank())
-        return ResponseEntity.badRequest().body(error("Code cannot be empty"));
-    if (req.getCode().length() > 50_000)
-        return ResponseEntity.badRequest().body(error("Code too large (max 50KB)"));
-
-    // 2. Enqueue
-    Long submissionId = practiceService.enqueuePractice(user.getId(), req.getProblemId(), req.getCode(), req.getLanguage());
-    return ResponseEntity.accepted().body(Map.of("submissionId", submissionId));
+public ResponseEntity<?> run(@RequestBody PracticeRunRequest req,
+                              @AuthenticationPrincipal UserDetailsImpl user) {
+    // 1. Problem exists?
+    Problem problem = problemRepository.findById(req.problemId)
+        .orElseThrow(() -> new ResourceNotFoundException("Problem not found"));
+    
+    // 2. Code valid?
+    if (req.code == null || req.code.isBlank())
+        return badRequest("Code is required");
+    
+    // 3. Language valid?
+    ProgrammingLanguage lang = ProgrammingLanguage.valueOf(req.language.toUpperCase());
+    
+    // 4. Enqueue
+    Long submissionId = practiceService.enqueuePractice(
+        user.getId(), req.problemId, req.code, req.language);
+    
+    // 5. Return immediately
+    return ResponseEntity.ok(Map.of("submissionId", submissionId));
 }
 ```
 
-### Step 3: PracticeService.enqueuePractice()
+Response time: <5ms. User ko turant response.
+
+---
+
+## Step 3: PracticeService Queue Me Push Karta Hai
+
+**File:** `PracticeService.java` → `enqueuePractice()`
+
+### DB: PENDING Row Create (practice_submissions table)
 
 ```java
-public Long enqueuePractice(Long userId, Long problemId, String code, String language) {
-    // 1. Validate problem
-    Problem problem = problemRepository.findById(problemId)
-        .orElseThrow(() -> new ResourceNotFoundException("Problem not found"));
-    if (!Boolean.TRUE.equals(problem.getActive()))
-        throw new IllegalArgumentException("Problem disabled");
+PracticeSubmission ps = new PracticeSubmission();
+ps.setUserId(userId);
+ps.setProblemId(problemId);
+ps.setCode(code);
+ps.setLanguage(lang);
+ps.setStatus(PENDING);
+ps.setProblemName(problem.getTitle());
+ps.setUserName(user.getUsername());
+practiceSubmissionRepository.save(ps);
+```
 
-    // 2. Get harness
-    String harness = cacheService.getSnippetHarness(problemId, language);
-    if (harness == null)
-        throw new IllegalArgumentException("No harness for language: " + language);
+### Valkey: Job Queue Me Push (submission:queue — SAME AS CONTEST)
 
-    // 3. Rate limit: 20 runs / 60s per user per problem
-    String rateKey = "practice:runs:" + userId + ":" + problemId;
-    Long count = redis.opsForValue().increment(rateKey);
-    if (count == 1) redis.expire(rateKey, Duration.ofSeconds(60));
-    if (count > 20) throw new IllegalArgumentException("Rate limit exceeded");
+```java
+SubmissionJob job = new SubmissionJob();
+job.setSubmissionId(ps.getId());    
+job.setUserId(userId);
+job.setProblemId(problemId);
+job.setContestId(null);              // ← NULL = practice
+job.setCode(code);
+job.setLanguage(language);
+job.setTimeLimit(problem.getTimeLimit());
+job.setMemoryLimit(problem.getMemoryLimit());
+job.setTestRun(false);               // ← REAL submission in practice
+job.setPractice(true);               // ← PRACTICE flag
+job.setDuelId(null);
 
-    // 5. Create Submission row (practice=true, contest=null, testRun=false)
-    Submission sub = new Submission();
-    sub.setUser(user);
-    sub.setProblem(problem);
-    sub.setContest(null);          // ← Practice has NO contest
-    sub.setCode(code);
-    sub.setLanguage(lang);
-    sub.setStatus(PENDING);
-    sub.setTestRun(false);         // Practice = real submission, not test run
-    sub.setPractice(true);         // ← Flags as practice
-    sub = submissionRepository.save(sub);
+String json = objectMapper.writeValueAsString(job);
+redis.opsForList().leftPush("submission:queue", json);  // SAME QUEUE
+```
 
-    // 6. Build job & push to PRACTICE queue
-    SubmissionJob job = new SubmissionJob();
-    job.setSubmissionId(sub.getId());
-    job.setUserId(userId);
-    job.setProblemId(problemId);
-    job.setContestId(null);              // ← No contest
-    job.setCode(code);
-    job.setLanguage(language);
-    job.setTestRun(false);            // Practice = real submission
-    job.setPractice(true);            // ← Practice flag
-    job.setTimeLimit(problem.getTimeLimit());
-    job.setMemoryLimit(problem.getMemoryLimit());
+### Theory: Shared Queue
 
-    String json = objectMapper.writeValueAsString(job);
-    redis.opsForList().leftPush("practice:queue", json);  // Separate queue!
+Practice aur contest dono `submission:queue` use karte hain. Worker ko pata hota hai ki job practice hai ya contest — `job.isPractice()` flag se. Is flag ke hisaab se worker different paths leta hai (different DB table, no leaderboard, etc).
 
-    return sub.getId();
-}
+Pehle alag queue thi (`practice:queue`) lekin workers usse read nahi karte the — practice jobs stuck rehti thi. July 2026 me fix kiya.
+
+### Cache Eviction
+
+```java
+redis.delete("practice:submissions:" + userId + ":" + problemId);
 ```
 
 ---
 
-## Queue & Workers — Separate Pipeline
-
-| Aspect | Practice Run | Contest Run/Submit |
-|---|---|---|
-| **Queue** | `practice:queue` | `submission:queue` |
-| **Workers** | VM1: 2 dedicated | Shared 8 (VM1=2, VM2=6) |
-| **Worker Pool** | Dedicated 2 (VM1) + 4 (VM2) | Shared 8 workers |
-| **DB Row** | `practice=true, contest=null, testRun=false` | `testRun=true` / `practice=false` |
-| **Rate Limit** | 20 runs / 60s per problem | 10 runs / 60s per problem |
-| **Verdict Delivery** | SSE + 3s polling fallback | SSE + 1s polling |
-| **DB Visibility** | `/api/user/practice/history` | Dashboard + Leaderboard |
-| **Points** | Profile points (first AC only) | Leaderboard ZSET |
-
----
-
-## Worker Pool — Dedicated Practice Threads
+## Step 4: Worker Job Uthata Hai (SAME Worker Pool)
 
 **File:** `SubmissionWorkerPool.java`
 
+Practice ke liye koi alag worker pool nahi hai. Contest aur practice dono same `workerLoop()` se process hote hain:
+
 ```java
-@Component
-public class SubmissionWorkerPool {
-    // Practice workers: VM1=2, VM2=4 (separate from contest pool)
-    @Value("${PRACTICE_WORKERS:2}")  // VM1:2, VM2:4 (via env)
-    private int practiceWorkerCount;
-
-    @PostConstruct
-    public void init() {
-        // Contest workers
-        for (int i = 0; i < workerCount; i++)
-            pool.submit(() -> workerLoop("contest", QUEUE_KEY));
-
-        // Practice workers — separate thread pool
-        for (int i = 0; i < practiceWorkerCount; i++)
-            pool.submit(() -> workerLoop("practice", PRACTICE_QUEUE_KEY));
-    }
-
-    private void workerLoop(String type, String queueKey) {
-        while (!Thread.currentThread().isInterrupted()) {
-            String jobJson = workerRedis.opsForList()
-                .move(type.equals("practice") ? PRACTICE_QUEUE_KEY : QUEUE_KEY,
-                      PROCESSING_KEY_PREFIX + instanceId + ":" + workerId,
-                      Duration.ofSeconds(3));
-            if (jobJson == null) continue;
-            processJob(jobJson, type.equals("practice"));
+void processJob(SubmissionJob job) {
+    // Step 1: DB status → JUDGING
+    if (!job.isTestRun() && submissionId != null) {
+        if (job.isPractice()) {
+            practiceSubmissionRepository.updateStatus(submissionId, JUDGING);
+        } else {
+            submissionRepository.updateStatus(submissionId, JUDGING);
         }
     }
-
-    private void processJob(String jobJson, boolean isPractice) {
-        // Same judging logic, but:
-        // - Practice: contestId=null, practice=true, testRun=false
-        // - Contest: contestId!=null, practice=false, testRun=false/true
-    }
+    
+    // Step 2-5: Same harness fetch, code injection, sandbox execution
+    // (identical to contest — see submission-flow.md Step 5)
+    
+    // Step 6: Parse output (identical)
+    
+    // Step 7: finalizeAndNotify with practice-specific hooks
 }
 ```
 
 ---
 
-## Verdict Delivery — SSE + Polling Fallback
+## Step 5: Sandbox Execution (Identical to Contest)
 
-### Backend: `SseEmitterRegistry.sendVerdict()`
+Same `DockerJudgeService.execute()` call. Same bwrap + prlimit sandbox. Same harness injection. Same output parsing.
 
-```java
-public void sendVerdict(Long userId, Object verdictData) {
-    ConcurrentHashMap<String, SseEmitter> subs = emitters.get(userId);
-    if (subs == null || subs.isEmpty()) {
-        // No active SSE — cache for polling fallback
-        String key = "pending:verdict:" + userId + ":" + verdict.getSubmissionId();
-        redis.opsForValue().set(key, json, Duration.ofMinutes(5));
-        log.debug("No SSE subscriber for user {} — verdict cached for polling", userId);
-        return;
-    }
-    // Fan out to all tabs
-    subs.forEach((subId, emitter) -> {
-        try {
-            emitter.send(SseEmitter.event().name("verdict").data(verdict));
-        } catch (Exception ex) {
-            remove(userId, subId, "send-failed");
-        }
-    });
-}
-```
-
-### Frontend: PracticeSolve.jsx — handleRun()
-
-```javascript
-const handleRun = () => {
-    if (runningRef.current) return;
-    runningRef.current = true;
-    setRunning(true);
-    setOutput(<Spinner />);
-
-    PracticeService.run(id, code, language)
-        .then(res => {
-            const sid = res.data.submissionId;
-            activeSubRef.current = sid;
-
-            // Start polling fallback AFTER 3s (give SSE head start)
-            pollTimer.current = setTimeout(() => startPolling(sid), 3000);
-
-            // 40s hard timeout
-            timeoutRef.current = setTimeout(() => {
-                if (activeSubRef.current === sid) {
-                    activeSubRef.current = null;
-                    runningRef.current = false;
-                    setRunning(false);
-                    setOutput(<Error>Judging timed out. Try again.</Error>);
-                }
-            }, 40000);
-        })
-        .catch(err => {
-            runningRef.current = false;
-            setRunning(false);
-            setOutput(<Error>Error: {err.message}</Error>);
-        });
-    };
-```
-
-### Polling Fallback (`startPolling`)
-
-```javascript
-const startPolling = (sid) => {
-    let attempts = 0;
-    const poll = async () => {
-        if (activeSubRef.current !== sid) return; // Already handled by SSE
-        try {
-            const res = await api.get(`/submissions/${sid}/status`);
-            const data = res.data;
-            if (data.status && !['PENDING','JUDGING'].includes(data.status)) {
-                // Verdict ready!
-                activeSubRef.current = null;
-                clearTimeout(timeoutRef.current);
-                clearTimeout(pollTimerRef.current);
-                runningRef.current = false;
-                setRunning(false);
-                if (data.status === 'AC') setSolved(true);
-                setOutput(buildVerdictUI(toVerdict(data), false));
-            } else if (attempts < 30) {
-                pollTimerRef.current = setTimeout(poll, 2000);
-            }
-        } catch (err) {
-            if (attempts < 30) pollTimerRef.current = setTimeout(poll, 2000);
-        }
-    };
-    pollTimerRef.current = setTimeout(() => poll(), 3000); // SSE gets 3s head start
-};
-```
+See `submission-flow.md` Step 6 for full details.
 
 ---
 
-## Frontend Verdict Handling — Unified
+## Step 6: Practice-Specific finalizeAndNotify()
 
-### `toVerdict(raw)` — Normalizes API response
+**File:** `SubmissionWorkerPool.java` → `finalizeAndNotify()`
 
-```javascript
-function toVerdict(raw) {
-    return {
-        status:         raw.status,
-        passed:         raw.testCasesPassed,
-        total:          raw.totalTestCases,
-        executionTime:  raw.timeConsumedMs,
-        errorMessage:   raw.errorMessage,
-        testCases:      raw.testCaseDetails ? JSON.parse(raw.testCaseDetails) : [],
-        pointsAwarded:  raw.pointsAwarded || 0,
-        alreadySolved:  raw.alreadySolved || false,
-    };
+### 6a: DB Update (practice_submissions table)
+
+```java
+if (job.isPractice()) {
+    updated = practiceSubmissionRepository.updateResult(
+        submissionId, inflight, status, errorMessage, 
+        passed, total, (double) timeMs, score, details);
+} else {
+    updated = submissionRepository.updateResult(...);
 }
 ```
 
-### Unified `buildVerdictUI(v)` — Works for Both Practice & Contest
+### 6b: Leaderboard — SKIPPED
 
-```javascript
-function buildVerdictUI(v, isTestRun) {
-    // Status badge
-    if (v.status === 'CE' || v.status === 'RE') { ... }
-    if (v.status === 'TLE') { ... }
+```java
+// Practice has NO leaderboard — this entire block is skipped
+if (!job.isTestRun() && job.getContestId() != null) {
+    // ... contest leaderboard update
+}
+// contestId is null for practice → block doesn't execute
+```
 
-    // Test cases
-    const visibleTCs = v.testCases.filter(tc => !tc.hidden);
-    return (
-        <div>
-            {visibleTCs.map((tc, i) => (
-                <div key={i} className={tc.passed ? 'pass' : 'fail'}>
-                    <span>{tc.passed ? '✓' : '✗'} Test Case {tc.testCase}</span>
-                    {!tc.passed && (tc.input || tc.expected || tc.got) && (
-                        <details><summary>Details</summary>
-                            {tc.input && <div>Input: {tc.input}</div>}
-                            {tc.expected && <div>Expected: {tc.expected}</div>}
-                            {tc.got && <div>Got: {tc.got}</div>}
-                        </details>
-                    )}
-                </div>
-            ))}
-        )}
-    </div>
+### 6c: Points Award (First AC Only)
+
+```java
+if (job.isPractice() && !job.isTestRun() 
+    && status == AC && updated > 0) {
+    try {
+        practiceAwarded = practiceService.awardPointsIfFirstSolve(
+            job.getUserId(), job.getProblemId());
+        practiceSolved = (practiceAwarded == 0);
+        // practiceAwarded = 0 means already solved before
+    } catch (Exception e) {
+        log.warn("Practice points award failed: {}", e.getMessage());
+    }
+}
+```
+
+Points by difficulty:
+```
+EASY   → 5 points
+MEDIUM → 7 points
+HARD   → 10 points
+```
+
+First solve only — `user_problem_solved` table tracks per-user per-problem. Duplicate AC pe 0 points.
+
+### 6d: GitHub Auto-Push (AC Only)
+
+```java
+if (job.isPractice() && !job.isTestRun() && status == AC && updated > 0) {
+    try {
+        String problemTitle = cacheService.getProblemTitle(job.getProblemId());
+        gitHubService.pushSolution(
+            job.getUserId(), submissionId,
+            problemTitle, job.getLanguage(), job.getCode(), null);
+    } catch (Exception e) {
+        log.warn("GitHub auto-push failed: {}", e.getMessage());
+    }
+}
+```
+
+**Flow:**
+1. Check user has `githubToken` (OAuth connected?)
+2. Ensure `CodeCoder` repo exists (create if not)
+3. File path: `{problem-slug}/{lang}{n}Solution.{ext}`  
+   Example: `contains-duplicate/java1Solution.java`
+4. Count existing language files → auto-increment
+5. Commit: "✅ Contains Duplicate — JAVA solution #1"
+
+### 6e: Streak Update
+
+```java
+if (!job.isTestRun() && job.getDuelId() == null) {
+    try {
+        streakService.updateStreak(job.getUserId());
+    } catch (Exception ignored) {}
+}
+```
+
+Streak counts consecutive active days. See streak documentation for full details.
+
+### 6f: SSE Push
+
+```java
+VerdictEvent event = new VerdictEvent(
+    submissionId, status.name(), passed, total, score,
+    timeMs, errorMessage, details,
+    job.isTestRun(),        // false for practice
+    job.isPractice(),       // TRUE
+    practiceAwarded,        // points earned (0 if already solved)
+    practiceSolved          // already solved before?
 );
+sseRegistry.sendVerdict(job.getUserId(), event);
+```
+
+Frontend receives `practice: true` flag — uses it to show/hide practice-specific UI elements.
+
+---
+
+## Step 7: User Ko Result Milta Hai
+
+### Primary: SSE (Same as Contest)
+
+Same SSE mechanism. PracticeSolve.jsx connects to same `/submissions/stream` endpoint. `VerdictEvent.practice = true` se frontend ko pata chal jata hai.
+
+### Fallback: Polling (Dual-Table Check — July 2026 Fix)
+
+```
+GET /api/submissions/{submissionId}/status
+
+Backend logic:
+  1. Check submissions table
+  2. If NOT found → check practice_submissions table
+  3. Return verdict if status is final
+  
+Pehle sirf submissions table check hota tha. Practice submissions
+practice_submissions table me hain — so polling always returned 404.
+July 2026 fix: both tables check kiye jate hain.
+```
+
+### Frontend: GitHub Push Animation
+
+```
+On AC verdict:
+  if (githubConnected) {
+    show "Pushing..." with spinning sync icon (2s)
+    → show "Pushed ✓" with green check (3s)
+    → back to "Connected ✓"
+  }
 ```
 
 ---
 
-## Verdict Delivery — SSE + Polling Fallback
+## Complete Practice Flow Diagram
 
-### Backend: `SseEmitterRegistry.sendVerdict()`
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ USER: /practice/69                                                      │
+│   │                                                                     │
+│   │  Writes code, clicks "Run"                                          │
+│   ▼                                                                     │
+│ POST /api/practice/run                                                   │
+│   │                                                                     │
+│   ▼                                                                     │
+│ PracticeController.run()                                                │
+│   ├── Validate: problem exists, code valid, language supported          │
+│   └── → PracticeService.enqueuePractice()                              │
+│          │                                                               │
+│          ▼                                                               │
+│   PracticeService.enqueuePractice()                                      │
+│     ├── Save PENDING → practice_submissions (PostgreSQL)                │
+│     ├── Cache evict                                                      │
+│     └── LPUSH SubmissionJob → submission:queue (SAME as contest!)       │
+│          │                                                               │
+│   ◄── 202 {submissionId} ── user gets response                          │
+│                                                                          │
+│   ═══════════ BACKGROUND (Worker Thread) ═══════════════                 │
+│                                                                          │
+│   SubmissionWorkerPool.processJob()                                      │
+│     ├── DB: UPDATE practice_submissions → JUDGING                        │
+│     ├── Fetch harness (Valkey cache)                                     │
+│     ├── Inject user code                                                 │
+│     ├── DockerJudgeService.execute() ← same sandbox                     │
+│     └── parseOutput()                                                    │
+│          │                                                               │
+│          ▼                                                               │
+│   finalizeAndNotify():                                                   │
+│     ├── DB UPDATE: practice_submissions (verdict, score, time)          │
+│     ├── Leaderboard: SKIPPED (contestId=null)                           │
+│     ├── Points: awardPointsIfFirstSolve() — 5/7/10 by difficulty        │
+│     ├── GitHub: pushSolution() → CodeCoder repo                          │
+│     ├── Streak: updateStreak(userId)                                     │
+│     ├── Cache eviction                                                   │
+│     ├── SSE push → user browser                                          │
+│     └── LREM → job done                                                  │
+│                                                                          │
+│   ════════════════════════════════════════════════════                    │
+│                                                                          │
+│   ▼  SSE "verdict" (primary) or polling (fallback)                      │
+│ USER:                                                                   │
+│   AC → shows "Accepted ✓" + "Pushing..." (GitHub)                       │
+│   WA → shows failed test cases                                          │
+│   CE → shows compiler error                                              │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
+---
+
+## Practice vs Contest — Key Differences
+
+| Aspect | Contest | Practice |
+|--------|---------|----------|
+| Endpoint | `POST /api/submissions` | `POST /api/practice/run` |
+| DB Table | `submissions` | `practice_submissions` |
+| Queue | `submission:queue` | `submission:queue` (SAME!) |
+| Worker Pool | SubmissionWorkerPool | SubmissionWorkerPool (SAME!) |
+| Leaderboard | Yes (ZINCRBY) | No |
+| Score | Per-problem scored | Simple points (5/7/10) |
+| GitHub Push | No | Yes (on AC) |
+| Streak | Yes | Yes |
+| isPractice flag | false | true |
+| contestId | Set | null |
+| Run button | Separate (isTestRun=true) | Run IS Submit (isTestRun=false) |
+
+---
+
+## Polling Fix (July 2026)
+
+**Bug:** Practice submissions save to `practice_submissions` table. Polling endpoint `GET /api/submissions/{id}/status` sirf `submissions` table check karta tha. Practice polling always returned 404 → frontend kept retrying → 40 second timeout → error.
+
+**Fix:** Polling endpoint now checks BOTH tables:
 ```java
-public void sendVerdict(Long userId, Object verdictData) {
-    ConcurrentHashMap<String, SseEmitter> subs = emitters.get(userId);
-    if (subs == null || subs.isEmpty()) {
-        // No active SSE — cache for polling fallback
-        String key = "pending:verdict:" + userId + ":" + verdict.getSubmissionId();
-        redis.opsForValue().set(key, json, Duration.ofMinutes(5));
-        log.debug("No SSE subscriber for user {} — verdict cached for polling", userId);
-        return;
-    }
-    // Fan out to all open tabs
-    subs.forEach((subId, emitter) -> {
-        try {
-            emitter.send(SseEmitter.event().name("verdict").data(verdict));
-        } catch (Exception ex) {
-            remove(userId, subId, "send-failed");
-        }
-    });
-}
-```
+// First check submissions table
+Submission sub = submissionRepo.findById(submissionId).orElse(null);
+if (sub != null) return buildResponse(sub);
 
-### Frontend — SSE Handler (PracticeSolve.jsx)
-
-```javascript
-useEffect(() => {
-    const user = AuthService.getCurrentUser();
-    if (!user?.token) return;
-
-    api.post('/submissions/sse-ticket')
-        .then(res => {
-            const ticket = res.data?.ticket;
-            if (!ticket) return;
-            const url = `${API_BASE}/submissions/stream?ticket=${ticket}`;
-            const es = new EventSource(url);
-            sseRef.current = es;
-
-            es.addEventListener('verdict', (e) => {
-                const raw = JSON.parse(e.data);
-                if (activeSubRef.current != null &&
-                    raw.submissionId !== activeSubRef.current) return;
-
-                activeSubRef.current = null;
-                if (timeoutRef.current) clearTimeout(timeoutRef.current);
-                runningRef.current = false;
-                setRunning(false);
-                if (raw.status === 'AC') setSolved(true);
-                setOutput(buildVerdictUI(toVerdict(raw), raw.testRun === true));
-            });
-
-            es.onerror = () => console.warn('Practice SSE connection error');
-        });
-    }, []);
-}, []);
-```
-
-### Polling Fallback (starts 3s after Run click)
-
-```javascript
-const startPolling = (sid) => {
-    let attempts = 0;
-    const poll = () => {
-        if (activeSubRef.current !== sid) return;
-        api.get(`/submissions/${sid}/status`)
-            .then(res => {
-                const data = res.data;
-                if (data.status && !['PENDING','JUDGING'].includes(data.status)) {
-                    activeSubRef.current = null;
-                    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-                    if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
-                    runningRef.current = false;
-                    setRunning(false);
-                    if (data.status === 'AC') setSolved(true);
-                    setOutput(buildVerdictUI(toVerdict(data), false));
-                    return;
-                }
-                if (attempts < 30) pollTimerRef.current = setTimeout(poll, 2000);
-            })
-            .catch(() => { if (attempts < 30) pollTimerRef.current = setTimeout(poll, 2000); });
-    };
-    pollTimerRef.current = setTimeout(poll, 3000); // 3s head start for SSE
-};
+// Not found → check practice_submissions
+PracticeSubmission psub = practiceSubmissionRepo.findById(submissionId)
+    .orElseThrow(() -> new ResourceNotFoundException());
+return buildResponse(psub);
 ```
 
 ---
 
-## Verdict UI — Unified `buildVerdictUI(verdict, isTestRun)`
+## Key Design Decisions
 
-```javascript
-function buildVerdictUI(v, isTestRun) {
-    if (v.status === 'CE' || v.status === 'RE') { /* red error box */ }
-    if (v.status === 'TLE') { /* yellow timeout */ }
-    if (v.status === 'MLE') { ... }
-    if (v.status === 'AC') { /* green success + points badge */ }
-    if (v.status === 'WA') { /* red with test case table */ }
+### Shared Queue Design
+Practice and contest share `submission:queue`. This was a bug-fix-driven design choice — separate queues failed because workers only drained one. Shared queue with flags is simpler and more maintainable.
 
-    // Test case table — uses tc.status === 'PASS' (NOT tc.passed!)
-    {visibleTCs.map((tc, idx) => (
-        <div key={idx} className={tc.status === 'PASS' ? 'pass' : 'fail'}>
-            <span>{tc.status === 'PASS' ? '✓' : '✗'} Test Case {tc.testCase}</span>
-            {!tc.passed && (tc.input || tc.expected || tc.got) && (
-                <details><summary>Details</summary>
-                    {tc.input && <div>Input: {tc.input}</div>}
-                    {tc.expected && <div>Expected: {tc.expected}</div>}
-                    {tc.got && <div>Your Output: {tc.got}</div>}
-                </details>
-            )}
-        </div>
-    ))}
-```
+### Practice = Real Submission
+Unlike contests where "Run" (test) and "Submit" (real) are separate, practice has no distinction. Every code execution is a real submission stored permanently. This enables: submission history, GitHub sync, streak tracking.
 
-> **Note:** Backend stores `status: "PASS" | "FAIL"` in test case JSON. Both `PracticeSolve.jsx` and `ProblemSolve.jsx` now use `tc.status === 'PASS'` consistently.
+### Separate DB Table
+Practice uses `practice_submissions` table to keep contest data clean. Polling needs to check both tables (July 2026 fix). GitHub sync flag (`github_pushed`) only exists on practice_submissions.
 
 ---
-
-## Rate Limits
-
-| Action | Limit | Window | Key |
-|---|---|---|---|
-| Practice Run | 20 runs | 60s | `practice:runs:{userId}:{problemId}` |
-| Contest Test Run | 10 runs | 60s | `sub:rl:events:{userId}:{problemId}` |
-| Contest Submit | 5 submits | ∞ (per contest) | `sub:submit:{userId}:{problemId}` |
-| Screenshot Upload | 20/min | 60s | `practice:screenshots:{userId}` |
-
----
-
-## Common Errors & Fixes
-
-| Error | Cause | Fix |
-|---|---|---|
-| `RATE_LIMITED` (429) | Too many runs | Wait 60s |
-| `HARNESS_MISSING` | No harness for language | Admin configure harness |
-| `CONTEST_INACTIVE` | 403 | Problem disabled |
-| `RATE_LIMITED` (503) | Queue full (1000 pending) | Wait and retry |
-| `HARNESS_MISSING` | No harness for language | Admin configure harness |
-| `UNAUTHORIZED` on SSE | Ticket expired/used | Auto-reconnect via polling |
-
----
-
-## Debugging Checklist
-
-| Symptom | Likely Cause | Fix |
-|---|---|---|
-| "Judging timed out" | SSE race / slow worker | Polling fallback catches it |
-| All test cases show FAIL | Frontend reads `tc.passed` but backend sends `status` | Use `tc.status === 'PASS'` |
-| CE shows "No error details" | `parseClientTimestamp` failed | Check `result.getStderr()` in backend |
-| Verdict never arrives | SSE ticket expired / not connected | Polling fallback covers this |
-| Practice shows in dashboard | `findByUser_Id` missing `contest.id IS NOT NULL` | Add `AND s.contest.id IS NOT NULL` |
-
----
-
-*Architecture: VM1 (2 contest + 2 practice workers) + VM2 (6 contest + 4 practice workers) → shared Valkey `practice:queue` & `submission:queue` → 0.4ms private network latency.*
