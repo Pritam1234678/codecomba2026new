@@ -91,21 +91,22 @@ public ResponseEntity<?> run(@RequestBody PracticeRunRequest req,
     
     // 2. Code valid?
     if (req.code == null || req.code.isBlank())
-        return badRequest("Code is required");
+        return ResponseEntity.badRequest().build();
+    if (req.code.length() > 50_000)
+        return ResponseEntity.badRequest().build();
     
-    // 3. Language valid?
-    ProgrammingLanguage lang = ProgrammingLanguage.valueOf(req.language.toUpperCase());
-    
-    // 4. Enqueue
+    // 3. Enqueue
     Long submissionId = practiceService.enqueuePractice(
         user.getId(), req.problemId, req.code, req.language);
     
-    // 5. Return immediately
-    return ResponseEntity.ok(Map.of("submissionId", submissionId));
+    // 5. Return immediately — 202 Accepted
+    return ResponseEntity.accepted()
+        .body(Map.of("submissionId", submissionId,
+                     "message", "Accepted — verdict will be delivered via SSE."));
 }
 ```
 
-Response time: <5ms. User ko turant response.
+Response code: **202 Accepted**. User ko turant response.
 
 ---
 
