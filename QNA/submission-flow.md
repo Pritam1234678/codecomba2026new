@@ -177,7 +177,7 @@ submission:queue = [job3_json, job2_json, job1_json]
 Direct execution na karke queue use karne ke 3 fayde:
 1. **Back-pressure handling:** Agar 50 users ek saath submit kare, to queue buffer karta hai. Workers apni speed se process karte hain, server overload nahi hota.
 2. **Crash safety:** Job Valkey me stored hai. Agar worker crash ho jaye, job queue me wapas aa jati hai (LMOVE + Janitor se).
-3. **Priority:** Future me contest submissions ko practice se pehle process kar sakte hain — queue architecture allows this.
+    3. **Priority:** Future me high-priority submissions ko pehle process kar sakte hain — queue architecture allows this.
 
 ---
 
@@ -749,8 +749,9 @@ With this, **koi bhi job permanently lost nahi hoti**. Worst case: worker crash 
 
 ## Key Design Decisions
 
-### Single Queue, Multiple Pathways
-Ek hi `submission:queue` se sab kuch handle hota hai — contest, practice, duel. `SubmissionJob` ke andar flags (`practice`, `duelId`, `testRun`) branch logic ke liye hain. Clean, simple, maintainable.
+### Single Queue, Clean Design
+
+Ek hi `submission:queue` se sab submissions handle hote hain. `SubmissionJob` simple POJO hai jisme submission ke saare attributes hain — koi complex routing nahi, koi multiple queues nahi. Clean, simple, maintainable.
 
 ### Lock-Free Architecture
 Java me kahin bhi `synchronized` ya `Lock` use nahi hota. Saara coordination Valkey ke atomic commands (LMOVE, INCR, ZINCRBY) aur PostgreSQL ki MVCC se hota hai. Single-threaded Valkey command execution LMOVE ko inherently thread-safe banata hai.
