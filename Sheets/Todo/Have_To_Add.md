@@ -76,10 +76,10 @@
 | 15 | Arrays | Core Manipulations | Sort array with 0's 1's and 2's (Dutch Flag) | [Link](https://leetcode.com/problems/sort-colors/) | ★☆☆ Easy | ✅ |
 | 16 | Arrays | Intermediate Problems | Equilibrium Point | [Link](https://www.geeksforgeeks.org/problems/equilibrium-point-1587115620/1) | ★★☆ Medium | ✅ |
 | 17 | Arrays | Intermediate Problems | Reverse Integer | [Link](https://leetcode.com/problems/reverse-integer/description/) | ★★☆ Medium | ✅ |
-| 18 | Arrays | Intermediate Problems | Leaders in Array | [Link](https://www.geeksforgeeks.org/problems/leaders-in-an-array-1587115620/1?itm_source=geeksforgeeks&itm_medium=article&itm_campaign=practice_card) | ★★☆ Medium | ❌ |
-| 19 | Arrays | Intermediate Problems | Increasing Array | [Link](https://cses.fi/problemset/task/1094) | ★★☆ Medium | ❌ |
-| 20 | Arrays | Intermediate Problems | Rearrange Array Elements by Sign | [Link](https://leetcode.com/problems/rearrange-array-elements-by-sign/) | ★★☆ Medium | ❌ |
-| 21 | Arrays | Intermediate Problems | Rotate Array by One | [Link](https://www.geeksforgeeks.org/problems/cyclically-rotate-an-array-by-one2614/1) | ★★☆ Medium | ❌ |
+| 18 | Arrays | Intermediate Problems | Leaders in Array | [Link](https://www.geeksforgeeks.org/problems/leaders-in-an-array-1587115620/1?itm_source=geeksforgeeks&itm_medium=article&itm_campaign=practice_card) | ★★☆ Medium | ✅ |
+| 19 | Arrays | Intermediate Problems | Increasing Array | [Link](https://cses.fi/problemset/task/1094) | ★★☆ Medium | ✅ |
+| 20 | Arrays | Intermediate Problems | Rearrange Array Elements by Sign | [Link](https://leetcode.com/problems/rearrange-array-elements-by-sign/) | ★★☆ Medium | ✅ |
+| 21 | Arrays | Intermediate Problems | Rotate Array by One | [Link](https://www.geeksforgeeks.org/problems/cyclically-rotate-an-array-by-one2614/1) | ★★☆ Medium | ✅ |
 | 22 | Arrays | Intermediate Problems | Majority Element I (Boyer - Moore) | [Link](https://leetcode.com/problems/majority-element/) | ★★☆ Medium | ❌ |
 | 23 | Arrays | Advanced Problems | Rotate Array by K steps | [Link](https://leetcode.com/problems/rotate-array/) | ★★★ Hard | ❌ |
 | 24 | Arrays | Advanced Problems | Wiggle Sort II | [Link](https://leetcode.com/problems/wiggle-sort-ii/description/) | ★★★ Hard | ❌ |
