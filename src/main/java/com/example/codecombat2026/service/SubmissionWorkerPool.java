@@ -323,7 +323,6 @@ public class SubmissionWorkerPool {
             double timeLimit = job.getTimeLimit() != null ? job.getTimeLimit() : 5.0;
             int memoryLimit  = job.getMemoryLimit() != null ? job.getMemoryLimit() : 256;
             ExecutionResult result = judgeService.execute(executableCode, lang, timeLimit, memoryLimit, null);
-
             ParsedResult parsed = parseOutput(result, job.isTestRun());
 
             finalizeAndNotify(job, submissionId, parsed.status, parsed.errorMessage,
