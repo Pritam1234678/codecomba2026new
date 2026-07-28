@@ -12,7 +12,16 @@
 
 ## Why Same Queue?
 
-Pehle (June 2026) practice ka alag queue tha (`practice:queue`). But workers sirf `submission:queue` se jobs uthate the. Practice jobs kabhi process hi nahi hoti thi — user ko 40 second timeout ke baad error milta tha. July 2026 fix: dono same queue use karte hain.
+Pehle (June 2026) practice ka alag queue tha (`practice:queue`). But workers sirf `submission:queue` se jobs uthate the. Practice jobs kabhi process hi nahi hoti thi — user ko 40 second timeout ke baad error milta tha.
+
+July 2026 fix: `practice:queue` constant abhi bhi code me hai (`SubmissionWorkerPool.PRACTICE_QUEUE_KEY`) lekin **kabhi use nahi hota** — dead code hai. Practice submissions `PracticeService.enqueuePractice()` method `SubmissionWorkerPool.QUEUE_KEY` (= `submission:queue`) me push karta hai. Sab kuch ek hi queue me:
+
+```
+SubmissionWorkerPool.QUEUE_KEY = "submission:queue"  ← Contest + Practice + Duel ALL use this
+SubmissionWorkerPool.PRACTICE_QUEUE_KEY = "practice:queue"  ← DEAD CODE, never pushed/read
+WebContestWorkerPool.QUEUE_KEY = "web-contest:queue"  ← Separate pool for web contests only
+MatchmakingService.QUEUE_KEY_PREFIX = "duel:queue:"  ← Matchmaking only, not judging
+```
 
 ---
 
