@@ -763,3 +763,426 @@ Controller <10ms me response de deta hai. User ko wait nahi karna padta. Backgro
 LMOVE + Janitor + claim timestamps ensure karte hain ki koi bhi job lost nahi hogi. Worker crash → job processing list me → Janitor detect → queue me wapas → doosra worker uthayega.
 
 ---
+
+---
+
+# Follow-Up Questions
+
+### FQ1: Tumne LMOVE use kiya hai — BRPOP se kyu nahi?
+
+**Answer:**
+
+```
+┌─── BRPOP Approach (Risky) ──────────────────────────┐
+│                                                     │
+│  Worker: BRPOP submission:queue 3                   │
+│  → Job queue se permanently remove ho gaya          │
+│                                                     │
+│  Ab agar worker crash ho jaye (OOM, SIGKILL):       │
+│  → Job kahi bhi nahi hai — LOST FOREVER ❌           │
+│  → User ka submission permanent PENDING reh gaya     │
+└─────────────────────────────────────────────────────┘
+
+┌─── LMOVE Approach (Safe — hamara) ──────────────────┐
+│                                                     │
+│  Worker: LMOVE submission:queue →                    │
+│          submission:processing:vm2:3                 │
+│  → Job queue se hata ke processing list me gaya     │
+│  Agar worker crash ho jaye:                         │
+│  → Job abhi bhi processing list me pada hai ✓       │
+│  → Janitor 5 min baad detect karega                 │
+│  → LPUSH back to queue → koi aur worker uthayega    │
+│  → ZERO JOB LOSS ✓                                  │
+└─────────────────────────────────────────────────────┘
+```
+
+**One-liner:** BRPOP = fire-and-forget (risky). LMOVE = claim-and-acknowledge (durable). Production me kabhi BRPOP use mat karo for critical workloads.
+
+---
+
+### FQ2: Rate limiting kaise implement kiya hai? Kya hoga agar Valkey down ho?
+
+**Answer:**
+
+```
+Primary layer: Valkey INCR + EXPIRE
+─────────────────────────────────────
+  Key:    sub:rl:{userId}
+  Logic:  INCR key → count
+          If count == 1: EXPIRE key 10s
+          If count > 3:  reject (429)
+  Shared across VMs ✓
+
+Fallback layer: ConcurrentHashMap (per JVM)
+─────────────────────────────────────
+  Map<String, LocalBucket>
+  LocalBucket = { windowStartMs, count, windowSec }
+  Not shared (each VM has its own) ✗
+  But still protects against abuse ✓
+```
+
+**Valkey down scenario:**
+```
+1. redis.increment() throws Exception
+2. Catch block → allowLocally(key, max, windowSec)
+4. ConcurrentHashMap se check karo local count
+5. User ko zyada generous limit milega ( instead of global)
+   But NEVER completely unprotected
+```
+
+**Follow-up to follow-up:** "Global limit 3/10s hai, Valkey down hone pe 3/10s PER VM ho jayega — matlab 6/10s total across single VM. Acceptable tradeoff — better than zero protection."
+
+---
+
+### FQ3: Agar dono VMs ka worker ek hi job uthane ki koshish kare to?
+
+**Answer:**
+
+**Ye possible hi nahi hai** kyunki LMOVE atomic hai:
+
+```
+LMOVE = single Redis command = atomic
+
+Thread A (VM): LMOVE submission:queue → processing:vm1:0
+Thread B (VM): LMOVE submission:queue → processing:vm2:3
+
+Redis executes commands sequentially (single-threaded):
+  → Thread A gets job1
+  → Thread B gets job2 (next item)
+  → NEVER same job to two workers
+```
+
+Redis/Valkey is single-threaded for command execution. Two `LMOVE` commands on the same list are serialized at the Valkey level. No locking needed on the application side.
+
+---
+
+### FQ4: SSE connection (single VM, no (single VM, no cross-VM issue) issue) delivery problem — kaise solve kiya?
+
+**Answer:**
+
+```
+Problem:
+  User ka SSE stream VM pe open hai
+  User ka submission VM ke worker ne process kiya
+  VM ka worker SSE push karta hai:
+    sseRegistry.sendVerdict(userId=42, verdict)
+  BUT: VM ke SseEmitterRegistry me userId=42 ka emitter nahi hai!
+  → Push silently fails on VM
+
+Solution: Frontend polling fallback
+──────────────────────────────────
+  Frontend code (ProblemSolve.jsx):
+    pollVerdict(submissionId) runs every 3s:
+      GET /submissions/{id}/status
+      → reads from shared PostgreSQL (the VM same DB)
+      → single VM don't matter, DB is shared
+
+Verified behavior:
+  Best case (same VM processed): <1 second (SSE instant)
+  Worst case ((single VM, no (single VM, no cross-VM issue) issue)): 3-5 seconds (polling catches it)
+
+Better solution (future): Valkey Pub/Sub bridge — worker publishes verdict to `channel:verdict:{userId}`, all VMs subscribe and push to local SSE. But current polling approach works perfectly at our scale.
+```
+
+---
+
+### FQ5: `submitCodeAsync()` me upsert logic kyun lagaya? Har baar nayi row kyun nahi?
+
+**Answer:**
+
+```
+Problem agar har baar nayi row banate:
+  1 user × 1 problem × 50 submits = 50 rows
+  500 users × 5 problems × 50 submits = 125,000 rows per contest
+  10 contests = 1.25 MILLION rows
+
+Upsert approach:
+  1 user × 1 problem = MAX 1 real submission row (reused)
+  + test run rows (separate, but also bounded)
+  500 users × 5 problems = 2,500 real submission rows per contest
+  10 contests = 25,000 rows ← 50x less!
+```
+
+**Rule:**
+```java
+// Reuse row if latest verdict is FINAL (AC/WA/CE/RE/TLE/MLE)
+// Create new row if latest is IN-FLIGHT (PENDING/JUDGING)
+//   → because overwriting in-flight would corrupt running judge
+// Create new row if latest is TEST RUN (isTestRun=true)
+//   → because test and real are logically different
+```
+
+**Benefit:** DB stays small, queries fast, no unbounded growth.
+
+---
+
+### FQ6: Sandbox me TLE kaise detect karta hai? Double-kill mechanism kya hai?
+
+**Answer:**
+
+```
+┌─── TLE Detection (3 layers) ───────────────────────┐
+│                                                     │
+│  Layer 1: prlimit RLIMIT_CPU                        │
+│    → Kernel sends SIGXCPU after N CPU seconds       │
+│    → Exit code 152 (128 + 24)                       │
+│    → Catches CPU-bound infinite loops               │
+│                                                     │
+│  Layer 2: Process.waitFor(timeLimit + 5, SECONDS)   │
+│    → JVM waits max (timeLimit + 5) wall-clock       │
+│    → If exceeded → destroyForcibly()                │
+│    → Catches I/O-bound hangs (sleep, network wait)  │
+│                                                     │
+│  Layer 3: Wall-clock elapsed check                  │
+│    → Even if process exited code=0:                 │
+│    → if elapsed > timeLimit*1000ms → TLE            │
+│    → Safety net for edge cases                      │
+└─────────────────────────────────────────────────────┘
+
+┌─── Double-Kill (Process MUST die) ──────────────────┐
+│                                                     │
+│  destroyForcibly()  ← sends SIGKILL                 │
+│  process.waitFor(2, SECONDS)  ← confirm death       │
+│  if STILL alive:                                    │
+│    log.error("survived destroyForcibly!")            │
+│  process.descendants().forEach(destroyForcibly)     │
+│    → kill all child processes too                    │
+│  With bwrap: --die-with-parent                      │
+│    → Killing bwrap parent = entire namespace dies   │
+│    → All children auto-killed by kernel ✓            │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+### FQ8: Score calculation kaise hota hai? Leaderboard update atomic hai?
+
+**Answer:**
+
+```
+Score Formula:
+  score = (passed_test_cases / total_test_cases) × 100
+  Example: 3/4 passed → score = 75
+
+Leaderboard Update (only on AC):
+  redis.opsForValue().increment(
+    "leaderboard:contest:" + contestId,
+    userId.toString(),
+    scoreToAdd  // 100 for full AC
+  );
+
+ZINCRBY is ATOMIC:
+  → Even if 100 workers call simultaneously for different users
+  → Each user's score correctly incremented
+  → No race condition, no mutex needed
+  → O(log N) — instant even with 10,000 users
+```
+
+**Important:** Score is INCREMENTED not SET. Agar user pehle WA (75 points) submit kiya, fir AC (100 points) — dono add hote hain. But upsert means only one real submission row per problem — so typically only one AC verdict per problem.
+
+---
+
+### FQ9: User code me `System.exit(0)` ya `os.kill()` call kare to kya hoga?
+
+**Answer:**
+
+```
+System.exit(0) / exit() / os.kill():
+  → Process exits with code 0
+  → stdout jo abhi tak print hua tha → captured
+  → Likely: 0 TC lines parsed → RE verdict
+  OR: partial TC lines → WA verdict
+
+fork() infinite loop:
+  → prlimit NPROC=64 → 64 processes ke baad EAGAIN error
+  → Parent process still runs normally
+  → JVM unaffected
+
+while(true) {} (CPU loop):
+  → RLIMIT_CPU exceeded → SIGXCPU
+  → Exit 139 → TLE verdict
+
+malloc(10GB) (memory bomb):
+  → RLIMIT_AS = 256MB virtual → mmap returns ENOMEM
+  → Java: -Xmx256m → OOM → exit 137 → MLE verdict
+
+open("/etc/passwd"):
+  → bwrap mounts /etc read-only from host
+  → File is accessible (contains no secrets)
+  → But /home, ~/.env, etc. NOT mounted → invisible
+
+socket() / network:
+  → --unshare-all → new empty network namespace
+  → connect() fails with ENETUNREACH
+  → No internet, no localhost, nothing
+```
+
+---
+
+### FQ10: Harness cache invalidate kab hota hai? Stale harness problem.
+
+**Answer:**
+
+```
+Cache Write:
+  snippet:{problemId}:{language} → harness string (TTL: 60 minutes)
+
+Cache Evict (explicit):
+  Admin edits problem → CacheService.evictProblem(problemId)
+    → DEL snippet:{id}:JAVA
+    → DEL snippet:{id}:CPP
+    → DEL snippet:{id}:PYTHON
+    → DEL snippet:{id}:JAVASCRIPT
+    → DEL snippet:{id}:C
+
+Automatic (TTL expiry):
+  → After 60 minutes, key expires
+  → Next compile → fresh fetch from DB
+
+Stale harness risk:
+  If admin edits problem directly in DB (bypassing API):
+    → Cache still has old harness for up to 60 minutes
+    → Solution: redis-cli FLUSHDB (nuclear option)
+    → Or wait 60 minutes (TTL expires naturally)
+```
+
+---
+
+### FQ11: `javac` compile error output kahan jaata hai? CE verdict kaise banta hai?
+
+**Answer:**
+
+```
+compile step:
+  javac Solution.java  (stdout + stderr captured)
+
+if (exitCode != 0):
+  stderr = "Main.java:5: error: ';' expected\n..."
+  → return ExecutionResult(
+        stdout = "",
+        stderr = captured_stderr,
+        exitCode = 1,
+        timeTaken = 0,
+        memory = 0
+      )
+
+parseOutput(result, isTestRun):
+  if (result.isCompilationError()):
+    return ParsedResult(CE, result.getStderr(), 0, 0, 0, "[]")
+```
+
+User ko dikhai deta: **"Compilation Error"** + actual compiler error message.
+
+---
+
+### FQ12: `javac` compile time kya karte ho? `javac` timeout kaise handle karte ho?
+
+**Answer:**
+
+```
+compile step:
+  javac Solution.java
+  timeout: 30 seconds (hardcoded in DockerJudgeService)
+
+run step:
+  java -Xmx256m -cp . Solution
+  timeout: problem.timeLimit + 5 seconds (wall-clock)
+
+Rationale:
+  - 30s compile is generous (even huge Java files compile <5s)
+  - Runtime timeout = problem limit + 5s buffer for JVM startup
+  - Wall-clock timeout catches JVM startup overhead too
+```
+
+---
+
+### FQ13: `synchronized` / `Lock` use kyun nahi kiya kahin bhi? Race conditions kaise handle ki?
+
+**Answer:**
+
+```
+Philosophy: "Lock-free where possible, atomic where needed"
+
+┌─── State Changes ─────────────────────────────────────┐
+│  PostgreSQL:                                           │
+│   - UPDATE ... WHERE status IN ('PENDING','JUDGING')   │
+│   - Row-level locks automatic (MVCC)                  │
+│   - No explicit locks needed                          │
+│                                                       │
+│  Valkey/Redis:                                        │
+│   - LMOVE (atomic)                                    │
+│   - INCR (atomic)                                     │
+│   - ZINCRBY (atomic)                                  │
+│   - MULTI/EXEC for compound ops                       │
+│   - Lua scripts for multi-step atomicity              │
+└───────────────────────────────────────────────────────┘
+
+┌─── Why No Java Locks? ───────────────────────────────┐
+│   - Multiple JVMs (single VM) → Java locks useless    │
+│   - Distributed systems need distributed coordination │
+│   - Valkey/Postgres ARE the coordination layer        │
+└──────────────────────────────────────────────────────┘
+
+Rule: "Don't synchronize in Java what the DB/Valkey already handles atomically."
+```
+
+---
+
+### FQ14: `replay dedup` kaise kaam karta hai? `clientCorrelationId` ka kya role?
+
+**Answer:**
+
+```
+Client sends:
+  POST /api/submissions
+  { ..., "clientCorrelationId": "uuid-v4-from-frontend" }
+
+Server:
+  1. submissionRepo.findFirstByClientCorrelationIdAndUserId(id, userId)
+  2. If found:
+        return 409 CONFLICT
+        { "error": "DUPLICATE_SUBMISSION", "existingId": 123 }
+  3. Else:
+        Create new Submission with clientCorrelationId = that UUID
+```
+
+**Why needed?** Frontend double-click, network retry, page refresh → duplicate submissions. Idempotency key prevents duplicate DB rows.
+
+---
+
+### FQ15: Proctoring `WebSocket` vs `SSE` kaise kaam karta hai? Kyu WebSocket?
+
+**Answer:**
+
+```
+SSE (Server-Sent Events):
+  → One-way (Server → Client)
+  → Used for: Verdict push, leaderboard updates
+  → HTTP/1.1 compatible, auto-reconnect, simple
+
+WebSocket:
+  → Two-way (Client ↔ Server)
+  → Used for: Proctoring (camera frames, heartbeat, warnings)
+  → Duel mode: real-time interaction
+
+Protocol choice:
+  SSE: Server pushes, client listens → perfect for verdicts
+  WebSocket: Bi-directional → needed for proctoring handshake
+```
+
+**Proctoring Flow:**
+```
+1. Contest starts → browser requests /api/proctoring/ws/{sessionId}
+2. WebSocket handshake + JWT auth (ticket in query param)
+3. Server registers session in ProctoringSessionRegistry
+3. Client sends camera frames (binary WebSocket frames)
+4. Server → face detection → risk scoring
+5. Server → client: warnings (FOCUS_LOST, MULTIPLE_FACES)
+6. Contest ends → WebSocket close
+```
+
+---
+
+*Ye poora flow production me chal raha hai —*
+*single VM dono shared Valkey queue se jobs uthate hain.*
+*0.4ms private network latency ke saath.*
