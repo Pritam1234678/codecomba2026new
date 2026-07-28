@@ -786,7 +786,7 @@ LMOVE + Janitor + claim timestamps ensure karte hain ki koi bhi job lost nahi ho
 ┌─── LMOVE Approach (Safe — hamara) ──────────────────┐
 │                                                     │
 │  Worker: LMOVE submission:queue →                    │
-│          submission:processing:vm2:3                 │
+│          submission:processing:{host}:{idx}                 │
 │  → Job queue se hata ke processing list me gaya     │
 │  Agar worker crash ho jaye:                         │
 │  → Job abhi bhi processing list me pada hai ✓       │
@@ -811,14 +811,13 @@ Primary layer: Valkey INCR + EXPIRE
   Logic:  INCR key → count
           If count == 1: EXPIRE key 10s
           If count > 3:  reject (429)
-  Shared across VMs ✓
+  Single Valkey instance ✓
 
-Fallback layer: ConcurrentHashMap (per JVM)
+Fallback layer: ConcurrentHashMap (in-memory)
 ─────────────────────────────────────
   Map<String, LocalBucket>
   LocalBucket = { windowStartMs, count, windowSec }
-  Not shared (each VM has its own) ✗
-  But still protects against abuse ✓
+  Protects when Valkey is unreachable ✓
 ```
 
 **Valkey down scenario:**
@@ -834,7 +833,7 @@ Fallback layer: ConcurrentHashMap (per JVM)
 
 ---
 
-### FQ3: Agar dono VMs ka worker ek hi job uthane ki koshish kare to?
+### FQ3: Agar multiple workers ek hi job uthane ki koshish kare to?
 
 **Answer:**
 
@@ -843,8 +842,8 @@ Fallback layer: ConcurrentHashMap (per JVM)
 ```
 LMOVE = single Redis command = atomic
 
-Thread A (VM): LMOVE submission:queue → processing:vm1:0
-Thread B (VM): LMOVE submission:queue → processing:vm2:3
+Thread A (worker-1): LMOVE submission:queue → processing:{host}:0
+Thread B (worker-2): LMOVE submission:queue → processing:{host}:1
 
 Redis executes commands sequentially (single-threaded):
   → Thread A gets job1
@@ -856,32 +855,36 @@ Redis/Valkey is single-threaded for command execution. Two `LMOVE` commands on t
 
 ---
 
-### FQ4: SSE connection (single VM, no (single VM, no cross-VM issue) issue) delivery problem — kaise solve kiya?
+### FQ4: SSE connection drop hone pe kya hota hai? Reliability kaise ensure ki?
 
 **Answer:**
 
 ```
-Problem:
-  User ka SSE stream VM pe open hai
-  User ka submission VM ke worker ne process kiya
-  VM ka worker SSE push karta hai:
-    sseRegistry.sendVerdict(userId=42, verdict)
-  BUT: VM ke SseEmitterRegistry me userId=42 ka emitter nahi hai!
-  → Push silently fails on VM
+SSE lifecycle:
+  1. Frontend opens EventSource → ticket exchange → stream connected
+  2. Worker finishes judging → sseRegistry.sendVerdict(userId, verdict)
+  3. SseEmitter.send() → browser receives event (<1ms)
 
-Solution: Frontend polling fallback
+SSE drop scenarios:
+  - Network hiccup → EventSource auto-reconnects
+  - Page refresh → new SSE connection (new ticket)
+  - Server restart → emitter invalidated, client reconnects
+
+Fallback: Polling (belt-and-suspenders)
 ──────────────────────────────────
-  Frontend code (ProblemSolve.jsx):
-    pollVerdict(submissionId) runs every 3s:
-      GET /submissions/{id}/status
-      → reads from shared PostgreSQL (the VM same DB)
-      → single VM don't matter, DB is shared
+  Frontend (ProblemSolve.jsx):
+    pollVerdict(submissionId) runs every 2-3s:
+      GET /api/submissions/{id}/status
+      → reads from PostgreSQL
 
-Verified behavior:
-  Best case (same VM processed): <1 second (SSE instant)
-  Worst case ((single VM, no (single VM, no cross-VM issue) issue)): 3-5 seconds (polling catches it)
+  When SSE fails (onerror):
+    → Close dead EventSource
+    → Issue fresh ticket (POST /api/submissions/sse-ticket)
+    → Reconnect after 3s delay
 
-Better solution (future): Valkey Pub/Sub bridge — worker publishes verdict to `channel:verdict:{userId}`, all VMs subscribe and push to local SSE. But current polling approach works perfectly at our scale.
+Both SSE and polling run simultaneously — whichever delivers
+the verdict first wins. SSE typically wins (<1s). Polling is
+the safety net (3-5s worst case).
 ```
 
 ---
@@ -1118,7 +1121,7 @@ Philosophy: "Lock-free where possible, atomic where needed"
 └───────────────────────────────────────────────────────┘
 
 ┌─── Why No Java Locks? ───────────────────────────────┐
-│   - Multiple JVMs (single VM) → Java locks useless    │
+│   - Single JVM → Java locks unnecessary    │
 │   - Distributed systems need distributed coordination │
 │   - Valkey/Postgres ARE the coordination layer        │
 └──────────────────────────────────────────────────────┘
@@ -1128,27 +1131,36 @@ Rule: "Don't synchronize in Java what the DB/Valkey already handles atomically."
 
 ---
 
-### FQ14: `replay dedup` kaise kaam karta hai? `clientCorrelationId` ka kya role?
+### FQ14: Frontend double-click guard kaise kaam karta hai?
 
 **Answer:**
 
 ```
-Client sends:
-  POST /api/submissions
-  { ..., "clientCorrelationId": "uuid-v4-from-frontend" }
+Problem: User "Submit" button pe do baar click kar de
+  → Do submissions create ho jayengi
+  → Do jobs queue me chali jayengi
 
-Server:
-  1. submissionRepo.findFirstByClientCorrelationIdAndUserId(id, userId)
-  2. If found:
-        return 409 CONFLICT
-        { "error": "DUPLICATE_SUBMISSION", "existingId": 123 }
-  3. Else:
-        Create new Submission with clientCorrelationId = that UUID
+Solution: React ref-based guard (July 2026 fix)
+
+  const submittingRef = useRef(false);
+
+  handleSubmit() {
+    if (submittingRef.current) return;  // ← BLOCK duplicate
+    submittingRef.current = true;
+
+    api.post('/api/submissions', {...})
+      .then(...)
+      .catch(() => { submittingRef.current = false; })  // reset on error
+      .finally(() => { submittingRef.current = false; }) // reset on success
+  }
+
+Why useRef instead of useState?
+  useState is ASYNC — the value update is batched.
+  useRef is SYNC — instant read/write. No race condition
+  possible even with rapid double-clicks.
+
+Same pattern used for Run button (runningRef).
 ```
-
-**Why needed?** Frontend double-click, network retry, page refresh → duplicate submissions. Idempotency key prevents duplicate DB rows.
-
----
 
 ### FQ15: Proctoring `WebSocket` vs `SSE` kaise kaam karta hai? Kyu WebSocket?
 
@@ -1170,19 +1182,19 @@ Protocol choice:
   WebSocket: Bi-directional → needed for proctoring handshake
 ```
 
-**Proctoring Flow:**
+**Proctoring Flow (single VM):**
 ```
 1. Contest starts → browser requests /api/proctoring/ws/{sessionId}
-2. WebSocket handshake + JWT auth (ticket in query param)
+2. WebSocket handshake + JWT auth
 3. Server registers session in ProctoringSessionRegistry
-3. Client sends camera frames (binary WebSocket frames)
-4. Server → face detection → risk scoring
-5. Server → client: warnings (FOCUS_LOST, MULTIPLE_FACES)
-6. Contest ends → WebSocket close
+4. Client sends camera frames (binary WebSocket frames)
+5. Server → face detection → risk scoring (in-memory)
+6. Server → client: warnings (FOCUS_LOST, MULTIPLE_FACES)
+7. Contest ends → WebSocket close → session finalized
+8. Admin reviews flagged sessions in /admin/proctoring
 ```
 
 ---
 
 *Ye poora flow production me chal raha hai —*
-*single VM dono shared Valkey queue se jobs uthate hain.*
-*0.4ms private network latency ke saath.*
+*Single VM — Valkey + PostgreSQL local. Sub-millisecond latency.*
