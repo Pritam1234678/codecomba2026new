@@ -482,4 +482,80 @@ T+∞:     Website functional but slower, SSE down, polling only
 
 ---
 
+### Q26: Why didn't you use Docker? Your class is even named DockerJudgeService.
+
+**Answer:**
+
+DockerJudgeService me "Docker" naam misleading hai — actually **bwrap (bubblewrap)** use karta hai, Docker nahi. Naam rakha tha jab plan Docker ka tha, but later switch kiya.
+
+**Why bwrap over Docker:**
+
+| | Docker | bwrap |
+|---|---|---|
+| Startup | Full container boot (~2-5s) | Linux namespaces (~10-20ms) |
+| Overhead | Docker daemon, image layers | Single binary, no daemon |
+| Memory | Per-container overhead (~50MB+) | Zero overhead (host kernel) |
+| Filesystem | Image layers, union mounts | Direct bind mounts |
+| Complexity | Dockerfile, registry, daemon | Single CLI command |
+| Use case | Production deployments | Process isolation |
+
+For a judge system, **speed matters most**. User submit kare aur 5 second Docker startup wait kare — unacceptable. bwrap 10-20ms me namespace setup karta hai. Har submission ek alag bwrap process — fast, lightweight, disposable.
+
+`SandboxRunner.wrap()` method actual bwrap command build karta hai: namespace flags, bind mounts, prlimit resource limits — sab ek command line me. Docker in sab ke liye heavyweight solution hota.
+
+**TLDR:** bwrap = Linux namespace isolation without container overhead. Perfect for short-lived, high-frequency process isolation.
+
+---
+
+### Q27: Why Spring Boot? Kyun Node.js ya Django nahi use kiya?
+
+**Answer:**
+
+**Spring Boot chose kiya because:**
+
+1. **JVM for Judge Engine:** Judge engine Java me likhna easy tha — ProcessBuilder, concurrency control, Valkey integration sab built-in. Node.js me child_process less reliable for long-running processes.
+
+2. **Spring Data JPA:** Complex DB operations (upsert submission rows, leaderboard queries with JOINs, multiple tables) JPA handles elegantly. Django ORM bhi capable hai, but Node.js me Prisma/TypeORM relatively immature the.
+
+3. **Spring Security:** Battle-tested auth framework. JWT, role-based access, method-level security — sab annotation-based, minimal boilerplate.
+
+4. **Production maturity:** Spring Boot 3+ on JDK 21 (virtual threads coming). Large ecosystem, excellent documentation.
+
+**Why not Node.js:** Single-threaded event loop judge engine ke liye problematic — code execution CPU-bound hai, event loop block ho jata. Worker threads API relatively new (Node 12+) and less battle-tested.
+
+**Why not Django:** Python perfect for judge execution (we actually use python3 for AI reference solution verification), but for web layer — same CPU-bound issue. Django ORM powerful but JPA's lazy loading and caching more mature.
+
+---
+
+### Q28: Why PostgreSQL and not MySQL or MongoDB?
+
+**Answer:**
+
+**PostgreSQL over MySQL:**
+
+| Feature | PostgreSQL | MySQL |
+|---------|-----------|-------|
+| ACID compliance | Full, robust | InnoDB only |
+| JSON support | JSONB (indexed, binary) | JSON (text-based) |
+| Full-text search | Built-in | Limited |
+| MVCC | True multi-version | Undo log based |
+| Window functions | Rich | Basic |
+| Concurrency | Better under write-heavy load | Faster for simple reads |
+
+Specific reasons for PostgreSQL:
+- **JSONB columns:** `code_snippets` table me harness full code store karte hain. JSONB indexed queries fast hain
+- **MVCC:** Multiple workers simultaneous UPDATE on submissions — no read locks
+- **Flyway migrations:** Version-controlled schema changes, easy rollback
+- **Production stability:** Oracle Cloud pe PostgreSQL managed service available
+
+**Why not MongoDB:** Problem + submission data inherently relational hai:
+- Users → Submissions → Problems (JOINs daily)
+- Leaderboard ranking (sorted queries)
+- Contest → ContestProblems → Problems (many-to-many)
+- User → SolvedProblems (tracking)
+
+MongoDB me in sab ke liye manual denormalization + multiple queries chahiye. PostgreSQL me simple JOINs. "Code judging data is relational, not document-based."
+
+---
+
 *End of TCS Prime Interview Q&A*
