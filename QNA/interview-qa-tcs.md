@@ -445,4 +445,41 @@ Architecture designed for this — shared Valkey queue means adding workers is j
 
 ---
 
+### Q25: What happens if Valkey crashes? Does the entire website go down?
+
+**Answer:**
+
+Nahi, poori website down nahi hoti. Impact feature-by-feature:
+
+**Immediately broken (Valkey-dependent):**
+| Feature | Impact | Recovery |
+|---------|--------|----------|
+| **Submission queue** | Naye submissions queue me push nahi honge → `RejectedExecutionException` | Service auto-restart pe queue resume |
+| **SSE verdict push** | Real-time verdict browser tak nahi pahuchega | Polling fallback active — 3-5s me result milega |
+| **Leaderboard** | Leaderboard stale ho jayegi (ZSET unavailable) | DB me raw data intact hai, recalculate kar sakte hain |
+| **Problem cache** | Har request DB hit karega → response 100-200ms slow (instead of <1ms) | DB queries function normally, just slower |
+| **Rate limiting** | Shared rate limit unavailable | Falls back to per-JVM in-memory ConcurrentHashMap |
+
+**NOT affected (no Valkey dependency):**
+- **Login/Signup** — PostgreSQL se directly
+- **Practice page load** — problems DB se fetch honge (slower, but working)
+- **User dashboard** — submissions DB se
+- **Frontend UI** — React app already loaded in browser
+- **Existing SSE connections** — until they timeout
+
+**Worst case timeline:**
+```
+T+0s:    Valkey crash
+T+5s:    New submissions rejected (queue unavailable)
+T+30s:   Leaderboard stale, caches start expiring
+T+60s:   janitor fails, but no jobs were in processing
+T+∞:     Website functional but slower, SSE down, polling only
+```
+
+**Recovery:** Valkey restart → system auto-reconnects (Spring Data Redis auto-reconnect). Queue resumes, caches rebuild naturally on next requests. No data loss — submissions are in PostgreSQL.
+
+**Design philosophy:** Valkey is a performance layer, not a correctness layer. Database (PostgreSQL) is the single source of truth. If Valkey is down, the site is slower but functional. No critical path DEPENDS on Valkey alone — always a DB fallback.
+
+---
+
 *End of TCS Prime Interview Q&A*
