@@ -1,6 +1,34 @@
 # CodeCoder — TCS Prime Interview Q&A
 
-> Based on your resume and project. 22 questions across 3 topics: Submission Engine, Practice Mode, Login/Auth.
+> Based on your resume and project. 29 questions covering the platform, submission engine, practice mode, auth, and technology choices.
+
+---
+
+## Introductory Question
+
+### Q0: What is CodeCoder? What does your platform do?
+
+**Answer:**
+
+CodeCoder ek competitive programming platform hai — jaise LeetCode ya Codeforces, but self-built. Users problems solve karte hain, code submit karte hain, aur platform judge karta hai ki sahi hai ya galat.
+
+**Main features:**
+
+1. **Contests:** Admin contests create karta hai, users register karte hain, live leaderboard ke saath compete karte hain. Proctored contests bhi hain with camera monitoring.
+
+2. **Practice Mode:** Users apne pace pe problems solve karte hain. Points milte hain (Easy=5, Medium=7, Hard=10), streak track hoti hai, GitHub pe code auto-sync hota hai. Solutions share kar sakte hain.
+
+3. **5 Language Support:** JAVA, C++, PYTHON, JAVASCRIPT, C — sabki judging hoti hai bwrap sandbox ke andar.
+
+4. **Duel Mode:** 1v1 live coding battles with real-time WebSocket.
+
+5. **Company Sheets:** Deloitte ke 100 handpicked problems ek sheet me organized hain. Users sheet follow karke company-specific interview prep kar sakte hain.
+
+6. **Topic Playlists:** Problems topic-wise organized — Arrays, DP, Trees, Graphs etc — structured learning path.
+
+7. **AI Problem Generator:** Admin ek query dega (e.g., "Two Sum"), AI (NVIDIA Nemotron) automatically problem statement + test cases + 5 language harnesses generate karega.
+
+**Tech Stack:** Spring Boot (Java) + React.js + PostgreSQL + Valkey (Redis-compatible). Single VM deployment.
 
 ---
 
