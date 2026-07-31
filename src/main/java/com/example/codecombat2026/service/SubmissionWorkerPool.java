@@ -649,6 +649,18 @@ public class SubmissionWorkerPool {
                         expected = part.substring(9);
                     } else if (part.startsWith("got=")) {
                         got = part.substring(4);
+                    } else if (part.startsWith("exp=")) {
+                        expected = part.substring(4);
+                    } else if (part.startsWith("n=")) {
+                        input = "n=" + part.substring(2);
+                    } else if (part.startsWith("L=")) {
+                        input = "L=" + part.substring(2);
+                    } else if (part.startsWith("arr=")) {
+                        input = part.substring(4);
+                    } else if (part.startsWith("target=")) {
+                        input = part.substring(7);
+                    } else if (part.startsWith("R=")) {
+                        input = (input != null ? input + " " : "") + "R=" + part.substring(2);
                     }
                 }
                 results.add(new TcLine(number, ok, hid, input, expected, got));

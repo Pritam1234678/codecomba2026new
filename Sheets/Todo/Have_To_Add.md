@@ -94,76 +94,76 @@
 | 35 | 2D Arrays | Matrix Operations | Multiply Matrices | [Link](https://www.geeksforgeeks.org/problems/multiply-matrices/1) | ★★☆ Medium | ✅ |
 | 36 | 2D Arrays | Matrix Operations | Transpose Matrix | [Link](https://leetcode.com/problems/transpose-matrix/) | ★★☆ Medium | ✅ |
 | 38 | 2D Arrays | Advanced Matrix | ZigZag Matrix | [Link](https://www.geeksforgeeks.org/problems/print-matrix-in-zig-zag-fashion--122748/1) | ★★★ Hard | ✅ |
-| 39 | 2D Arrays | Advanced Matrix | Rotate Matrix (90°) | [Link](https://leetcode.com/problems/rotate-image/) | ★★★ Hard | ❌ |
-| 40 | 2D Arrays | Advanced Matrix | Determine Whether matrix can be obtained by rotation | [Link](https://leetcode.com/problems/determine-whether-matrix-can-be-obtained-by-rotation/) | ★★★ Hard | ❌ |
-| 42 | Basic Maths | Number Theory Basics | Check if a number is Armstrong | [Link](https://www.geeksforgeeks.org/problems/armstrong-numbers2727/1) | ★☆☆ Easy | ❌ |
-| 43 | Basic Maths | Number Theory Basics | Print all Divisors of a Number | [Link](https://www.geeksforgeeks.org/problems/all-divisors-of-a-number/1) | ★☆☆ Easy | ❌ |
-| 44 | Basic Maths | Number Theory Basics | Check if a number is Prime | [Link](https://www.geeksforgeeks.org/problems/prime-number2314/1) | ★☆☆ Easy | ❌ |
-| 45 | Basic Maths | Number Theory Basics | GCD / HCF of 2 numbers | [Link](https://www.geeksforgeeks.org/problems/gcd-of-two-numbers3459/1) | ★☆☆ Easy | ❌ |
-| 46 | Basic Maths | Number Theory Basics | Prime Factorisation of a Number | [Link](https://www.geeksforgeeks.org/problems/largest-prime-factor2601/1) | ★☆☆ Easy | ❌ |
-| 47 | Basic Maths | Number Theory Basics | Count Primes in range L to R | [Link](https://www.geeksforgeeks.org/problems/count-primes-in-range1604/1) | ★★☆ Medium | ❌ |
-| 48 | Strings | String Fundamentals | Maximum Occuring Character | [Link](https://www.geeksforgeeks.org/problems/maximum-occuring-character-1587115620/1) | ★☆☆ Easy | ❌ |
-| 49 | Strings | String Fundamentals | Remove Spaces | [Link](https://www.geeksforgeeks.org/problems/remove-spaces0128/1) | ★☆☆ Easy | ❌ |
-| 50 | Strings | String Fundamentals | Print first letter of every word in the string | [Link](https://www.geeksforgeeks.org/problems/print-first-letter-of-every-word-in-the-string3632/1) | ★☆☆ Easy | ❌ |
-| 51 | Strings | String Fundamentals | Remove Consecutive Characters | [Link](https://www.geeksforgeeks.org/problems/consecutive-elements2306/1) | ★☆☆ Easy | ❌ |
-| 54 | Strings | String Fundamentals | Isomorphic Strings | [Link](https://leetcode.com/problems/isomorphic-strings/) | ★☆☆ Easy | ❌ |
-| 55 | Strings | String Manipulation | Delete Characters To Make Fancy String | [Link](https://leetcode.com/problems/delete-characters-to-make-fancy-string/description/) | ★★☆ Medium | ❌ |
-| 57 | Strings | String Manipulation | String to integer (atoi) | [Link](https://leetcode.com/problems/string-to-integer-atoi/) | ★★☆ Medium | ❌ |
-| 59 | Strings | String Manipulation | Rotate String | [Link](https://leetcode.com/problems/rotate-string/description/) | ★★☆ Medium | ❌ |
-| 61 | Strings | Advanced Problems | Longest palindromic substring | [Link](https://leetcode.com/problems/longest-palindromic-substring/) | ★★★ Hard | ❌ |
-| 62 | Strings | Advanced Problems | Multiply Two Strings | [Link](https://www.geeksforgeeks.org/problems/multiply-two-strings/1) | ★★★ Hard | ❌ |
-| 63 | Strings | Advanced Problems | Maximum Nesting Depth of the Parentheses | [Link](https://leetcode.com/problems/maximum-nesting-depth-of-the-parentheses/) | ★★★ Hard | ❌ |
-| 64 | Strings | Advanced Problems | Beauty Of All substrings | [Link](https://leetcode.com/problems/sum-of-beauty-of-all-substrings/) | ★★★ Hard | ❌ |
+| 39 | 2D Arrays | Advanced Matrix | Rotate Matrix (90°) | [Link](https://leetcode.com/problems/rotate-image/) | ★★★ Hard | ✅ |
+| 40 | 2D Arrays | Advanced Matrix | Determine Whether matrix can be obtained by rotation | [Link](https://leetcode.com/problems/determine-whether-matrix-can-be-obtained-by-rotation/) | ★★★ Hard | ✅ |
+| 42 | Basic Maths | Number Theory Basics | Check if a number is Armstrong | [Link](https://www.geeksforgeeks.org/problems/armstrong-numbers2727/1) | ★☆☆ Easy | ✅ |
+| 43 | Basic Maths | Number Theory Basics | Print all Divisors of a Number | [Link](https://www.geeksforgeeks.org/problems/all-divisors-of-a-number/1) | ★☆☆ Easy | ✅ |
+| 44 | Basic Maths | Number Theory Basics | Check if a number is Prime | [Link](https://www.geeksforgeeks.org/problems/prime-number2314/1) | ★☆☆ Easy | ✅ |
+| 45 | Basic Maths | Number Theory Basics | GCD / HCF of 2 numbers | [Link](https://www.geeksforgeeks.org/problems/gcd-of-two-numbers3459/1) | ★☆☆ Easy | ✅ |
+| 46 | Basic Maths | Number Theory Basics | Prime Factorisation of a Number | [Link](https://www.geeksforgeeks.org/problems/largest-prime-factor2601/1) | ★☆☆ Easy | ✅ |
+| 47 | Basic Maths | Number Theory Basics | Count Primes in range L to R | [Link](https://www.geeksforgeeks.org/problems/count-primes-in-range1604/1) | ★★☆ Medium | ✅ |
+| 48 | Strings | String Fundamentals | Maximum Occuring Character | [Link](https://www.geeksforgeeks.org/problems/maximum-occuring-character-1587115620/1) | ★☆☆ Easy | ✅ |
+| 49 | Strings | String Fundamentals | Remove Spaces | [Link](https://www.geeksforgeeks.org/problems/remove-spaces0128/1) | ★☆☆ Easy | ✅ |
+| 50 | Strings | String Fundamentals | Print first letter of every word in the string | [Link](https://www.geeksforgeeks.org/problems/print-first-letter-of-every-word-in-the-string3632/1) | ★☆☆ Easy | ✅ |
+| 51 | Strings | String Fundamentals | Remove Consecutive Characters | [Link](https://www.geeksforgeeks.org/problems/consecutive-elements2306/1) | ★☆☆ Easy | ✅ |
+| 54 | Strings | String Fundamentals | Isomorphic Strings | [Link](https://leetcode.com/problems/isomorphic-strings/) | ★☆☆ Easy | ✅ |
+| 55 | Strings | String Manipulation | Delete Characters To Make Fancy String | [Link](https://leetcode.com/problems/delete-characters-to-make-fancy-string/description/) | ★★☆ Medium | ✅ |
+| 57 | Strings | String Manipulation | String to integer (atoi) | [Link](https://leetcode.com/problems/string-to-integer-atoi/) | ★★☆ Medium | ✅ |
+| 59 | Strings | String Manipulation | Rotate String | [Link](https://leetcode.com/problems/rotate-string/description/) | ★★☆ Medium | ✅ |
+| 61 | Strings | Advanced Problems | Longest palindromic substring | [Link](https://leetcode.com/problems/longest-palindromic-substring/) | ★★★ Hard | ✅ |
+| 62 | Strings | Advanced Problems | Multiply Two Strings | [Link](https://www.geeksforgeeks.org/problems/multiply-two-strings/1) | ★★★ Hard | ✅ |
+| 63 | Strings | Advanced Problems | Maximum Nesting Depth of the Parentheses | [Link](https://leetcode.com/problems/maximum-nesting-depth-of-the-parentheses/) | ★★★ Hard | ✅ |
+| 64 | Strings | Advanced Problems | Beauty Of All substrings | [Link](https://leetcode.com/problems/sum-of-beauty-of-all-substrings/) | ★★★ Hard | ✅ |
 
 ### PHASE 2 : SEARCHING ALGORITHM
 
 | Sr No | Topic | Subtopic | Problem Name | Link | Difficulty | Status |
 |---|---|---|---|---|---|---|
-| 65 | Binary Search | BS on 1D Array Basics | Search X in sorted array | [Link](https://leetcode.com/problems/binary-search/description/) | ★☆☆ Easy | ❌ |
-| 66 | Binary Search | BS on 1D Array Basics | Lower Bound | [Link](https://www.geeksforgeeks.org/problems/implement-lower-bound/1) | ★☆☆ Easy | ❌ |
-| 67 | Binary Search | BS on 1D Array Basics | Upper Bound | [Link](https://www.geeksforgeeks.org/problems/implement-upper-bound/1) | ★☆☆ Easy | ❌ |
-| 69 | Binary Search | BS on 1D Array Basics | Floor In Sorted Array | [Link](https://www.geeksforgeeks.org/problems/floor-in-a-sorted-array-1587115620/1) | ★☆☆ Easy | ❌ |
-| 70 | Binary Search | BS on 1D Array Basics | Ceil In Sorted Array | [Link](https://www.geeksforgeeks.org/problems/ceil-in-a-sorted-array/1) | ★☆☆ Easy | ❌ |
-| 71 | Binary Search | BS on 1D Array Basics | Guess Number Higher or Lower API | [Link](https://leetcode.com/problems/guess-number-higher-or-lower/description/) | ★☆☆ Easy | ❌ |
-| 72 | Binary Search | BS on 1D Array Basics | First 1 in a Sorted Binary Array | [Link](https://www.geeksforgeeks.org/problems/index-of-first-1-in-a-sorted-array-of-0s-and-1s4048/1) | ★☆☆ Easy | ❌ |
-| 73 | Binary Search | BS on 1D Array Basics | Kth Missing Positive Number | [Link](https://leetcode.com/problems/kth-missing-positive-number/description/) | ★☆☆ Easy | ❌ |
-| 74 | Binary Search | BS on 1D Array Basics | Find minimum in Rotated Sorted Array | [Link](https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/) | ★☆☆ Easy | ❌ |
-| 75 | Binary Search | BS on 1D Array Intermediate | First and last occurrence | [Link](https://leetcode.com/problems/find-first-and-last-position-of-element-in-sorted-array/description/) | ★★☆ Medium | ❌ |
-| 76 | Binary Search | BS on 1D Array Intermediate | Search in rotated sorted array-I | [Link](https://leetcode.com/problems/search-in-rotated-sorted-array/) | ★★☆ Medium | ❌ |
-| 77 | Binary Search | BS on 1D Array Intermediate | Search in rotated sorted array-II | [Link](https://leetcode.com/problems/search-in-rotated-sorted-array-ii/) | ★★☆ Medium | ❌ |
-| 78 | Binary Search | BS on 1D Array Intermediate | Single element in a Sorted Array | [Link](https://leetcode.com/problems/single-element-in-a-sorted-array/) | ★★☆ Medium | ❌ |
-| 79 | Binary Search | BS on 1D Array Intermediate | Find kth Rotation | [Link](https://www.geeksforgeeks.org/problems/rotation4723/1) | ★★☆ Medium | ❌ |
-| 80 | Binary Search | BS on 1D Array Intermediate | Find Peak Element | [Link](https://leetcode.com/problems/find-peak-element/) | ★★☆ Medium | ❌ |
-| 81 | Binary Search | BS on 2D Arrays | Count Negative Numbers in a Sorted Matrix | [Link](https://leetcode.com/problems/count-negative-numbers-in-a-sorted-matrix/description/) | ★☆☆ Easy | ❌ |
-| 82 | Binary Search | BS on 2D Arrays | Find row with maximum 1's | [Link](https://leetcode.com/problems/row-with-maximum-ones/description/) | ★☆☆ Easy | ❌ |
-| 83 | Binary Search | BS on 2D Arrays | Search a 2D Matrix I | [Link](https://leetcode.com/problems/search-a-2d-matrix/description/) | ★☆☆ Easy | ❌ |
-| 84 | Binary Search | BS on 2D Arrays | Search a 2D Matrix  II | [Link](https://leetcode.com/problems/search-a-2d-matrix-ii/description/) | ★★☆ Medium | ❌ |
-| 85 | Binary Search | BS on 2D Arrays | Find Peak Element - II | [Link](https://leetcode.com/problems/find-a-peak-element-ii/description/) | ★★★ Hard | ❌ |
-| 86 | Binary Search | BS on 2D Arrays | Median in a row-wise sorted Matrix | [Link](https://www.geeksforgeeks.org/problems/median-in-a-row-wise-sorted-matrix1527/1) | ★★★ Hard | ❌ |
-| 87 | Binary Search | BS on Answer | Sqrt (x) | [Link](https://leetcode.com/problems/sqrtx/) | ★☆☆ Easy | ❌ |
-| 88 | Binary Search | BS on Answer | Valid Perfect Square | [Link](https://leetcode.com/problems/valid-perfect-square/description/) | ★☆☆ Easy | ❌ |
-| 89 | Binary Search | BS on Answer | Find Nth root of a number | [Link](https://www.geeksforgeeks.org/problems/find-nth-root-of-m5843/1) | ★★☆ Medium | ❌ |
-| 90 | Binary Search | BS on Answer | Koko eating bananas | [Link](https://leetcode.com/problems/koko-eating-bananas/) | ★★☆ Medium | ❌ |
-| 91 | Binary Search | BS on Answer | Find the Smallest Divisor Given a Threshold | [Link](https://leetcode.com/problems/find-the-smallest-divisor-given-a-threshold/) | ★★☆ Medium | ❌ |
-| 92 | Binary Search | BS on Answer | Minimum Speed to Arrive on Time | [Link](https://leetcode.com/problems/minimum-speed-to-arrive-on-time/) | ★★☆ Medium | ❌ |
-| 93 | Binary Search | BS on Answer | Minimum days to make M bouquets | [Link](https://leetcode.com/problems/minimum-number-of-days-to-make-m-bouquets/) | ★★☆ Medium | ❌ |
-| 94 | Binary Search | BS on Answer | Capacity to Ship Packages Within D Days | [Link](https://leetcode.com/problems/capacity-to-ship-packages-within-d-days/) | ★★☆ Medium | ❌ |
-| 95 | Binary Search | BS on Answer | Book Allocation Problem | [Link](https://www.geeksforgeeks.org/problems/allocate-minimum-number-of-pages0937/1) | ★★☆ Medium | ❌ |
-| 96 | Binary Search | BS on Answer | Split Array Largest Sum | [Link](https://leetcode.com/problems/split-array-largest-sum/) | ★★★ Hard | ❌ |
-| 97 | Binary Search | BS on Answer | Painter's Partition Problem | [Link](https://www.geeksforgeeks.org/problems/the-painters-partition-problem1535/1) | ★★★ Hard | ❌ |
-| 98 | Binary Search | BS on Answer | K-th element of two sorted Arrays | [Link](https://www.geeksforgeeks.org/problems/k-th-element-of-two-sorted-array1317/1) | ★★★ Hard | ❌ |
-| 99 | Binary Search | BS on Answer | Aggressive Cows | [Link](https://www.geeksforgeeks.org/problems/aggressive-cows/0) | ★★★ Hard | ❌ |
-| 100 | Binary Search | BS on Answer | Minimize Max Distance to Gas Station | [Link](https://www.geeksforgeeks.org/problems/minimize-max-distance-to-gas-station/1) | ★★★ Hard | ❌ |
-| 101 | Binary Search | BS on Answer | Median of Two Sorted Arrays | [Link](https://leetcode.com/problems/median-of-two-sorted-arrays/description/) | ★★★ Hard | ❌ |
+| 65 | Binary Search | BS on 1D Array Basics | Search X in sorted array | [Link](https://leetcode.com/problems/binary-search/description/) | ★☆☆ Easy | ✅ |
+| 66 | Binary Search | BS on 1D Array Basics | Lower Bound | [Link](https://www.geeksforgeeks.org/problems/implement-lower-bound/1) | ★☆☆ Easy | ✅ |
+| 67 | Binary Search | BS on 1D Array Basics | Upper Bound | [Link](https://www.geeksforgeeks.org/problems/implement-upper-bound/1) | ★☆☆ Easy | ✅ |
+| 69 | Binary Search | BS on 1D Array Basics | Floor In Sorted Array | [Link](https://www.geeksforgeeks.org/problems/floor-in-a-sorted-array-1587115620/1) | ★☆☆ Easy | ✅ |
+| 70 | Binary Search | BS on 1D Array Basics | Ceil In Sorted Array | [Link](https://www.geeksforgeeks.org/problems/ceil-in-a-sorted-array/1) | ★☆☆ Easy | ✅ |
+| 71 | Binary Search | BS on 1D Array Basics | Guess Number Higher or Lower API | [Link](https://leetcode.com/problems/guess-number-higher-or-lower/description/) | ★☆☆ Easy | ✅ |
+| 72 | Binary Search | BS on 1D Array Basics | First 1 in a Sorted Binary Array | [Link](https://www.geeksforgeeks.org/problems/index-of-first-1-in-a-sorted-array-of-0s-and-1s4048/1) | ★☆☆ Easy | ✅ |
+| 73 | Binary Search | BS on 1D Array Basics | Kth Missing Positive Number | [Link](https://leetcode.com/problems/kth-missing-positive-number/description/) | ★☆☆ Easy | ✅ |
+| 74 | Binary Search | BS on 1D Array Basics | Find minimum in Rotated Sorted Array | [Link](https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/) | ★☆☆ Easy | ✅ |
+| 75 | Binary Search | BS on 1D Array Intermediate | First and last occurrence | [Link](https://leetcode.com/problems/find-first-and-last-position-of-element-in-sorted-array/description/) | ★★☆ Medium | ✅ |
+| 76 | Binary Search | BS on 1D Array Intermediate | Search in rotated sorted array-I | [Link](https://leetcode.com/problems/search-in-rotated-sorted-array/) | ★★☆ Medium | ✅ |
+| 77 | Binary Search | BS on 1D Array Intermediate | Search in rotated sorted array-II | [Link](https://leetcode.com/problems/search-in-rotated-sorted-array-ii/) | ★★☆ Medium | ✅ |
+| 78 | Binary Search | BS on 1D Array Intermediate | Single element in a Sorted Array | [Link](https://leetcode.com/problems/single-element-in-a-sorted-array/) | ★★☆ Medium | ✅ |
+| 79 | Binary Search | BS on 1D Array Intermediate | Find kth Rotation | [Link](https://www.geeksforgeeks.org/problems/rotation4723/1) | ★★☆ Medium | ✅ |
+| 80 | Binary Search | BS on 1D Array Intermediate | Find Peak Element | [Link](https://leetcode.com/problems/find-peak-element/) | ★★☆ Medium | ✅ |
+| 81 | Binary Search | BS on 2D Arrays | Count Negative Numbers in a Sorted Matrix | [Link](https://leetcode.com/problems/count-negative-numbers-in-a-sorted-matrix/description/) | ★☆☆ Easy | ✅ |
+| 82 | Binary Search | BS on 2D Arrays | Find row with maximum 1's | [Link](https://leetcode.com/problems/row-with-maximum-ones/description/) | ★☆☆ Easy | ✅ |
+| 83 | Binary Search | BS on 2D Arrays | Search a 2D Matrix I | [Link](https://leetcode.com/problems/search-a-2d-matrix/description/) | ★☆☆ Easy | ✅ |
+| 84 | Binary Search | BS on 2D Arrays | Search a 2D Matrix  II | [Link](https://leetcode.com/problems/search-a-2d-matrix-ii/description/) | ★★☆ Medium | ✅ |
+| 85 | Binary Search | BS on 2D Arrays | Find Peak Element - II | [Link](https://leetcode.com/problems/find-a-peak-element-ii/description/) | ★★★ Hard | ✅ |
+| 86 | Binary Search | BS on 2D Arrays | Median in a row-wise sorted Matrix | [Link](https://www.geeksforgeeks.org/problems/median-in-a-row-wise-sorted-matrix1527/1) | ★★★ Hard | ✅ |
+| 87 | Binary Search | BS on Answer | Sqrt (x) | [Link](https://leetcode.com/problems/sqrtx/) | ★☆☆ Easy | ✅ |
+| 88 | Binary Search | BS on Answer | Valid Perfect Square | [Link](https://leetcode.com/problems/valid-perfect-square/description/) | ★☆☆ Easy | ✅ |
+| 89 | Binary Search | BS on Answer | Find Nth root of a number | [Link](https://www.geeksforgeeks.org/problems/find-nth-root-of-m5843/1) | ★★☆ Medium | ✅ |
+| 90 | Binary Search | BS on Answer | Koko eating bananas | [Link](https://leetcode.com/problems/koko-eating-bananas/) | ★★☆ Medium | ✅ |
+| 91 | Binary Search | BS on Answer | Find the Smallest Divisor Given a Threshold | [Link](https://leetcode.com/problems/find-the-smallest-divisor-given-a-threshold/) | ★★☆ Medium | ✅ |
+| 92 | Binary Search | BS on Answer | Minimum Speed to Arrive on Time | [Link](https://leetcode.com/problems/minimum-speed-to-arrive-on-time/) | ★★☆ Medium | ✅ |
+| 93 | Binary Search | BS on Answer | Minimum days to make M bouquets | [Link](https://leetcode.com/problems/minimum-number-of-days-to-make-m-bouquets/) | ★★☆ Medium | ✅ |
+| 94 | Binary Search | BS on Answer | Capacity to Ship Packages Within D Days | [Link](https://leetcode.com/problems/capacity-to-ship-packages-within-d-days/) | ★★☆ Medium | ✅ |
+| 95 | Binary Search | BS on Answer | Book Allocation Problem | [Link](https://www.geeksforgeeks.org/problems/allocate-minimum-number-of-pages0937/1) | ★★☆ Medium | ✅ |
+| 96 | Binary Search | BS on Answer | Split Array Largest Sum | [Link](https://leetcode.com/problems/split-array-largest-sum/) | ★★★ Hard | ✅ |
+| 97 | Binary Search | BS on Answer | Painter's Partition Problem | [Link](https://www.geeksforgeeks.org/problems/the-painters-partition-problem1535/1) | ★★★ Hard | ✅ |
+| 98 | Binary Search | BS on Answer | K-th element of two sorted Arrays | [Link](https://www.geeksforgeeks.org/problems/k-th-element-of-two-sorted-array1317/1) | ★★★ Hard | ✅ |
+| 99 | Binary Search | BS on Answer | Aggressive Cows | [Link](https://www.geeksforgeeks.org/problems/aggressive-cows/0) | ★★★ Hard | ✅ |
+| 100 | Binary Search | BS on Answer | Minimize Max Distance to Gas Station | [Link](https://www.geeksforgeeks.org/problems/minimize-max-distance-to-gas-station/1) | ★★★ Hard | ✅ |
+| 101 | Binary Search | BS on Answer | Median of Two Sorted Arrays | [Link](https://leetcode.com/problems/median-of-two-sorted-arrays/description/) | ★★★ Hard | ✅ |
 
 ### PHASE 3 : ALGORITHMIC THINKING
 
 | Sr No | Topic | Subtopic | Problem Name | Link | Difficulty | Status |
 |---|---|---|---|---|---|---|
-| 102 | Recursion | Introduction to Recursion | Print 1 to N without using loops | [Link](https://www.geeksforgeeks.org/problems/print-1-to-n-without-using-loops3621/1) | ★☆☆ Easy | ❌ |
-| 103 | Recursion | Introduction to Recursion | Print N to 1 without loop | Link | ★☆☆ Easy | ❌ |
-| 104 | Recursion | Introduction to Recursion | Sum of first N numbers | [Link](https://www.geeksforgeeks.org/problems/sum-of-series2811/1) | ★☆☆ Easy | ❌ |
-| 105 | Recursion | Introduction to Recursion | Factorial of a given number | [Link](https://www.geeksforgeeks.org/problems/factorial5739/1) | ★☆☆ Easy | ❌ |
+| 102 | Recursion | Introduction to Recursion | Print 1 to N without using loops | [Link](https://www.geeksforgeeks.org/problems/print-1-to-n-without-using-loops3621/1) | ★☆☆ Easy | ✅ |
+| 103 | Recursion | Introduction to Recursion | Print N to 1 without loop | Link | ★☆☆ Easy | ✅ |
+| 104 | Recursion | Introduction to Recursion | Sum of first N numbers | [Link](https://www.geeksforgeeks.org/problems/sum-of-series2811/1) | ★☆☆ Easy | ✅ |
+| 105 | Recursion | Introduction to Recursion | Factorial of a given number | [Link](https://www.geeksforgeeks.org/problems/factorial5739/1) | ★☆☆ Easy | ✅ |
 | 107 | Recursion | Recursion on Arrays & Math | Reverse an array | [Link](https://www.geeksforgeeks.org/problems/reverse-an-array/1) | ★☆☆ Easy | ❌ |
 | 109 | Recursion | Recursion on Arrays & Math | Count Good Numbers | [Link](https://leetcode.com/problems/count-good-numbers/) | ★☆☆ Easy | ❌ |
 | 110 | Recursion | Recursion on Arrays & Math | Recursive Implementation of atoi() | [Link](https://www.geeksforgeeks.org/problems/implement-atoi/1) | ★★☆ Medium | ❌ |
