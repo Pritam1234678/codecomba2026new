@@ -113,9 +113,15 @@ generated file contains `\n`. This is the #1 source of bugs — be careful.
 ### 4.4 Test case format
 ALWAYS provide **10 test cases**: TC1–TC5 visible, TC6–TC10 hidden.
 - Hidden tests print `TC:n:PASS:hidden` or `TC:n:FAIL:hidden` (never reveal expected/actual).
-- Visible tests on failure print the inputs and expected/actual for debugging.
+- Visible tests on FAILURE print input + expected + actual output:
+  - For simple scalar params: `TC:1:FAIL:n=5:exp=15:got=0` (parser recognizes `n=`, `exp=`, `got=`)
+  - For array/object params: `TC:1:FAIL:arr=[1,2,3]:exp=6:got=0` (parser recognizes `arr=`)
+  - Standard format: `TC:1:FAIL:input=5:expected=15:got=0` (parser recognizes `input=`, `expected=`)
+  - **NEVER use arbitrary prefixes** — only use these recognized keys: `input=`, `expected=`, `got=`, `exp=`, `n=`, `arr=`, `target=`, `L=`, `R=`
+  - Multi-param example: `TC:1:FAIL:L=1 R=10:exp=4:got=0`
 - Wrap each call in `try/except` (Python) / `try/catch` (Java/JS) /
-  `catch(...)` (C++) / `if(h)` guard (C) so a crash yields `TC:n:FAIL:hidden`.
+  `catch(...)` (C++) so a crash yields `TC:n:FAIL:hidden`.
+  C has no exceptions — use `if(h)` guard instead.
 
 ### 4.5 Per-language template structure
 
@@ -136,7 +142,8 @@ public class Main {
         ReturnType g = new CodeCoder().method(Inputs);
         if (matches) System.out.println("TC:"+tc+":PASS"+(h?":hidden":""));
         else if (h) System.out.println("TC:"+tc+":FAIL:hidden");
-        else System.out.println("TC:"+tc+":FAIL:...inputs/exp/got...");
+        else System.out.println("TC:"+tc+":FAIL:n="+n+":exp="+expected+":got="+g);
+        //                   ↑ use recognized prefix (n=, arr=, L=, etc)    ↑ use exp= (parser recognizes both exp= and expected=)
     }
     public static void main(String[] a) {
         try { test(... , 1, false); } catch (Exception e) { System.out.println("TC:1:FAIL:hidden"); }
@@ -156,11 +163,13 @@ void test(Inputs, expected, int tc, bool h=false) {
     ReturnType g = CodeCoder().method(Inputs);
     if (match) cout << "TC:" << tc << ":PASS" << (h?":hidden":"") << "\\n";
     else if (h) cout << "TC:" << tc << ":FAIL:hidden\\n";
-    else cout << "TC:" << tc << ":FAIL:...\\n";
+    else cout << "TC:" << tc << ":FAIL:n=" << n << ":exp=" << e << ":got=" << g << "\\n";
+    //           ↑ use recognized prefix ↑
 }
 int main() {
     try { test(..., 1); } catch (...) { cout << "TC:1:FAIL:hidden\\n"; }
     // TC2..TC5 visible, TC6..TC10 hidden=true
+    return 0;
 }
 ```
 
@@ -175,7 +184,8 @@ def test(inputs, expected, tc, h=False):
     g = CodeCoder().method(inputs)
     if g == expected: print(f"TC:{tc}:PASS"+(":hidden" if h else ""))
     elif h: print(f"TC:{tc}:FAIL:hidden")
-    else: print(f"TC:{tc}:FAIL:...exp={expected}:got={g}")
+    else: print(f"TC:{tc}:FAIL:n={n}:exp={expected}:got={g}")
+    #            ↑ use recognized prefix ↑
 try: test(..., 1)
 except: print("TC:1:FAIL:hidden")
 # TC2..TC5 visible, TC6..TC10 hidden=True
@@ -191,7 +201,8 @@ function test(inputs, expected, tc, h) {
     const g = method(inputs);
     if (g === expected) console.log("TC:"+tc+":PASS"+(h?":hidden":""));
     else if (h) console.log("TC:"+tc+":FAIL:hidden");
-    else console.log("TC:"+tc+":FAIL:exp="+expected+":got="+g);
+    else console.log("TC:"+tc+":FAIL:n="+n+":exp="+expected+":got="+g);
+    //                ↑ use recognized prefix ↑
 }
 try { test(..., 1); } catch(e) { console.log("TC:1:FAIL:hidden"); }
 // TC2..TC5 visible, TC6..TC10 true
@@ -209,11 +220,13 @@ ReturnType method(Params, int* returnSize /* or size params */) {
 void run(Inputs, expected, int tc, int h) {
     ReturnType g = method(...);
     if (match) { if(h)printf("TC:%d:PASS:hidden\\n",tc); else printf("TC:%d:PASS\\n",tc); }
-    else { if(h)printf("TC:%d:FAIL:hidden\\n",tc); else printf("TC:%d:FAIL:...\\n",tc); }
+    else { if(h)printf("TC:%d:FAIL:hidden\\n",tc); else printf("TC:%d:FAIL:n=%d:exp=%d:got=%d\\n",tc,n,e,g); }
+    //                                           use recognized prefix ↑
 }
 int main() {
     run(..., 1, 0);
     // TC2..TC5 visible (h=0), TC6..TC10 hidden (h=1)
+    return 0;
 }
 ```
 
