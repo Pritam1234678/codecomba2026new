@@ -80,20 +80,20 @@
 | 19 | Arrays | Intermediate Problems | Increasing Array | [Link](https://cses.fi/problemset/task/1094) | ★★☆ Medium | ✅ |
 | 20 | Arrays | Intermediate Problems | Rearrange Array Elements by Sign | [Link](https://leetcode.com/problems/rearrange-array-elements-by-sign/) | ★★☆ Medium | ✅ |
 | 21 | Arrays | Intermediate Problems | Rotate Array by One | [Link](https://www.geeksforgeeks.org/problems/cyclically-rotate-an-array-by-one2614/1) | ★★☆ Medium | ✅ |
-| 22 | Arrays | Intermediate Problems | Majority Element I (Boyer - Moore) | [Link](https://leetcode.com/problems/majority-element/) | ★★☆ Medium | ❌ |
-| 23 | Arrays | Advanced Problems | Rotate Array by K steps | [Link](https://leetcode.com/problems/rotate-array/) | ★★★ Hard | ❌ |
-| 24 | Arrays | Advanced Problems | Wiggle Sort II | [Link](https://leetcode.com/problems/wiggle-sort-ii/description/) | ★★★ Hard | ❌ |
-| 27 | Arrays | Advanced Problems | Next Permutation | [Link](https://leetcode.com/problems/next-permutation/) | ★★★ Hard | ❌ |
-| 28 | Arrays | Advanced Problems | Maximum Value Of Expression | [Link](https://www.geeksforgeeks.org/problems/maximum-value-of-expression2515/1) | ★★★ Hard | ❌ |
-| 29 | Arrays | Advanced Problems | First Missing Positive | [Link](https://leetcode.com/problems/first-missing-positive/) | ★★★ Hard | ❌ |
-| 30 | 2D Arrays | Matrix Basics | Sum of elements in a matrix | [Link](https://www.geeksforgeeks.org/problems/sum-of-elements-in-a-matrix2000/1) | ★☆☆ Easy | ❌ |
-| 31 | 2D Arrays | Matrix Basics | Count Number Of Zeroes | [Link](https://www.geeksforgeeks.org/problems/count-zeros-in-a-sorted-matrix/1) | ★☆☆ Easy | ❌ |
-| 32 | 2D Arrays | Matrix Basics | Count Negative Numbers in a matrix | [Link](https://leetcode.com/problems/count-negative-numbers-in-a-sorted-matrix/) | ★☆☆ Easy | ❌ |
-| 33 | 2D Arrays | Matrix Basics | Matrix Diagonal Sum | [Link](https://leetcode.com/problems/matrix-diagonal-sum/) | ★☆☆ Easy | ❌ |
-| 34 | 2D Arrays | Matrix Operations | Addition of Two Square Matrix | [Link](https://www.geeksforgeeks.org/problems/addition-of-two-square-matrices4916/1) | ★★☆ Medium | ❌ |
-| 35 | 2D Arrays | Matrix Operations | Multiply Matrices | [Link](https://www.geeksforgeeks.org/problems/multiply-matrices/1) | ★★☆ Medium | ❌ |
-| 36 | 2D Arrays | Matrix Operations | Transpose Matrix | [Link](https://leetcode.com/problems/transpose-matrix/) | ★★☆ Medium | ❌ |
-| 38 | 2D Arrays | Advanced Matrix | ZigZag Matrix | [Link](https://www.geeksforgeeks.org/problems/print-matrix-in-zig-zag-fashion--122748/1) | ★★★ Hard | ❌ |
+| 22 | Arrays | Intermediate Problems | Majority Element I (Boyer - Moore) | [Link](https://leetcode.com/problems/majority-element/) | ★★☆ Medium | ✅ |
+| 23 | Arrays | Advanced Problems | Rotate Array by K steps | [Link](https://leetcode.com/problems/rotate-array/) | ★★★ Hard | ✅ |
+| 24 | Arrays | Advanced Problems | Wiggle Sort II | [Link](https://leetcode.com/problems/wiggle-sort-ii/description/) | ★★★ Hard | ✅ |
+| 27 | Arrays | Advanced Problems | Next Permutation | [Link](https://leetcode.com/problems/next-permutation/) | ★★★ Hard | ✅ |
+| 28 | Arrays | Advanced Problems | Maximum Value Of Expression | [Link](https://www.geeksforgeeks.org/problems/maximum-value-of-expression2515/1) | ★★★ Hard | ✅ |
+| 29 | Arrays | Advanced Problems | First Missing Positive | [Link](https://leetcode.com/problems/first-missing-positive/) | ★★★ Hard | ✅ |
+| 30 | 2D Arrays | Matrix Basics | Sum of elements in a matrix | [Link](https://www.geeksforgeeks.org/problems/sum-of-elements-in-a-matrix2000/1) | ★☆☆ Easy | ✅ |
+| 31 | 2D Arrays | Matrix Basics | Count Number Of Zeroes | [Link](https://www.geeksforgeeks.org/problems/count-zeros-in-a-sorted-matrix/1) | ★☆☆ Easy | ✅ |
+| 32 | 2D Arrays | Matrix Basics | Count Negative Numbers in a matrix | [Link](https://leetcode.com/problems/count-negative-numbers-in-a-sorted-matrix/) | ★☆☆ Easy | ✅ |
+| 33 | 2D Arrays | Matrix Basics | Matrix Diagonal Sum | [Link](https://leetcode.com/problems/matrix-diagonal-sum/) | ★☆☆ Easy | ✅ |
+| 34 | 2D Arrays | Matrix Operations | Addition of Two Square Matrix | [Link](https://www.geeksforgeeks.org/problems/addition-of-two-square-matrices4916/1) | ★★☆ Medium | ✅ |
+| 35 | 2D Arrays | Matrix Operations | Multiply Matrices | [Link](https://www.geeksforgeeks.org/problems/multiply-matrices/1) | ★★☆ Medium | ✅ |
+| 36 | 2D Arrays | Matrix Operations | Transpose Matrix | [Link](https://leetcode.com/problems/transpose-matrix/) | ★★☆ Medium | ✅ |
+| 38 | 2D Arrays | Advanced Matrix | ZigZag Matrix | [Link](https://www.geeksforgeeks.org/problems/print-matrix-in-zig-zag-fashion--122748/1) | ★★★ Hard | ✅ |
 | 39 | 2D Arrays | Advanced Matrix | Rotate Matrix (90°) | [Link](https://leetcode.com/problems/rotate-image/) | ★★★ Hard | ❌ |
 | 40 | 2D Arrays | Advanced Matrix | Determine Whether matrix can be obtained by rotation | [Link](https://leetcode.com/problems/determine-whether-matrix-can-be-obtained-by-rotation/) | ★★★ Hard | ❌ |
 | 42 | Basic Maths | Number Theory Basics | Check if a number is Armstrong | [Link](https://www.geeksforgeeks.org/problems/armstrong-numbers2727/1) | ★☆☆ Easy | ❌ |
