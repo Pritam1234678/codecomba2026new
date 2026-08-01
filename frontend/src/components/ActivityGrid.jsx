@@ -110,15 +110,29 @@ export default function ActivityGrid({ userId }) {
 
         const active = allDays.filter(d => d && d.count > 0).length;
 
-        // Streak: count consecutive days from today backwards
+        // Streak: count consecutive days from the most recent activity day backwards
         let streak = 0;
         const todayStr = today.toISOString().substring(0, 10);
-        // Include today and yesterday in streak check
+        
+        // Find the most recent day with activity (starting from today backwards)
+        let lastActiveIndex = -1;
         for (let i = allDays.length - 1; i >= 0; i--) {
             const d = allDays[i];
             if (!d) continue;
-            if (activity[d.date] && activity[d.date].total > 0) streak++;
-            else break;
+            if (activity[d.date] && activity[d.date].total > 0) {
+                lastActiveIndex = i;
+                break;
+            }
+        }
+        
+        // Count consecutive days backwards from the last active day
+        if (lastActiveIndex !== -1) {
+            for (let i = lastActiveIndex; i >= 0; i--) {
+                const d = allDays[i];
+                if (!d) break;
+                if (activity[d.date] && activity[d.date].total > 0) streak++;
+                else break;
+            }
         }
 
         return { weeks: weeksArr, months: monthsArr, monthGaps, totalDays: allDays.filter(Boolean).length, activeDays: active, currentStreak: streak };
