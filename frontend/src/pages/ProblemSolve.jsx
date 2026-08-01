@@ -203,6 +203,7 @@ const ProblemSolve = () => {
     const [consoleHeight, setConsoleHeight] = useState(220);      // px
     const [isDraggingH, setIsDraggingH] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [consoleVisible, setConsoleVisible] = useState(true);
 
     // ── Persist code + language to localStorage (debounced) ─────────────────
     const saveTimer = useRef(null);
@@ -561,6 +562,7 @@ const ProblemSolve = () => {
         if (runningRef.current) return;
         runningRef.current = true;
         setRunning(true);
+        setConsoleVisible(true);
         setOutput(
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#facc15' }}>
                 <span className="material-symbols-outlined" style={{ fontSize: '16px', animation: 'spin 1s linear infinite' }}>sync</span>
@@ -1043,6 +1045,15 @@ const ProblemSolve = () => {
                             >
                                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{isFullscreen ? 'fullscreen_exit' : 'fullscreen'}</span>
                             </button>
+                            <button
+                                onClick={() => setConsoleVisible(!consoleVisible)}
+                                title={consoleVisible ? 'Hide console' : 'Show console'}
+                                style={{ padding: '4px', color: consoleVisible ? C.secondary : C.outline, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.color = C.muted}
+                                onMouseLeave={e => e.currentTarget.style.color = consoleVisible ? C.secondary : C.outline}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>terminal</span>
+                            </button>
                         </div>
                     </div>
 
@@ -1093,13 +1104,28 @@ const ProblemSolve = () => {
                     {/* Console drag handle */}
                     <div
                         onMouseDown={onConsoleDividerMouseDown}
-                        style={{ height: '4px', flexShrink: 0, backgroundColor: isDraggingH ? C.secondary : C.border, cursor: 'row-resize', transition: 'background-color 0.2s' }}
-                        onMouseEnter={e => { if (!isDraggingH) e.currentTarget.style.backgroundColor = C.secondary; }}
+                        style={{
+                            height: consoleVisible ? '4px' : '0px',
+                            flexShrink: 0,
+                            backgroundColor: isDraggingH ? C.secondary : C.border,
+                            cursor: consoleVisible ? 'row-resize' : 'default',
+                            transition: 'height 0.3s ease, background-color 0.2s',
+                        }}
+                        onMouseEnter={e => { if (!isDraggingH && consoleVisible) e.currentTarget.style.backgroundColor = C.secondary; }}
                         onMouseLeave={e => { if (!isDraggingH) e.currentTarget.style.backgroundColor = C.border; }}
                     />
 
                     {/* Console panel */}
-                    <div style={{ height: `${consoleHeight}px`, flexShrink: 0, backgroundColor: C.surfaceLow, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{
+                        height: consoleVisible ? `${consoleHeight}px` : '0px',
+                        flexShrink: 0,
+                        backgroundColor: C.surfaceLow,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        overflow: 'hidden',
+                        opacity: consoleVisible ? 1 : 0,
+                        transition: 'height 0.3s ease, opacity 0.25s ease',
+                    }}>
                         {/* Console tabs */}
                         <div style={{ height: '40px', flexShrink: 0, borderBottom: `1px solid ${C.border}`, backgroundColor: C.surfaceMin, display: 'flex', alignItems: 'center', padding: '0 16px', gap: '24px' }}>
                             <button
