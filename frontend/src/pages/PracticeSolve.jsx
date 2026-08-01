@@ -695,7 +695,7 @@ const PracticeSolve = () => {
                     opacity: isFullscreen ? 0 : 1,
                     transition: 'width 0.35s ease, flex 0.35s ease, opacity 0.25s ease, border 0.35s ease',
                 }}>
-                    <div style={{ display: isFullscreen ? 'none' : 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
+                    <div style={{ display: isFullscreen ? 'none' : 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
                     <div style={{ height: '44px', flexShrink: 0, borderBottom: `1px solid ${C.border}`, display: 'flex', backgroundColor: C.surfaceMin }}>
                         <button onClick={() => setLeftTab('description')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 20px', border: 'none', borderBottom: leftTab === 'description' ? `2px solid ${C.secondary}` : '2px solid transparent', backgroundColor: 'transparent', color: leftTab === 'description' ? C.secondary : C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em', cursor: 'pointer', transition: 'all 0.15s' }}>
                             <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>description</span>Description
