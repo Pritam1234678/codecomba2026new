@@ -230,6 +230,7 @@ const PracticeSolve = () => {
     const [githubConnected, setGithubConnected] = useState(false);
     const [githubPushing, setGithubPushing] = useState(false);
     const [githubPushed, setGithubPushed] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Solution tab state
                                                                                 const currentUserId = AuthService.getCurrentUser()?.id;
@@ -682,6 +683,7 @@ const PracticeSolve = () => {
             <main id="ps-workspace" style={{ flex: 1, display: 'flex', overflow: 'hidden', cursor: isDragging ? 'col-resize' : 'auto' }}>
 
                 {/* ── Left Pane ── */}
+                {!isFullscreen && (
                 <section style={{ width: `${leftWidth}%`, flexShrink: 0, backgroundColor: C.surfaceLow, borderRight: `1px solid ${C.border}`, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ height: '44px', flexShrink: 0, borderBottom: `1px solid ${C.border}`, display: 'flex', backgroundColor: C.surfaceMin }}>
                         <button onClick={() => setLeftTab('description')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0 20px', border: 'none', borderBottom: leftTab === 'description' ? `2px solid ${C.secondary}` : '2px solid transparent', backgroundColor: 'transparent', color: leftTab === 'description' ? C.secondary : C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.08em', cursor: 'pointer', transition: 'all 0.15s' }}>
@@ -812,14 +814,17 @@ const PracticeSolve = () => {
                         <SolutionPanel problemId={parseInt(id)} currentUserId={currentUserId} />
                     )}
                 </section>
+                )}
 
                 {/* Drag Divider */}
+                {!isFullscreen && (
                 <div
                     onMouseDown={onDividerMouseDown}
                     style={{ width: '4px', flexShrink: 0, backgroundColor: isDragging ? C.secondary : C.border, cursor: 'col-resize', transition: 'background-color 0.2s' }}
                     onMouseEnter={e => { if (!isDragging) e.currentTarget.style.backgroundColor = C.secondary; }}
                     onMouseLeave={e => { if (!isDragging) e.currentTarget.style.backgroundColor = C.border; }}
                 />
+                )}
 
                 {/* ── Right Pane: Editor + Console ── */}
                 <section style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: C.bg, minWidth: 0, cursor: isDraggingH ? 'row-resize' : 'auto' }}>
@@ -869,6 +874,15 @@ const PracticeSolve = () => {
                                 onMouseLeave={e => e.currentTarget.style.color = C.outline}
                             >
                                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>refresh</span>
+                            </button>
+                            <button
+                                onClick={() => setIsFullscreen(!isFullscreen)}
+                                title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen editor'}
+                                style={{ padding: '4px', color: isFullscreen ? C.secondary : C.outline, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.color = C.muted}
+                                onMouseLeave={e => e.currentTarget.style.color = isFullscreen ? C.secondary : C.outline}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{isFullscreen ? 'fullscreen_exit' : 'fullscreen'}</span>
                             </button>
                         </div>
                     </div>

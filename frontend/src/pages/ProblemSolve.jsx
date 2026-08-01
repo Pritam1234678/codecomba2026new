@@ -202,6 +202,7 @@ const ProblemSolve = () => {
     const [isDragging, setIsDragging] = useState(false);
     const [consoleHeight, setConsoleHeight] = useState(220);      // px
     const [isDraggingH, setIsDraggingH] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // ── Persist code + language to localStorage (debounced) ─────────────────
     const saveTimer = useRef(null);
@@ -842,6 +843,7 @@ const ProblemSolve = () => {
             <main id="ps-workspace" style={{ flex: 1, display: 'flex', overflow: 'hidden', cursor: isDragging ? 'col-resize' : 'auto' }}>
 
                 {/* ── Left Pane: Problem Statement ── */}
+                {!isFullscreen && (
                 <section style={{ width: `${leftWidth}%`, flexShrink: 0, backgroundColor: C.surfaceLow, borderRight: `1px solid ${C.border}`, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
@@ -937,14 +939,17 @@ const ProblemSolve = () => {
                         )}
                     </div>
                 </section>
+                )}
 
                 {/* ── Drag Divider ── */}
+                {!isFullscreen && (
                 <div
                     onMouseDown={onDividerMouseDown}
                     style={{ width: '4px', flexShrink: 0, backgroundColor: isDragging ? C.secondary : C.border, cursor: 'col-resize', transition: 'background-color 0.2s' }}
                     onMouseEnter={e => { if (!isDragging) e.currentTarget.style.backgroundColor = C.secondary; }}
                     onMouseLeave={e => { if (!isDragging) e.currentTarget.style.backgroundColor = C.border; }}
                 />
+                )}
 
                 {/* ── Right Pane: Editor + Console ── */}
                 <section style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: C.bg, minWidth: 0, cursor: isDraggingH ? 'row-resize' : 'auto' }}>
@@ -996,6 +1001,15 @@ const ProblemSolve = () => {
                                 onMouseLeave={e => e.currentTarget.style.color = C.outline}
                             >
                                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>refresh</span>
+                            </button>
+                            <button
+                                onClick={() => setIsFullscreen(!isFullscreen)}
+                                title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen editor'}
+                                style={{ padding: '4px', color: isFullscreen ? C.secondary : C.outline, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.color = C.muted}
+                                onMouseLeave={e => e.currentTarget.style.color = isFullscreen ? C.secondary : C.outline}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>{isFullscreen ? 'fullscreen_exit' : 'fullscreen'}</span>
                             </button>
                         </div>
                     </div>
