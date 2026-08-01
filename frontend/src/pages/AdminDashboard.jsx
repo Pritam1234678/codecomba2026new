@@ -244,6 +244,7 @@ const AdminDashboard = () => {
                                 { to: '/admin/contests', label: 'Manage Contests', icon: 'military_tech' },
                                 { to: '/admin/leaderboard', label: 'Leaderboard', icon: 'leaderboard' },
                                 { to: '/admin/problems', label: 'Problem List', icon: 'tune' },
+                                { to: '/admin/complaints', label: 'Complaints', icon: 'bug_report' },
                             ].map(({ to, label, icon }) => (
                                 <Link
                                     key={to}
