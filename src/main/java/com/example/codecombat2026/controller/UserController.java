@@ -109,7 +109,9 @@ public class UserController {
                 user.getBio(), user.getTitle(),
                 user.getLocation(), user.getCompany(),
                 user.getGithubUrl(), user.getLinkedinUrl(), user.getInstagramUrl(),
-                user.getTwitterUrl(), user.getWebsiteUrl());
+                user.getTwitterUrl(), user.getWebsiteUrl(),
+                user.getMaxStreak(), user.getCurrentStreak(),
+                user.getLastActiveDate() != null ? user.getLastActiveDate().toString() : null);
 
         try {
             redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(profile), PROFILE_TTL);
@@ -142,7 +144,9 @@ public class UserController {
                     user.getBio(), user.getTitle(),
                     user.getLocation(), user.getCompany(),
                     user.getGithubUrl(), user.getLinkedinUrl(), user.getInstagramUrl(),
-                    user.getTwitterUrl(), user.getWebsiteUrl());
+                    user.getTwitterUrl(), user.getWebsiteUrl(),
+                    user.getMaxStreak(), user.getCurrentStreak(),
+                    user.getLastActiveDate() != null ? user.getLastActiveDate().toString() : null);
             try {
                 redis.opsForValue().set(cacheKey, objectMapper.writeValueAsString(profile), PROFILE_TTL);
             } catch (Exception ignored) {}
@@ -227,7 +231,9 @@ public class UserController {
                 user.getBio(), user.getTitle(),
                 user.getLocation(), user.getCompany(),
                 user.getGithubUrl(), user.getLinkedinUrl(), user.getInstagramUrl(),
-                user.getTwitterUrl(), user.getWebsiteUrl()));
+                user.getTwitterUrl(), user.getWebsiteUrl(),
+                user.getMaxStreak(), user.getCurrentStreak(),
+                user.getLastActiveDate() != null ? user.getLastActiveDate().toString() : null));
     }
 
     // ─── POST /api/user/profile/photo ─────────────────────────────────────────
@@ -498,6 +504,10 @@ public class UserController {
         private String instagramUrl;
         private String twitterUrl;
         private String websiteUrl;
+        // Streak fields
+        private Integer maxStreak;
+        private Integer currentStreak;
+        private String lastActiveDate;
 
         public UserProfileResponse() {}
 
@@ -533,6 +543,21 @@ public class UserController {
             this.websiteUrl = websiteUrl;
         }
 
+        /** Full-constructor with socials + streak. */
+        public UserProfileResponse(Long id, String username, String email,
+                String fullName, String photoUrl,
+                String bio, String title,
+                String location, String company,
+                String githubUrl, String linkedinUrl, String instagramUrl,
+                String twitterUrl, String websiteUrl,
+                Integer maxStreak, Integer currentStreak, String lastActiveDate) {
+            this(id, username, email, fullName, photoUrl, bio, title, location, company,
+                githubUrl, linkedinUrl, instagramUrl, twitterUrl, websiteUrl);
+            this.maxStreak = maxStreak;
+            this.currentStreak = currentStreak;
+            this.lastActiveDate = lastActiveDate;
+        }
+
         public Long getId() { return id; }
         public String getUsername() { return username; }
         public String getEmail() { return email; }
@@ -547,6 +572,9 @@ public class UserController {
         public String getInstagramUrl() { return instagramUrl; }
         public String getTwitterUrl() { return twitterUrl; }
         public String getWebsiteUrl() { return websiteUrl; }
+        public Integer getMaxStreak() { return maxStreak; }
+        public Integer getCurrentStreak() { return currentStreak; }
+        public String getLastActiveDate() { return lastActiveDate; }
         public void setId(Long id) { this.id = id; }
         public void setUsername(String username) { this.username = username; }
         public void setEmail(String email) { this.email = email; }
