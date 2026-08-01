@@ -819,8 +819,25 @@ const PracticeSolve = () => {
                                     );
                                 })}
                             </div>
+                            )}
+                        </div>
+
+                        {/* Topics */}
+                        {problem.topics && (
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                {problem.topics.split(',').map(t => t.trim()).filter(Boolean).map((topic, i) => (
+                                    <span key={i} style={{
+                                        padding: '3px 10px',
+                                        border: `1px solid ${C.primary}40`,
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                        fontSize: '10px',
+                                        letterSpacing: '0.06em',
+                                        color: C.primary,
+                                        backgroundColor: `${C.primary}0a`,
+                                    }}>{topic}</span>
+                                ))}
+                            </div>
                         )}
-                    </div>
                     ) : (
                         <SolutionPanel problemId={parseInt(id)} currentUserId={currentUserId} />
                     )}
