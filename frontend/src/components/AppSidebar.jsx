@@ -21,6 +21,7 @@ const ADMIN_NAV = [
     { label: 'Contests', icon: 'military_tech', to: '/admin/contests' },
     { label: 'Problems', icon: 'code', to: '/admin/problems' },
     { label: 'Sheets', icon: 'dataset', to: '/admin/sheets' },
+    { label: 'Complaints', icon: 'bug_report', to: '/admin/complaints' },
     { label: 'Duel', icon: 'swords', to: '/admin/duels' },
     { label: 'Into the Web', icon: 'public', to: '/admin/web-contest' },
     { label: 'Proctoring', icon: 'shield', to: '/admin/proctoring' },
