@@ -86,8 +86,6 @@ export default function AdminComplaints() {
                 </div>
             </div>
 
-            <Pagination />
-
             {loading ? (
                 <div style={{ padding: '40px', textAlign: 'center' }}><span style={{ color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>Loading...</span></div>
             ) : (
