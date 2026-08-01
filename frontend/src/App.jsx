@@ -35,6 +35,7 @@ const Sheets = lazy(() => import('./pages/Sheets'));
 const Playlist = lazy(() => import('./pages/Playlist'));
 const AdminSheets = lazy(() => import('./pages/AdminSheets'));
 const AdminComplaints = lazy(() => import('./pages/AdminComplaints'));
+const MyComplaints = lazy(() => import('./pages/MyComplaints'));
 const WebContest = lazy(() => import('./pages/WebContest'));
 const WebIde = lazy(() => import('./pages/WebIde'));
 const WebContestList = lazy(() => import('./pages/WebContestList'));
@@ -249,6 +250,7 @@ function App() {
       <Route path="/sheets/:slug" element={lazyWrap(<UserRoute><Sheets /></UserRoute>)} />
       <Route path="/playlist" element={lazyWrap(<UserRoute><Playlist /></UserRoute>)} />
       <Route path="/playlist/:topic" element={lazyWrap(<UserRoute><Playlist /></UserRoute>)} />
+      <Route path="/my-complaints" element={lazyWrap(<UserRoute><MyComplaints /></UserRoute>)} />
       <Route path="/web-contest" element={lazyWrap(<UserRoute><WebContestList /></UserRoute>)} />
       <Route path="/web-contest/:problemId" element={lazyWrap(<UserRoute><WebContest /></UserRoute>)} />
       <Route path="/web-contest/:problemId/ide" element={lazyWrap(<UserRoute><WebIde /></UserRoute>)} />

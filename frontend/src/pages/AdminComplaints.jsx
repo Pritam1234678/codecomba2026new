@@ -8,43 +8,62 @@ const C = {
 };
 
 const TYPE_COLORS = {
-    'Network Error': '#ffb4ab',
-    'Wrong Test Case': '#facc15',
-    'Compile Timeout Error': '#facc15',
-    'Output Not Showing': '#facc15',
-    'GitHub Not Pushing': '#7dd3fc',
-    'Contest Submission Issue': '#c4b5fd',
-    'Run Times Exceed': '#facc15',
-    'Submission Times Exceed': '#facc15',
-    'Others': '#9d8e83',
+    'Network Error': '#ffb4ab', 'Wrong Test Case': '#facc15', 'Compile Timeout Error': '#facc15',
+    'Output Not Showing': '#facc15', 'GitHub Not Pushing': '#7dd3fc', 'Contest Submission Issue': '#c4b5fd',
+    'Run Times Exceed': '#facc15', 'Submission Times Exceed': '#facc15', 'Others': '#9d8e83',
 };
+
+const PAGE_SIZE = 15;
 
 export default function AdminComplaints() {
     const [complaints, setComplaints] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL');
+    const [page, setPage] = useState(0);
+    const [total, setTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
     const [resolveModal, setResolveModal] = useState(null);
     const [response, setResponse] = useState('');
 
-    const fetch = () => {
+    const fetchPage = (p, f) => {
         setLoading(true);
-        api.get('/complaints')
-            .then(r => setComplaints(r.data))
+        const params = { page: p, size: PAGE_SIZE };
+        if (f && f !== 'ALL') params.status = f;
+        api.get('/complaints', { params })
+            .then(r => {
+                setComplaints(r.data.complaints || []);
+                setTotal(r.data.total || 0);
+                setTotalPages(r.data.totalPages || 0);
+                setPage(p);
+            })
             .finally(() => setLoading(false));
     };
 
-    useEffect(() => { fetch(); }, []);
-
-    const filtered = filter === 'ALL' ? complaints : complaints.filter(c => c.status === filter);
+    useEffect(() => { fetchPage(0, filter); }, [filter]);
 
     const resolve = async () => {
         if (!response.trim()) return;
         try {
             await api.put(`/complaints/${resolveModal.id}/resolve`, { response });
             setResolveModal(null); setResponse('');
-            fetch();
+            fetchPage(page, filter);
         } catch {}
     };
+
+    const Pagination = () => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>
+            <button onClick={() => fetchPage(0, filter)} disabled={page === 0}
+                style={{ padding: '4px 10px', border: `1px solid ${C.border}`, color: page === 0 ? C.border : C.outline, background: 'none', cursor: page === 0 ? 'default' : 'pointer' }}>«</button>
+            <button onClick={() => fetchPage(page - 1, filter)} disabled={page === 0}
+                style={{ padding: '4px 10px', border: `1px solid ${C.border}`, color: page === 0 ? C.border : C.outline, background: 'none', cursor: page === 0 ? 'default' : 'pointer' }}>‹</button>
+            <span style={{ color: C.outline, padding: '0 8px' }}>{page + 1} / {totalPages || 1}</span>
+            <button onClick={() => fetchPage(page + 1, filter)} disabled={page >= totalPages - 1}
+                style={{ padding: '4px 10px', border: `1px solid ${C.border}`, color: page >= totalPages - 1 ? C.border : C.outline, background: 'none', cursor: page >= totalPages - 1 ? 'default' : 'pointer' }}>›</button>
+            <button onClick={() => fetchPage(totalPages - 1, filter)} disabled={page >= totalPages - 1}
+                style={{ padding: '4px 10px', border: `1px solid ${C.border}`, color: page >= totalPages - 1 ? C.border : C.outline, background: 'none', cursor: page >= totalPages - 1 ? 'default' : 'pointer' }}>»</button>
+            <span style={{ color: C.outline, marginLeft: '8px' }}>{total} total</span>
+        </div>
+    );
 
     return (
         <div style={{ padding: '24px', backgroundColor: C.bg, minHeight: '100vh', color: C.onBg }}>
@@ -67,10 +86,12 @@ export default function AdminComplaints() {
                 </div>
             </div>
 
+            <Pagination />
+
             {loading ? (
-                <span style={{ color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>Loading...</span>
+                <div style={{ padding: '40px', textAlign: 'center' }}><span style={{ color: C.outline, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px' }}>Loading...</span></div>
             ) : (
-                <div style={{ overflowX: 'auto' }}>
+                <div style={{ overflowX: 'auto', marginTop: '12px' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>
                         <thead>
                             <tr style={{ borderBottom: `2px solid ${C.border}` }}>
@@ -85,23 +106,27 @@ export default function AdminComplaints() {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.map((c, i) => (
+                            {complaints.map((c, i) => (
                                 <tr key={c.id} style={{ borderBottom: `1px solid ${C.border}15`, backgroundColor: i % 2 === 0 ? 'transparent' : `${C.surfaceMin}40` }}>
                                     <td style={{ padding: '10px 12px', color: C.outline }}>{c.id}</td>
-                                    <td style={{ padding: '10px 12px', color: C.muted }}>{c.userId}</td>
-                                    <td style={{ padding: '10px 12px', color: C.primary }}>#{c.problemId}</td>
+                                    <td style={{ padding: '10px 12px' }}>
+                                        <span style={{ color: C.muted }}>{c.username || '—'}</span>
+                                        <br/><span style={{ color: C.outline, fontSize: '9px' }}>{c.email || ''}</span>
+                                    </td>
+                                    <td style={{ padding: '10px 12px', color: C.primary }}>#{c.problemId}{c.contestId && <span style={{ color: C.outline, fontSize: '9px' }}> (contest #{c.contestId})</span>}</td>
                                     <td style={{ padding: '10px 12px' }}>
                                         <span style={{ color: TYPE_COLORS[c.complaintType] || C.outline, fontSize: '10px' }}>{c.complaintType}</span>
                                     </td>
-                                    <td style={{ padding: '10px 12px', color: C.onBg, maxWidth: '300px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{c.message}</td>
+                                    <td style={{ padding: '10px 12px', color: C.onBg, maxWidth: '250px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{c.message}</td>
                                     <td style={{ padding: '10px 12px' }}>
                                         <span style={{
                                             padding: '2px 8px', fontSize: '10px',
                                             color: c.status === 'RESOLVED' ? C.success : '#facc15',
                                             border: `1px solid ${c.status === 'RESOLVED' ? C.success : '#facc15'}40`,
                                         }}>{c.status}</span>
+                                        {c.adminResponse && <div style={{ color: C.outline, fontSize: '9px', marginTop: '4px', maxWidth: '150px', whiteSpace: 'pre-wrap' }} title={c.adminResponse}>{c.adminResponse.substring(0, 60)}{c.adminResponse.length > 60 ? '...' : ''}</div>}
                                     </td>
-                                    <td style={{ padding: '10px 12px', color: C.outline, fontSize: '10px' }}>{new Date(c.createdAt).toLocaleDateString()}</td>
+                                    <td style={{ padding: '10px 12px', color: C.outline, fontSize: '10px' }}>{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—'}</td>
                                     <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                                         {c.status === 'PENDING' && (
                                             <button onClick={() => setResolveModal(c)}
@@ -109,13 +134,10 @@ export default function AdminComplaints() {
                                                 Resolve
                                             </button>
                                         )}
-                                        {c.status === 'RESOLVED' && c.adminResponse && (
-                                            <span style={{ color: C.outline, fontSize: '10px' }} title={c.adminResponse}>✓</span>
-                                        )}
                                     </td>
                                 </tr>
                             ))}
-                            {filtered.length === 0 && (
+                            {complaints.length === 0 && (
                                 <tr><td colSpan={8} style={{ padding: '32px', textAlign: 'center', color: C.outline }}>No complaints found</td></tr>
                             )}
                         </tbody>
@@ -123,20 +145,23 @@ export default function AdminComplaints() {
                 </div>
             )}
 
+            <div style={{ marginTop: '12px' }}><Pagination /></div>
+
             {/* Resolve Modal */}
             {resolveModal && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.7)' }}
                     onClick={e => { if (e.target === e.currentTarget) setResolveModal(null); }}>
                     <div style={{ width: '480px', backgroundColor: C.surfaceLow, border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
                         <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.primary, textTransform: 'uppercase' }}>Resolve Complaint #{resolveModal.id}</span>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: C.primary, textTransform: 'uppercase' }}>Resolve #{resolveModal.id}</span>
                             <button onClick={() => setResolveModal(null)} style={{ background: 'none', border: 'none', color: C.outline, cursor: 'pointer' }}>✕</button>
                         </div>
                         <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: C.outline }}>
-                                <span style={{ color: C.muted }}>Type:</span> {resolveModal.complaintType}<br/>
-                                <span style={{ color: C.muted }}>Problem:</span> #{resolveModal.problemId}<br/>
-                                <span style={{ color: C.muted }}>Message:</span> {resolveModal.message}
+                                <b style={{ color: C.muted }}>User:</b> {resolveModal.username}<br/>
+                                <b style={{ color: C.muted }}>Type:</b> {resolveModal.complaintType}<br/>
+                                <b style={{ color: C.muted }}>Problem:</b> #{resolveModal.problemId}<br/>
+                                <b style={{ color: C.muted }}>Message:</b> {resolveModal.message}
                             </div>
                             <textarea value={response} onChange={e => setResponse(e.target.value)}
                                 rows={4} placeholder="Admin response..."
