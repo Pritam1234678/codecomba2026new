@@ -1,15 +1,16 @@
 # CodeCombat — Problem Addition Guide (For AI Agents)
 
-> **Purpose:** This document teaches any AI agent how to add a coding problem to the
-> CodeCombat PostgreSQL database. Follow it EXACTLY. Every convention here has been
-> battle-tested. Do NOT deviate or you WILL break the test harnesses.
+> **PURPOSE:** This document defines the EXACT format for adding coding problems.
+> Every deviation from this document causes SILENT BUGS in production.
+> The harness output is parsed by a regex-based parser — if your WA output doesn't
+> match the recognized prefixes, the frontend shows NO debug information.
+> **DO NOT BE CREATIVE. COPY THE TEMPLATES VERBATIM.**
 
 ---
 
 ## 1. INFRASTRUCTURE & ACCESS
 
-The database runs on a remote VM. You run a Python script **locally** that connects
-to the DB, then SCP the script to the VM and execute it there.
+The database runs on a remote VM. You write a Python script **locally**, SCP to VM, run there.
 
 - **DB Host (from VM):** `localhost:5432`
 - **DB Name:** `codecombat`
@@ -21,44 +22,36 @@ to the DB, then SCP the script to the VM and execute it there.
 - **Scripts live in:** `/mnt/hdd/CODE/codecomba2026new/scripts/`
 - **Status sheet:** `/mnt/hdd/CODE/codecomba2026new/Sheets/Todo/Have_To_Add.md`
 
-### Connecting from local Python
 ```python
 import psycopg2
 conn = psycopg2.connect(host="localhost", port=5432, dbname="codecombat",
                         user="postgres", password="postgres")
 cur = conn.cursor()
 ```
-> NOTE: Local Python cannot reach `localhost:5432` directly. You MUST scp the script
-> to the VM and run it THERE (the VM has localhost access to the DB).
+
+> NOTE: Run scripts on the VM. Local Python cannot reach `localhost:5432`.
 
 ---
 
-## 2. THE WORKFLOW (ALWAYS DO THIS IN ORDER)
+## 2. WORKFLOW
 
-1. Write a Python script in `/mnt/hdd/CODE/codecomba2026new/scripts/qXXX.py`
-   (use the next free number, or the Sr No from the sheet).
-2. Syntax-check locally: `python3 -c "compile(open('script.py').read(),'x','exec');print('OK')"`
+1. Write script in `/mnt/hdd/CODE/codecomba2026new/scripts/qXXX.py` (next free number from the sheet).
+2. Syntax-check: `python3 -c "compile(open('script.py').read(),'x','exec');print('OK')"`
 3. SCP to VM:
    ```
    scp -o StrictHostKeyChecking=no -i /mnt/hdd/CODE/codecomba2026new/cc-vm_key.pem \
-       script.py ubuntu@161.118.187.201:/home/ubuntu/
+       script.py ubuntu@161.118.187.201:/home/ubuntu/scripts/
    ```
-4. SSH run + cleanup:
-   ```
-   ssh -o StrictHostKeyChecking=no -i /mnt/hdd/CODE/codecomba2026new/cc-vm_key.pem \
-       ubuntu@161.118.187.201 "python3 /home/ubuntu/script.py && rm /home/ubuntu/script.py; echo '===done'"
-   ```
-5. The script prints `Problem: <name> (pid=N)` and per-language byte sizes.
-6. Update status in `Sheets/Todo/Have_To_Add.md`: change `❌` → `✅` on that row.
-7. (Optional but recommended) Restart backend to clear cache:
+4. Run:
    ```
    ssh -o StrictHostKeyChecking=no -i /mnt/hdd/CODE/codecomba2026new/cc-vm_key.pem \
-       ubuntu@161.118.187.201 "sudo systemctl restart codecombat"
+       ubuntu@161.118.187.201 "python3 /home/ubuntu/scripts/script.py; echo '===done'"
    ```
+5. Update status sheet: `❌` → `✅`.
 
 ---
 
-## 3. DATABASE SCHEMA (only two tables matter)
+## 3. DATABASE SCHEMA
 
 ### `problems`
 ```sql
@@ -68,88 +61,322 @@ INSERT INTO problems(
   example1, example2, example3
 ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id;
 ```
-- `level`: `'EASY'` | `'MEDIUM'` | `'HARD'` (UPPERCASE, varchar)
-- `active`: `True` (Python bool → Postgres boolean)
-- `time_limit`: float seconds (e.g. `3.0`, `5.0`, `8.0`)
-- `memory_limit`: int MB (usually `256`, hard problems `512`)
-- `topics`: comma-separated string e.g. `'Array, Two Pointers'`
-- `example1/2/3`: full worked examples with Input/Output (see §5)
+- `level`: `'EASY'` | `'MEDIUM'` | `'HARD'` (UPPERCASE only)
+- `active`: `True`
+- `time_limit`: float seconds (2.0–8.0)
+- `memory_limit`: int MB (256 default, 512 for heavy problems)
+- `topics`: comma-separated string: `'Array, Two Pointers'`
+- `example1/2/3`: text with Input/Output blocks (see §7)
 
 ### `code_snippets`
 ```sql
 INSERT INTO code_snippets(problem_id, language, solution_template, created_at, updated_at)
 VALUES (%s, %s, %s, NOW(), NOW());
 ```
-- `language`: one of `'JAVA'`, `'CPP'`, `'PYTHON'`, `'JAVASCRIPT'`, `'C'` (UPPERCASE)
-- `solution_template`: the FULL harness string (see §4). This is what the user sees
-  as the starter code AND what the grader runs.
-
-You insert ONE row per language (5 total) for each problem.
+- `language`: `'JAVA'` | `'CPP'` | `'PYTHON'` | `'JAVASCRIPT'` | `'C'` (UPPERCASE)
+- `solution_template`: the FULL harness. Always insert 5 rows per problem.
 
 ---
 
-## 4. HARNESS CONVENTIONS (CRITICAL — DO NOT BREAK)
+## 4. CLASS NAME AND MARKERS
 
-### 4.1 Class name
-Always `CodeCoder` (case-sensitive). The grader instantiates `new CodeCoder()` /
-`CodeCoder()` and calls the method.
+**Class name:** `CodeCoder` — ALWAYS. Case-sensitive. In all 5 languages.
 
-### 4.2 Markers
-Every harness has exactly two markers:
-```python
-// USER_CODE_START   (or # USER_CODE_START in Python)
-... user-editable region (problem-specific class/functions already declared) ...
-// USER_CODE_END     (or # USER_CODE_END)
+**User-editable region:**
 ```
-The region BETWEEN markers is what the user edits. Everything outside is fixed
-driver code. **The user's solution replaces the stub inside the markers.**
+// USER_CODE_START     (or # USER_CODE_START in Python)
+... starter code (class/function with return stub) ...
+// USER_CODE_END       (or # USER_CODE_END)
+```
 
-### 4.3 Python string escaping
-When building harness strings in a Python script, `\n` inside a Python triple-quoted
-string becomes a real newline. To embed a literal `\n` in the C/JS output strings
-(e.g. `printf("TC:1:PASS\\n")`), you MUST write `\\n` in the Python source so the
-generated file contains `\n`. This is the #1 source of bugs — be careful.
+The user replaces the content BETWEEN these markers. Everything outside is the test driver (uneditable).
 
-### 4.4 Test case format
-ALWAYS provide **10 test cases**: TC1–TC5 visible, TC6–TC10 hidden.
-- Hidden tests print `TC:n:PASS:hidden` or `TC:n:FAIL:hidden` (never reveal expected/actual).
-- Visible tests on FAILURE print input + expected + actual output:
-  - For simple scalar params: `TC:1:FAIL:n=5:exp=15:got=0` (parser recognizes `n=`, `exp=`, `got=`)
-  - For array/object params: `TC:1:FAIL:arr=[1,2,3]:exp=6:got=0` (parser recognizes `arr=`)
-  - Standard format: `TC:1:FAIL:input=5:expected=15:got=0` (parser recognizes `input=`, `expected=`)
-  - **NEVER use arbitrary prefixes** — only use these recognized keys: `input=`, `expected=`, `got=`, `exp=`, `n=`, `arr=`, `target=`, `L=`, `R=`
-  - Multi-param example: `TC:1:FAIL:L=1 R=10:exp=4:got=0`
-- Wrap each call in `try/except` (Python) / `try/catch` (Java/JS) /
-  `catch(...)` (C++) so a crash yields `TC:n:FAIL:hidden`.
-  C has no exceptions — use `if(h)` guard instead.
+---
 
-### 4.5 Per-language template structure
+## 5. WA FAIL OUTPUT FORMAT — MANDATORY (READ THIS 3 TIMES)
+
+The parser extracts debug info from WA (Wrong Answer) output lines. It uses `:` as delimiter
+and recognizes **only these prefixes**:
+
+### Recognized prefixes and what they map to
+
+| Prefix | Parser field | When to use |
+|--------|-------------|-------------|
+| `n=` | `tc.input` | Single integer parameter |
+| `arr=` | `tc.input` | Array/list parameter |
+| `target=` | `tc.input` | Target value parameter |
+| `s=` | `tc.input` | String parameter |
+| `L=` | `tc.input` | Left bound parameter |
+| `R=` | `tc.input` | Right bound parameter |
+| `exp=` | `tc.expected` | Expected output (PREFERRED — always use `exp=` not `expected=`) |
+| `got=` | `tc.got` | Actual output from user's code |
+
+### The ONLY valid WA FAIL format:
+
+```
+TC:{N}:FAIL:<input_prefix>=<value>:exp=<expected>:got=<actual>
+```
+
+**Every visible WA line MUST contain ALL THREE:**
+1. At least ONE input prefix with value (`n=5` or `arr=[1,2,3]` etc.)
+2. `exp=<expected_value>` (the correct answer)
+3. `got=<actual_value>` (what the user's code returned)
+
+### FORBIDDEN patterns — NEVER use these:
+
+| Forbidden | Why it breaks |
+|-----------|---------------|
+| `TC:1:FAIL:n=5:got=0` — missing `exp=` | User can't compare expected vs got |
+| `TC:1:FAIL:got=5` — no input prefix | User doesn't know what input was |
+| `TC:1:FAIL:n=5` — no exp/got | Completely useless |
+| `TC:1:FAIL:exp=3:got=5` — no input | User can't reproduce the failure |
+| `TC:1:FAIL:hidden` — for visible tests | Never hide visible test info |
+| `TC:1:FAIL:exp=[...]...got=...` — print only first element | **FP arrays in C/CPP — print COMPLETE arrays** |
+
+### For "any valid answer" problems (e.g. parity, arrangements where multiple outputs are correct):
+
+Omit `exp=` (there is no single correct answer). Still include input + got:
+```
+TC:1:FAIL:arr=[4,2,5,7]:got=[4,5,2,7]     ← input + got only, exp= omitted
+```
+
+---
+
+## 6. PER-LANGUAGE WA FAIL LINES — COPY EXACTLY
+
+You MUST copy the EXACT WA failure line from the template below for your problem type.
+Only change variable names to match your parameters.
+
+### 6A. SCALAR return (int, long, char, bool)
+
+The function returns a single value. Example: input is `n` (int), output is `int`.
+
+**JAVA:**
+```java
+System.out.println("TC:"+tc+":FAIL:n="+n+":exp="+e+":got="+g);
+```
+
+**CPP:**
+```cpp
+cout<<"TC:"<<tc<<":FAIL:n="<<n<<":exp="<<e<<":got="<<g<<"\\n";
+```
+
+**PYTHON:**
+```python
+print(f"TC:{tc}:FAIL:n={n}:exp={e}:got={g}")
+```
+
+**JAVASCRIPT:**
+```javascript
+console.log("TC:"+tc+":FAIL:n="+n+":exp="+e+":got="+g);
+```
+
+**C:**
+```c
+printf("TC:%d:FAIL:n=%d:exp=%d:got=%d\\n", tc, n, e, g);
+```
+
+### 6B. ARRAY/LIST return
+
+The function returns an array/list. Example: input is `int[] arr`, output is `int[]`.
+
+**Print arrays as `[1,2,3]` format, complete (all elements, never truncated).**
+
+**JAVA:**
+```java
+System.out.println("TC:"+tc+":FAIL:arr="+Arrays.toString(arr)+":exp="+Arrays.toString(e)+":got="+Arrays.toString(g));
+```
+
+**CPP:**
+```cpp
+cout<<"TC:"<<tc<<":FAIL:arr=[";
+for(int i=0;i<(int)arr.size();i++){if(i)cout<<",";cout<<arr[i];}
+cout<<"]:exp=[";
+for(int i=0;i<(int)e.size();i++){if(i)cout<<",";cout<<e[i];}
+cout<<"]:got=[";
+for(int i=0;i<(int)g.size();i++){if(i)cout<<",";cout<<g[i];}
+cout<<"]\\n";
+```
+
+**PYTHON:**
+```python
+print(f"TC:{tc}:FAIL:arr={arr}:exp={e}:got={g}")
+```
+
+**JAVASCRIPT:**
+```javascript
+console.log("TC:"+tc+":FAIL:arr="+JSON.stringify(arr)+":exp="+JSON.stringify(e)+":got="+JSON.stringify(g));
+```
+
+**C — array-return function stores result via `int*` + `int* returnSize`:**
+```c
+printf("TC:%d:FAIL:n=%d:arr=[", tc, n);
+for(int i=0;i<n;i++){if(i)printf(",");printf("%d",arr[i]);}
+printf("]:exp=[");
+for(int i=0;i<n;i++){if(i)printf(",");printf("%d",e[i]);}
+printf("]:got=[");
+for(int i=0;i<*rs;i++){if(i)printf(",");printf("%d",res[i]);}
+printf("]\\n");
+free(res);  // ALWAYS free malloc'd result
+```
+
+### 6C. STRING return
+
+The function returns a String. Use quoting to distinguish from numbers.
+
+**JAVA:**
+```java
+System.out.println("TC:"+tc+":FAIL:s=\""+s+"\":exp=\""+e+"\":got=\""+g+"\"");
+```
+
+**CPP:**
+```cpp
+cout<<"TC:"<<tc<<":FAIL:s=\""<<s<<"\":exp=\""<<e<<"\":got=\""<<g<<"\"\\n";
+```
+
+**PYTHON:**
+```python
+print(f"TC:{tc}:FAIL:s={s!r}:exp={e!r}:got={g!r}")
+```
+
+**JAVASCRIPT:**
+```javascript
+console.log("TC:"+tc+":FAIL:s="+JSON.stringify(s)+":exp="+JSON.stringify(e)+":got="+JSON.stringify(g));
+```
+
+**C — string buffer output:**
+```c
+printf("TC:%d:FAIL:s=%s:exp=%s:got=%s\\n", tc, s, e, buf);
+```
+
+### 6D. ANY-VALID-ANSWER (no single expected output)
+
+Only show input + got. Omit `exp=`.
+
+**JAVA:**
+```java
+System.out.println("TC:"+tc+":FAIL:arr="+Arrays.toString(arr)+":got="+Arrays.toString(g));
+```
+
+**CPP:**
+```cpp
+cout<<"TC:"<<tc<<":FAIL:arr=[";
+for(int i=0;i<(int)arr.size();i++){if(i)cout<<",";cout<<arr[i];}
+cout<<"]:got=[";
+for(int i=0;i<(int)g.size();i++){if(i)cout<<",";cout<<g[i];}
+cout<<"]\\n";
+```
+
+**PYTHON:**
+```python
+print(f"TC:{tc}:FAIL:arr={arr}:got={g}")
+```
+
+**JAVASCRIPT:**
+```javascript
+console.log("TC:"+tc+":FAIL:arr="+JSON.stringify(arr)+":got="+JSON.stringify(g));
+```
+
+**C:**
+```c
+printf("TC:%d:FAIL:n=%d:arr=[",tc,n);
+for(int i=0;i<n;i++){if(i)printf(",");printf("%d",arr[i]);}
+printf("]:got=[");
+for(int i=0;i<*rs;i++){if(i)printf(",");printf("%d",res[i]);}
+printf("]\\n");
+free(res);
+```
+
+### 6E. MULTI-PARAM input
+
+When the function takes multiple distinct inputs, chain prefixes with `:`:
+```
+TC:1:FAIL:L=1:R=10:target=5:exp=4:got=0
+```
+
+Do this instead of combining into one prefix.
+
+---
+
+## 7. TEST CASE REQUIREMENTS
+
+ALWAYS provide **exactly 10 test cases**: TC1–TC5 = visible, TC6–TC10 = hidden.
+
+### Hidden test output
+```
+TC:N:PASS:hidden    (if AC)
+TC:N:FAIL:hidden    (if WA — NEVER reveal expected/actual for hidden tests)
+```
+
+### Test function signature — standard pattern
+
+Each test function takes `(inputs, expected, tc_number, hidden_flag)`.
+- On PASS: print `TC:N:PASS` or `TC:N:PASS:hidden`
+- On FAIL (visible): print the full debug line from §6
+- On FAIL (hidden): print `TC:N:FAIL:hidden` ONLY
+- Wrap every call in try/except so runtime errors become `TC:N:FAIL:hidden`
+
+### C test driver — CRITICAL RULES
+
+The C harness is the #1 source of production bugs. These rules are ABSOLUTE:
+
+1. **The test function MUST call the user's function.** Never hardcode PASS lines.
+   ```c
+   // WRONG — don't do this:
+   printf("TC:1:PASS\\n");
+   // RIGHT:
+   int g = userFunction(input); if(g==expected) printf("TC:1:PASS\\n"); ...
+   ```
+
+2. **Arrays:** `int* arr, int n` — always pass size with pointer.
+3. **Returning arrays:** Use `int* func(int* arr, int n, int* rs)`. Set `*rs = count`,
+   return `malloc(rs * sizeof(int))`. Always `free()` the result after checking.
+4. **Strings (char* args):** Use `const char*` parameter.
+5. **Strings (output buffer):** `void func(int n, char* out)`. Write into `out`, null-terminate.
+6. **printf escape in Python:** Use `\\n` (double backslash) so generated code has `\n`.
+   - In Python triple quotes: `printf("TC:1:PASS\\n")` → in generated C file: `printf("TC:1:PASS\n")`
+7. **Booleans:** `#include <stdbool.h>`, use `bool`/`true`/`false`.
+8. **Graph/tree C drivers are VERY heavy.** If you can't build one, DO NOT generate
+   a fake C harness. Ask first.
+
+---
+
+## 8. FULL HARNESS TEMPLATES (per-language, per-return-type)
+
+### 8.1 SCALAR RETURN (int/long/char/bool)
 
 #### JAVA
 ```java
 import java.util.*;
+
 // USER_CODE_START
 class CodeCoder {
-    public ReturnType method(Params) {
+    public int solve(int n) {
         // Write your code here
-        return default;
+        return 0;
     }
 }
 // USER_CODE_END
 
 public class Main {
-    static void test(Inputs, expected, int tc, boolean h) {
-        ReturnType g = new CodeCoder().method(Inputs);
-        if (matches) System.out.println("TC:"+tc+":PASS"+(h?":hidden":""));
-        else if (h) System.out.println("TC:"+tc+":FAIL:hidden");
-        else System.out.println("TC:"+tc+":FAIL:n="+n+":exp="+expected+":got="+g);
-        //                   ↑ use recognized prefix (n=, arr=, L=, etc)    ↑ use exp= (parser recognizes both exp= and expected=)
-    }
-    public static void main(String[] a) {
-        try { test(... , 1, false); } catch (Exception e) { System.out.println("TC:1:FAIL:hidden"); }
-        // ... TC2..TC5 visible, TC6..TC10 hidden=true
-    }
+static void test(int n, int e, int tc, boolean h) {
+    int g = new CodeCoder().solve(n);
+    if(g == e) System.out.println("TC:"+tc+":PASS"+(h?":hidden":""));
+    else if(h) System.out.println("TC:"+tc+":FAIL:hidden");
+    else System.out.println("TC:"+tc+":FAIL:n="+n+":exp="+e+":got="+g);
 }
+public static void main(String[] a) {
+try{test(5, 15, 1, false);}catch(Exception e){System.out.println("TC:1:FAIL:hidden");}
+try{test(10, 55, 2, false);}catch(Exception e){System.out.println("TC:2:FAIL:hidden");}
+try{test(1, 1, 3, false);}catch(Exception e){System.out.println("TC:3:FAIL:hidden");}
+try{test(3, 6, 4, false);}catch(Exception e){System.out.println("TC:4:FAIL:hidden");}
+try{test(7, 28, 5, false);}catch(Exception e){System.out.println("TC:5:FAIL:hidden");}
+try{test(100, 5050, 6, true);}catch(Exception e){System.out.println("TC:6:FAIL:hidden");}
+try{test(50, 1275, 7, true);}catch(Exception e){System.out.println("TC:7:FAIL:hidden");}
+try{test(20, 210, 8, true);}catch(Exception e){System.out.println("TC:8:FAIL:hidden");}
+try{test(0, 0, 9, true);}catch(Exception e){System.out.println("TC:9:FAIL:hidden");}
+try{test(99, 4950, 10, true);}catch(Exception e){System.out.println("TC:10:FAIL:hidden");}
+}}
 ```
 
 #### CPP
@@ -157,164 +384,351 @@ public class Main {
 #include <bits/stdc++.h>
 using namespace std;
 // USER_CODE_START
-class CodeCoder { public: ReturnType method(Params) { return default; } };
+class CodeCoder{public:int solve(int n){return 0;}};
 // USER_CODE_END
-void test(Inputs, expected, int tc, bool h=false) {
-    ReturnType g = CodeCoder().method(Inputs);
-    if (match) cout << "TC:" << tc << ":PASS" << (h?":hidden":"") << "\\n";
-    else if (h) cout << "TC:" << tc << ":FAIL:hidden\\n";
-    else cout << "TC:" << tc << ":FAIL:n=" << n << ":exp=" << e << ":got=" << g << "\\n";
-    //           ↑ use recognized prefix ↑
+void test(int n,int e,int tc,bool h=false){
+    int g=CodeCoder().solve(n);
+    if(g==e)cout<<"TC:"<<tc<<":PASS"<<(h?":hidden":"")<<"\\n";
+    else if(h)cout<<"TC:"<<tc<<":FAIL:hidden\\n";
+    else cout<<"TC:"<<tc<<":FAIL:n="<<n<<":exp="<<e<<":got="<<g<<"\\n";
 }
-int main() {
-    try { test(..., 1); } catch (...) { cout << "TC:1:FAIL:hidden\\n"; }
-    // TC2..TC5 visible, TC6..TC10 hidden=true
-    return 0;
-}
+int main(){
+try{test(5,15,1);}catch(...){cout<<"TC:1:FAIL:hidden\\n";}
+try{test(10,55,2);}catch(...){cout<<"TC:2:FAIL:hidden\\n";}
+try{test(1,1,3);}catch(...){cout<<"TC:3:FAIL:hidden\\n";}
+try{test(3,6,4);}catch(...){cout<<"TC:4:FAIL:hidden\\n";}
+try{test(7,28,5);}catch(...){cout<<"TC:5:FAIL:hidden\\n";}
+try{test(100,5050,6,true);}catch(...){cout<<"TC:6:FAIL:hidden\\n";}
+try{test(50,1275,7,true);}catch(...){cout<<"TC:7:FAIL:hidden\\n";}
+try{test(20,210,8,true);}catch(...){cout<<"TC:8:FAIL:hidden\\n";}
+try{test(0,0,9,true);}catch(...){cout<<"TC:9:FAIL:hidden\\n";}
+try{test(99,4950,10,true);}catch(...){cout<<"TC:10:FAIL:hidden\\n";}
+return 0;}
 ```
 
 #### PYTHON
 ```python
 # USER_CODE_START
 class CodeCoder:
-    def method(self, params):
-        return default
+    def solve(self, n):
+        return 0
 # USER_CODE_END
-def test(inputs, expected, tc, h=False):
-    g = CodeCoder().method(inputs)
-    if g == expected: print(f"TC:{tc}:PASS"+(":hidden" if h else ""))
-    elif h: print(f"TC:{tc}:FAIL:hidden")
-    else: print(f"TC:{tc}:FAIL:n={n}:exp={expected}:got={g}")
-    #            ↑ use recognized prefix ↑
-try: test(..., 1)
-except: print("TC:1:FAIL:hidden")
-# TC2..TC5 visible, TC6..TC10 hidden=True
+def test(n, e, tc, h=False):
+    g=CodeCoder().solve(n)
+    print(f"TC:{tc}:PASS"+(":hidden" if h else "") if g==e else (f"TC:{tc}:FAIL:hidden" if h else f"TC:{tc}:FAIL:n={n}:exp={e}:got={g}"))
+try:test(5,15,1)
+except:print("TC:1:FAIL:hidden")
+try:test(10,55,2)
+except:print("TC:2:FAIL:hidden")
+try:test(1,1,3)
+except:print("TC:3:FAIL:hidden")
+try:test(3,6,4)
+except:print("TC:4:FAIL:hidden")
+try:test(7,28,5)
+except:print("TC:5:FAIL:hidden")
+try:test(100,5050,6,hidden=True)
+except:print("TC:6:FAIL:hidden")
+try:test(50,1275,7,hidden=True)
+except:print("TC:7:FAIL:hidden")
+try:test(20,210,8,hidden=True)
+except:print("TC:8:FAIL:hidden")
+try:test(0,0,9,hidden=True)
+except:print("TC:9:FAIL:hidden")
+try:test(99,4950,10,hidden=True)
+except:print("TC:10:FAIL:hidden")
 ```
 
 #### JAVASCRIPT
 ```javascript
 // USER_CODE_START
-function method(params) { return default; }
+function solve(n) { return 0; }
 // USER_CODE_END
-function test(inputs, expected, tc, h) {
-    if (h === undefined) h = false;
-    const g = method(inputs);
-    if (g === expected) console.log("TC:"+tc+":PASS"+(h?":hidden":""));
-    else if (h) console.log("TC:"+tc+":FAIL:hidden");
-    else console.log("TC:"+tc+":FAIL:n="+n+":exp="+expected+":got="+g);
-    //                ↑ use recognized prefix ↑
+function test(n, e, tc, h) {
+    if(h===undefined)h=false;
+    const g=solve(n);
+    if(g===e)console.log("TC:"+tc+":PASS"+(h?":hidden":""));
+    else if(h)console.log("TC:"+tc+":FAIL:hidden");
+    else console.log("TC:"+tc+":FAIL:n="+n+":exp="+e+":got="+g);
 }
-try { test(..., 1); } catch(e) { console.log("TC:1:FAIL:hidden"); }
-// TC2..TC5 visible, TC6..TC10 true
+try{test(5,15,1);}catch(e){console.log("TC:1:FAIL:hidden");}
+try{test(10,55,2);}catch(e){console.log("TC:2:FAIL:hidden");}
+try{test(1,1,3);}catch(e){console.log("TC:3:FAIL:hidden");}
+try{test(3,6,4);}catch(e){console.log("TC:4:FAIL:hidden");}
+try{test(7,28,5);}catch(e){console.log("TC:5:FAIL:hidden");}
+try{test(100,5050,6,true);}catch(e){console.log("TC:6:FAIL:hidden");}
+try{test(50,1275,7,true);}catch(e){console.log("TC:7:FAIL:hidden");}
+try{test(20,210,8,true);}catch(e){console.log("TC:8:FAIL:hidden");}
+try{test(0,0,9,true);}catch(e){console.log("TC:9:FAIL:hidden");}
+try{test(99,4950,10,true);}catch(e){console.log("TC:10:FAIL:hidden");}
 ```
 
-#### C (SPECIAL — read §4.6)
+#### C
 ```c
 #include <stdio.h>
-/* includes as needed */
+
 // USER_CODE_START
-ReturnType method(Params, int* returnSize /* or size params */) {
-    return default;
+int solve(int n) {
+    // Write your code here
+    return 0;
 }
 // USER_CODE_END
-void run(Inputs, expected, int tc, int h) {
-    ReturnType g = method(...);
-    if (match) { if(h)printf("TC:%d:PASS:hidden\\n",tc); else printf("TC:%d:PASS\\n",tc); }
-    else { if(h)printf("TC:%d:FAIL:hidden\\n",tc); else printf("TC:%d:FAIL:n=%d:exp=%d:got=%d\\n",tc,n,e,g); }
-    //                                           use recognized prefix ↑
+
+void run(int n, int e, int tc, int h) {
+    int g = solve(n);
+    if(g == e) {
+        if(h) printf("TC:%d:PASS:hidden\\n", tc);
+        else printf("TC:%d:PASS\\n", tc);
+    } else {
+        if(h) printf("TC:%d:FAIL:hidden\\n", tc);
+        else printf("TC:%d:FAIL:n=%d:exp=%d:got=%d\\n", tc, n, e, g);
+    }
 }
 int main() {
-    run(..., 1, 0);
-    // TC2..TC5 visible (h=0), TC6..TC10 hidden (h=1)
+    run(5, 15, 1, 0);
+    run(10, 55, 2, 0);
+    run(1, 1, 3, 0);
+    run(3, 6, 4, 0);
+    run(7, 28, 5, 0);
+    run(100, 5050, 6, 1);
+    run(50, 1275, 7, 1);
+    run(20, 210, 8, 1);
+    run(0, 0, 9, 1);
+    run(99, 4950, 10, 1);
     return 0;
 }
 ```
 
+### 8.2 ARRAY RETURN — C SPECIAL TEMPLATE
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+// USER_CODE_START
+int* sortArray(int* nums, int n, int* rs) {
+    // Write your code here. Set *rs = result size.
+    // Allocate result with malloc(*rs * sizeof(int)).
+    *rs = 0; return NULL;
+}
+// USER_CODE_END
+
+void run(int* a, int n, int* e, int tc, int h) {
+    int rs = 0;
+    int* g = sortArray(a, n, &rs);
+    int ok = (rs == n);
+    if(ok) for(int i=0;i<n;i++) { if(g[i] != e[i]) { ok=0; break; } }
+    if(ok) {
+        if(h) printf("TC:%d:PASS:hidden\\n",tc);
+        else printf("TC:%d:PASS\\n",tc);
+    } else {
+        if(h) printf("TC:%d:FAIL:hidden\\n",tc);
+        else {
+            printf("TC:%d:FAIL:arr=[",tc);
+            for(int i=0;i<n;i++){if(i)printf(",");printf("%d",a[i]);}
+            printf("]:exp=[");
+            for(int i=0;i<n;i++){if(i)printf(",");printf("%d",e[i]);}
+            printf("]:got=[");
+            for(int i=0;i<rs;i++){if(i)printf(",");printf("%d",g[i]);}
+            printf("]\\n");
+        }
+    }
+    free(g);
+}
+int main() {
+    int a1[]={5,2,3,1};int e1[]={1,2,3,5};run(a1,4,e1,1,0);
+    int a2[]={5,1,1,2,0,0};int e2[]={0,0,1,1,2,5};run(a2,6,e2,2,0);
+    int a3[]={1};int e3[]={1};run(a3,1,e3,3,0);
+    int a4[]={3,2,1};int e4[]={1,2,3};run(a4,3,e4,4,0);
+    int a5[]={-2,3,0,-5,4};int e5[]={-5,-2,0,3,4};run(a5,5,e5,5,0);
+    int a6[]={9,8,7,6,5,4,3,2,1};int e6[]={1,2,3,4,5,6,7,8,9};run(a6,9,e6,6,1);
+    // ... TC7–TC10 hidden
+    return 0;
+}
+```
+
+### 8.3 ANY-VALID-ANSWER TEMPLATE
+
+For problems where the validator checks a PROPERTY (not equality with a specific array).
+NO `exp=` in the output. Example: parity check, any valid arrangement, etc.
+
+#### JAVA
+```java
+static void test(int[] a, int tc, boolean h) {
+    int[] g = new CodeCoder().solve(a.clone());
+    boolean ok = /* check property of g */;
+    if(ok) System.out.println("TC:"+tc+":PASS"+(h?":hidden":""));
+    else if(h) System.out.println("TC:"+tc+":FAIL:hidden");
+    else System.out.println("TC:"+tc+":FAIL:arr="+Arrays.toString(a)+":got="+Arrays.toString(g));
+}
+```
+
+#### CPP
+```cpp
+void test(vector<int> a,int tc,bool h=false){
+    vector<int> g=CodeCoder().solve(a);
+    bool ok=/* check property */;
+    if(ok)cout<<"TC:"<<tc<<":PASS"<<(h?":hidden":"")<<"\\n";
+    else if(h)cout<<"TC:"<<tc<<":FAIL:hidden\\n";
+    else{cout<<"TC:"<<tc<<":FAIL:arr=[";for(int i=0;i<(int)a.size();i++){if(i)cout<<",";cout<<a[i];}cout<<"]:got=[";for(int i=0;i<(int)g.size();i++){if(i)cout<<",";cout<<g[i];}cout<<"]\\n";}
+}
+```
+
+#### PYTHON
+```python
+def test(a, tc, h=False):
+    g=CodeCoder().solve(list(a))
+    ok=/* check property */
+    print(f"TC:{tc}:PASS"+(":hidden" if h else "") if ok else (f"TC:{tc}:FAIL:hidden" if h else f"TC:{tc}:FAIL:arr={a}:got={g}"))
+```
+
+#### JAVASCRIPT
+```javascript
+function test(a, tc, h) {
+    if(h===undefined)h=false;
+    const g=solve(a.slice());
+    let ok=/* check property */;
+    if(ok)console.log("TC:"+tc+":PASS"+(h?":hidden":""));
+    else if(h)console.log("TC:"+tc+":FAIL:hidden");
+    else console.log("TC:"+tc+":FAIL:arr="+JSON.stringify(a)+":got="+JSON.stringify(g));
+}
+```
+
+#### C
+```c
+void run(int* a, int n, int tc, int h) {
+    int rs=0;
+    int* g=solve(a,n,&rs);
+    int ok=(rs==n);
+    if(ok)for(int i=0;i<n;i++){/* check property of g */;if(!ok)break;}
+    if(ok){if(h)printf("TC:%d:PASS:hidden\\n",tc);else printf("TC:%d:PASS\\n",tc);}
+    else{
+        if(h)printf("TC:%d:FAIL:hidden\\n",tc);
+        else{
+            printf("TC:%d:FAIL:arr=[",tc);
+            for(int i=0;i<n;i++){if(i)printf(",");printf("%d",a[i]);}
+            printf("]:got=[");
+            for(int i=0;i<rs;i++){if(i)printf(",");printf("%d",g[i]);}
+            printf("]\\n");
+        }
+    }
+    free(g);
+}
+```
+
 ---
 
-## 4.6 C LANGUAGE — THE TRAP
+## 9. PYTHON ESCAPING RULES
 
-The C harness is the easiest to break. Rules:
+When embedding harness code in a Python script (inside `'''...''''` or `"""..."""`):
 
-1. **Arrays are passed as `int*` + `int n`.** Never pass bare arrays without size.
-2. **Returning arrays:** use `int* result` + `int* returnSize` (set `*returnSize = k`).
-   Allocate with `malloc`. Example:
-   ```c
-   int* findLeaders(int* arr, int n, int* rs) { *rs = 0; return NULL; }
-   ```
-   Test reads: `int rs; int* g = findLeaders(a, n, &rs);` then checks `rs` and contents.
-3. **Strings:** pass `char* out` buffer, write into it, null-terminate.
-   ```c
-   void getAlternates(int* arr, int n, char* out) { out[0]='\0'; }
-   ```
-4. **Booleans:** use `<stdbool.h>`, `bool`/`true`/`false`.
-5. **The `main()` driver MUST call the user function.** Never hardcode
-   `printf("TC:1:PASS\n...")`. The earlier broken pattern (just printing PASS)
-   was a bug — always actually invoke `method(...)`.
-6. **Print format:** exactly `TC:%d:PASS\n` or `TC:%d:PASS:hidden\n`
-   (use `\\n` in the Python source → `\n` in file).
-7. **For graph/linked/tree problems** where building a full C driver is very heavy,
-   you may use a minimal `main()` that prints the expected PASS lines for hidden
-   tests AND runs real visible tests where feasible — but prefer a real driver.
+| You write in Python source | Generated code gets |
+|---|---|
+| `\\n` | `\n` (literal newline in C/JS string) |
+| `\\t` | `\t` |
+| `\\\\` | `\\` |
+| `\"` | `"` (inside Python single-quoted string) |
+| `\\"` | `\"` (literal backslash-quote) |
+
+**Examples:**
+```python
+# Python source:       Generated C code:
+c_code = '''printf("TC:1:PASS\\n");'''   # → printf("TC:1:PASS\n");
+c_code = '''printf("TC:1:FAIL:n=%d\\n",n);'''  # → printf("TC:1:FAIL:n=%d\n",n);
+c_code = '''printf("\\\"hello\\\"\\n");'''  # → printf("\"hello\"\n");
+```
+
+**For C code with array loop print inside printf format string:**
+```python
+c_code = '''
+printf("TC:%d:FAIL:arr=[",tc);
+for(int i=0;i<n;i++){if(i)printf(",");printf("%d",a[i]);}
+printf("]:exp=[");
+for(int i=0;i<n;i++){if(i)printf(",");printf("%d",e[i]);}
+printf("]:got=[");
+for(int i=0;i<rs;i++){if(i)printf(",");printf("%d",g[i]);}
+printf("]\\n");
+'''  # Note: only the last \\n needs escaping; the ] inside printf format string does NOT
+```
 
 ---
 
-## 5. EXAMPLES FORMAT (in `problems.example1/2/3`)
+## 10. DESCRIPTION AND EXAMPLES FORMAT
 
-Write natural-language explanation + concrete input/output. Use the DB column
-format. Example:
+### `example1/2/3` (DB column):
 ```
 Input:
 5
-10 20 30 40 50
-2
+1 2 3 4 5
+3
 
 Output:
-30
+2
 
-Explanation: arr[2] = 30.
+Explanation: arr[2] = 3.
 ```
-Keep `example1` and `example2` as the visible ones; `example3` can be a corner case.
+
+### `description` (DB column):
+- Plain text, natural `\n` line breaks.
+- Explain the problem clearly, give 2–3 concrete examples inline.
+- Mention the approach/hint at the end.
+- Self-contained — no external links needed.
+
+### `constraints` (DB column):
+```
+1 ≤ n ≤ 10^5
+-10^9 ≤ arr[i] ≤ 10^9
+```
 
 ---
 
-## 6. DESCRIPTION FORMAT
+## 11. DIFFICULTY MAPPING
 
-- Plain text, use `\n` for line breaks (Postgres stores them; the frontend renders).
-- Explain the problem clearly, give 2–3 worked examples inline.
-- Mention the approach/hint at the end (e.g. "Use two pointers...").
-- Keep it self-contained — a student should understand without external links.
+| Sheet stars | DB level  | Time limit |
+|------------|-----------|------------|
+| ★☆☆         | `EASY`    | 3.0        |
+| ★★☆         | `MEDIUM`  | 5.0        |
+| ★★★         | `HARD`    | 5.0–8.0    |
 
----
-
-## 7. DIFFICULTY MAPPING (for `level`)
-
-| Sheet stars | DB level |
-|---|---|
-| ★☆☆ | `EASY` |
-| ★★☆ | `MEDIUM` |
-| ★★★ | `HARD` |
-
-For time_limit: Easy/Med `3.0`–`5.0`, Hard `5.0`–`8.0`.
-memory_limit: `256` default, `512` for heavy (DP, graphs, strings).
+memory_limit: `256` default, `512` for heavy (DP, graphs, large strings).
 
 ---
 
-## 8. CHECKLIST BEFORE YOU RUN
+## 12. MANDATORY CHECKLIST — VERIFY ALL BEFORE RUNNING
 
-- [ ] `problem_id` returned via `RETURNING id` and reused for all 5 snippets.
-- [ ] All 5 languages present (JAVA, CPP, PYTHON, JAVASCRIPT, C).
-- [ ] Class/method name consistent across all 5.
-- [ ] `USER_CODE_START`/`USER_CODE_END` present and balanced.
-- [ ] 10 test cases (5 visible + 5 hidden) in each language.
-- [ ] C harness actually CALLS the user function (not hardcoded PASS).
-- [ ] Python `\n` vs `\\n` escaping verified for C/JS printf strings.
-- [ ] `level` is UPPERCASE; `active=True`.
-- [ ] Status row in `Have_To_Add.md` flipped to `✅` after push.
+### Structure
+- [ ] All 5 languages present (JAVA, CPP, PYTHON, JAVASCRIPT, C)
+- [ ] `CodeCoder` class used in ALL 5 languages
+- [ ] Method name identical across all 5 languages
+- [ ] `USER_CODE_START`/`USER_CODE_END` markers present and balanced
+- [ ] 10 test cases (5 visible + 5 hidden) in EVERY language
+
+### WA FAIL output — CHECK EVERY LANGUAGE
+- [ ] Hidden tests print ONLY `TC:N:FAIL:hidden` (no debug info leaked)
+- [ ] Visible FAIL has at least ONE recognized input prefix
+- [ ] Visible FAIL has `exp=` prefix (unless any-valid-answer problem)
+- [ ] Visible FAIL has `got=` prefix
+- [ ] Array output prints FULL arrays, not just first element or size
+- [ ] String output uses proper quoting (`JSON.stringify`/`!r`/`\"...\"`)
+- [ ] C output uses `printf("...\\n")` with proper escaping in Python source
+
+### C-specific
+- [ ] C harness ACTUALLY CALLS the user function (no hardcoded PASS)
+- [ ] Array-return functions have `int* returnSize` parameter
+- [ ] `free()` called on every `malloc`'d result
+- [ ] Array parameters passed as `int*` + `int n`
+- [ ] String parameters use `const char*`
+
+### Python script
+- [ ] `\\n` escaping correct for all C/JS printf statements
+- [ ] `level` is UPPERCASE: `'EASY'` / `'MEDIUM'` / `'HARD'`
+- [ ] `active=True`
+- [ ] `pid` from `RETURNING id` reused for all 5 snippet inserts
+- [ ] `conn.commit()` called after inserts
+- [ ] Script prints pid and byte sizes for verification
 
 ---
 
-## 9. QUICK REFERENCE — FULL MINIMAL SCRIPT
+## 13. FULL MINIMAL SCRIPT TEMPLATE
 
 ```python
 import psycopg2
@@ -322,38 +736,60 @@ conn = psycopg2.connect(host="localhost", port=5432, dbname="codecombat",
                         user="postgres", password="postgres")
 cur = conn.cursor()
 
-title = "Two Sum"
-desc = "Given an array and target, return indices of two numbers that sum to target."
-infmt = "First line n. Second line n integers. Third line target."
-outfmt = "Print the two indices."
-cons = "2 <= n <= 10^4"
-e1 = "Input:\n4\n2 7 11 15\n9\n\nOutput:\n0 1"
-e2 = "Input:\n3\n3 2 4\n6\n\nOutput:\n1 2"
-e3 = "Input:\n2\n3 3\n6\n\nOutput:\n0 1"
+title = "Problem Title"
+desc = "Problem description..."
+infmt = "Input format description"
+outfmt = "Output format description"
+cons = "Constraints..."
+e1 = "Input:\n...\n\nOutput:\n..."
+e2 = "Input:\n...\n\nOutput:\n..."
+e3 = "Input:\n...\n\nOutput:\n..."
 
-cur.execute("""INSERT INTO problems(title,description,input_format,output_format,
-  constraints,time_limit,memory_limit,level,active,topics,example1,example2,example3)
-  VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
-  (title,desc,infmt,outfmt,cons,3.0,256,"EASY",True,"Array, Hash Table",e1,e2,e3))
-pid = cur.fetchone()[0]
-print(f"Problem: {title} (pid={pid})")
+# Check if exists, else insert
+cur.execute("SELECT id FROM problems WHERE title = %s", (title,))
+row = cur.fetchone()
+if row:
+    pid = row[0]
+    cur.execute("DELETE FROM code_snippets WHERE problem_id = %s", (pid,))
+    print(f"Updating existing {title} (pid={pid})")
+else:
+    cur.execute("""INSERT INTO problems(title,description,input_format,output_format,
+      constraints,time_limit,memory_limit,level,active,topics,
+      example1,example2,example3)
+      VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+      (title, desc, infmt, outfmt, cons, 3.0, 256, "EASY", True,
+       "Array, Searching", e1, e2, e3))
+    pid = cur.fetchone()[0]
+    print(f"Created {title} (pid={pid})")
 
-# ... define java_code, cpp_code, py_code, js_code, c_code strings ...
+# --- Define harness code strings — COPY TEMPLATES FROM §8 ABOVE ---
+
+java_code = '''...'''
+cpp_code = '''...'''
+py_code = '''...'''
+js_code = '''...'''
+c_code = '''...'''
 
 for lang, code in [("JAVA",java_code),("CPP",cpp_code),("PYTHON",py_code),
-                  ("JAVASCRIPT",js_code),("C",c_code)]:
+                    ("JAVASCRIPT",js_code),("C",c_code)]:
     cur.execute("""INSERT INTO code_snippets(problem_id,language,solution_template,
                   created_at,updated_at) VALUES(%s,%s,%s,NOW(),NOW())""",
                 (pid, lang, code))
+
 conn.commit()
+
 cur.execute("SELECT language, LENGTH(solution_template) FROM code_snippets \
              WHERE problem_id=%s ORDER BY language", (pid,))
-for lang, size in cur.fetchall(): print(f"  {lang}: {size} bytes")
+for lang, size in cur.fetchall():
+    print(f"  {lang}: {size} bytes")
+
 print(f"\n{title} (pid={pid}) — done!")
-cur.close(); conn.close()
+cur.close()
+conn.close()
 ```
 
 ---
 
-*End of guide. Follow it literally and every problem will integrate cleanly with the
-existing grader.*
+**REMEMBER:** The parser extracts debug info from WA output lines using exact prefix matching.
+If you deviate from `exp=` or `got=` or the recognized input prefixes, the parser silently fails
+and users see NO debug info. COPY THE TEMPLATES. DO NOT IMPROVISE.

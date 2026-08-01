@@ -164,46 +164,46 @@
 | 103 | Recursion | Introduction to Recursion | Print N to 1 without loop | Link | ★☆☆ Easy | ✅ |
 | 104 | Recursion | Introduction to Recursion | Sum of first N numbers | [Link](https://www.geeksforgeeks.org/problems/sum-of-series2811/1) | ★☆☆ Easy | ✅ |
 | 105 | Recursion | Introduction to Recursion | Factorial of a given number | [Link](https://www.geeksforgeeks.org/problems/factorial5739/1) | ★☆☆ Easy | ✅ |
-| 107 | Recursion | Recursion on Arrays & Math | Reverse an array | [Link](https://www.geeksforgeeks.org/problems/reverse-an-array/1) | ★☆☆ Easy | ❌ |
-| 109 | Recursion | Recursion on Arrays & Math | Count Good Numbers | [Link](https://leetcode.com/problems/count-good-numbers/) | ★☆☆ Easy | ❌ |
-| 110 | Recursion | Recursion on Arrays & Math | Recursive Implementation of atoi() | [Link](https://www.geeksforgeeks.org/problems/implement-atoi/1) | ★★☆ Medium | ❌ |
-| 111 | Recursion | Recursion On strings | Generate Binary Strings Without Consecutive 1s | [Link](https://leetcode.com/problems/generate-binary-strings-without-adjacent-zeros/) | ★★☆ Medium | ❌ |
-| 112 | Sorting | Sorting Fundamentals | Linear Search | [Link](https://www.geeksforgeeks.org/problems/search-an-element-in-an-array-1587115621/1) | ★☆☆ Easy | ❌ |
-| 113 | Sorting | Sorting Fundamentals | Sort An Array (Implement Merge / Quick Sort) | [Link](https://leetcode.com/problems/sort-an-array/description/) | ★☆☆ Easy | ❌ |
-| 114 | Sorting | Sorting Fundamentals | Sort Array By Parity | [Link](https://leetcode.com/problems/sort-array-by-parity-ii/description/?envType=problem-list-v2&envId=sorting) | ★☆☆ Easy | ❌ |
-| 115 | Sorting | Sorting Fundamentals | Maximum Gap | [Link](https://leetcode.com/problems/maximum-gap/description/?envType=problem-list-v2&envId=sorting) | ★★☆ Medium | ❌ |
-| 116 | Sorting | Custom Comparator Sorting | Sort Elements by Decreasing Frequency | [Link](https://www.geeksforgeeks.org/problems/sorting-elements-of-an-array-by-frequency-1587115621/1) | ★★☆ Medium | ❌ |
-| 117 | Sorting | Custom Comparator Sorting | Reorder Data In Log Files | [Link](https://leetcode.com/problems/reorder-data-in-log-files/description/?envType=problem-list-v2&envId=sorting) | ★★★ Hard | ❌ |
-| 119 | Sorting | Advanced Sorting | Count Inversions (Merge Sort) | [Link](https://www.geeksforgeeks.org/problems/inversion-of-array-1587115620/1) | ★★★ Hard | ❌ |
-| 120 | Sorting | Advanced Sorting | Reverse Pairs (Merge Sort) | [Link](https://leetcode.com/problems/reverse-pairs/) | ★★★ Hard | ❌ |
+| 107 | Recursion | Recursion on Arrays & Math | Reverse an array | [Link](https://www.geeksforgeeks.org/problems/reverse-an-array/1) | ★☆☆ Easy | ✅ |
+| 109 | Recursion | Recursion on Arrays & Math | Count Good Numbers | [Link](https://leetcode.com/problems/count-good-numbers/) | ★☆☆ Easy | ✅ |
+| 110 | Recursion | Recursion on Arrays & Math | Recursive Implementation of atoi() | [Link](https://www.geeksforgeeks.org/problems/implement-atoi/1) | ★★☆ Medium | ✅ |
+| 111 | Recursion | Recursion On strings | Generate Binary Strings Without Consecutive 1s | [Link](https://leetcode.com/problems/generate-binary-strings-without-adjacent-zeros/) | ★★☆ Medium | ✅ |
+| 112 | Sorting | Sorting Fundamentals | Linear Search | [Link](https://www.geeksforgeeks.org/problems/search-an-element-in-an-array-1587115621/1) | ★☆☆ Easy | ✅ |
+| 113 | Sorting | Sorting Fundamentals | Sort An Array (Implement Merge / Quick Sort) | [Link](https://leetcode.com/problems/sort-an-array/description/) | ★☆☆ Easy | ✅ |
+| 114 | Sorting | Sorting Fundamentals | Sort Array By Parity | [Link](https://leetcode.com/problems/sort-array-by-parity-ii/description/?envType=problem-list-v2&envId=sorting) | ★☆☆ Easy | ✅ |
+| 115 | Sorting | Sorting Fundamentals | Maximum Gap | [Link](https://leetcode.com/problems/maximum-gap/description/?envType=problem-list-v2&envId=sorting) | ★★☆ Medium | ✅ |
+| 116 | Sorting | Custom Comparator Sorting | Sort Elements by Decreasing Frequency | [Link](https://www.geeksforgeeks.org/problems/sorting-elements-of-an-array-by-frequency-1587115621/1) | ★★☆ Medium | ✅ |
+| 117 | Sorting | Custom Comparator Sorting | Reorder Data In Log Files | [Link](https://leetcode.com/problems/reorder-data-in-log-files/description/?envType=problem-list-v2&envId=sorting) | ★★★ Hard | ✅ |
+| 119 | Sorting | Advanced Sorting | Count Inversions (Merge Sort) | [Link](https://www.geeksforgeeks.org/problems/inversion-of-array-1587115620/1) | ★★★ Hard | ✅ |
+| 120 | Sorting | Advanced Sorting | Reverse Pairs (Merge Sort) | [Link](https://leetcode.com/problems/reverse-pairs/) | ★★★ Hard | ✅ |
 
 ### PHASE 4 : OBJECT ORIENTED CONCEPTS
 
 | Sr No | Topic | Subtopic | Problem Name | Link | Difficulty | Status |
 |---|---|---|---|---|---|---|
-| 121 | OOPS | OOPS Fundamentals | Classes, Objects & Constructors |  | ★☆☆ Easy | ❌ |
-| 122 | OOPS | OOPS Fundamentals | Inheritance & Polymorphism |  | ★☆☆ Easy | ❌ |
-| 123 | OOPS | OOPS Fundamentals | Encapsulation & Abstraction |  | ★☆☆ Easy | ❌ |
-| 124 | OOPS | OOPS Fundamentals | Interfaces & Abstract Classes |  | ★★☆ Medium | ❌ |
-| 125 | OOPS | Design Patterns | Singleton Pattern |  | ★★☆ Medium | ❌ |
-| 126 | OOPS | Design Patterns | Factory Pattern |  | ★★★ Hard | ❌ |
+| 121 | OOPS | OOPS Fundamentals | Classes, Objects & Constructors |  | ★☆☆ Easy | ✅ |
+| 122 | OOPS | OOPS Fundamentals | Inheritance & Polymorphism |  | ★☆☆ Easy | ✅ |
+| 123 | OOPS | OOPS Fundamentals | Encapsulation & Abstraction |  | ★☆☆ Easy | ✅ |
+| 124 | OOPS | OOPS Fundamentals | Interfaces & Abstract Classes |  | ★★☆ Medium | ✅ |
+| 125 | OOPS | Design Patterns | Singleton Pattern |  | ★★☆ Medium | ✅ |
+| 126 | OOPS | Design Patterns | Factory Pattern |  | ★★★ Hard | ✅ |
 
 ### PHASE 5 : ADVANCED LINEAR DATA STRUCTURES
 
 | Sr No | Topic | Subtopic | Problem Name | Link | Difficulty | Status |
 |---|---|---|---|---|---|---|
-| 127 | Linkedlist | Foundation | Array to Linked List | [Link](https://www.geeksforgeeks.org/problems/introduction-to-linked-list/1) | ★☆☆ Easy | ❌ |
-| 128 | Linkedlist | Foundation | Count Nodes / Find Length of Linked List | [Link](https://www.geeksforgeeks.org/problems/count-nodes-of-linked-list/1) | ★☆☆ Easy | ❌ |
-| 129 | Linkedlist | Foundation | Search in a Linked List | [Link](https://www.geeksforgeeks.org/problems/search-in-linked-list-1664434326/1) | ★☆☆ Easy | ❌ |
-| 130 | Linkedlist | Insertion and Deletion | Insert Node at Head / Tail | [Link](https://www.hackerrank.com/challenges/insert-a-node-at-the-tail-of-a-linked-list/problem) | ★☆☆ Easy | ❌ |
-| 131 | Linkedlist | Insertion and Deletion | Insert in Middle of Linked List | [Link](https://www.geeksforgeeks.org/problems/insert-in-middle-of-linked-list/1) | ★☆☆ Easy | ❌ |
-| 132 | Linkedlist | Insertion and Deletion | Remove Linked List Elements (By Value) | [Link](https://leetcode.com/problems/remove-linked-list-elements/) | ★☆☆ Easy | ❌ |
-| 133 | Linkedlist | Insertion and Deletion | Remove Duplicates from Sorted List | [Link](https://leetcode.com/problems/remove-duplicates-from-sorted-list/) | ★☆☆ Easy | ❌ |
-| 134 | Linkedlist | Insertion and Deletion | Delete Node in a Linked List (Given only node ref) | [Link](https://leetcode.com/problems/delete-node-in-a-linked-list/) | ★★☆ Medium | ❌ |
-| 135 | Linkedlist | Insertion and Deletion | Remove Duplicates from Unsorted List | [Link](https://leetcode.com/problems/remove-duplicates-from-an-unsorted-linked-list/) | ★★☆ Medium | ❌ |
-| 136 | Linkedlist | Insertion and Deletion | Delete the Middle Node of a Linked List | [Link](https://leetcode.com/problems/delete-the-middle-node-of-a-linked-list/) | ★★☆ Medium | ❌ |
-| 140 | Linkedlist | Fast and Slow Pointer | Length of Loop in Linked List | [Link](https://www.geeksforgeeks.org/problems/find-length-of-loop/1) | ★★☆ Medium | ❌ |
-| 141 | Linkedlist | Fast and Slow Pointer | Linked List Cycle II (Find Starting Point) | [Link](https://leetcode.com/problems/linked-list-cycle-ii/) | ★★☆ Medium | ❌ |
+| 127 | Linkedlist | Foundation | Array to Linked List | [Link](https://www.geeksforgeeks.org/problems/introduction-to-linked-list/1) | ★☆☆ Easy | ✅ |
+| 128 | Linkedlist | Foundation | Count Nodes / Find Length of Linked List | [Link](https://www.geeksforgeeks.org/problems/count-nodes-of-linked-list/1) | ★☆☆ Easy | ✅ |
+| 129 | Linkedlist | Foundation | Search in a Linked List | [Link](https://www.geeksforgeeks.org/problems/search-in-linked-list-1664434326/1) | ★☆☆ Easy | ✅ |
+| 130 | Linkedlist | Insertion and Deletion | Insert Node at Head / Tail | [Link](https://www.hackerrank.com/challenges/insert-a-node-at-the-tail-of-a-linked-list/problem) | ★☆☆ Easy | ✅ |
+| 131 | Linkedlist | Insertion and Deletion | Insert in Middle of Linked List | [Link](https://www.geeksforgeeks.org/problems/insert-in-middle-of-linked-list/1) | ★☆☆ Easy | ✅ |
+| 132 | Linkedlist | Insertion and Deletion | Remove Linked List Elements (By Value) | [Link](https://leetcode.com/problems/remove-linked-list-elements/) | ★☆☆ Easy | ✅ |
+| 133 | Linkedlist | Insertion and Deletion | Remove Duplicates from Sorted List | [Link](https://leetcode.com/problems/remove-duplicates-from-sorted-list/) | ★☆☆ Easy | ✅ |
+| 134 | Linkedlist | Insertion and Deletion | Delete Node in a Linked List (Given only node ref) | [Link](https://leetcode.com/problems/delete-node-in-a-linked-list/) | ★★☆ Medium | ✅ |
+| 135 | Linkedlist | Insertion and Deletion | Remove Duplicates from Unsorted List | [Link](https://leetcode.com/problems/remove-duplicates-from-an-unsorted-linked-list/) | ★★☆ Medium | ✅ |
+| 136 | Linkedlist | Insertion and Deletion | Delete the Middle Node of a Linked List | [Link](https://leetcode.com/problems/delete-the-middle-node-of-a-linked-list/) | ★★☆ Medium | ✅ |
+| 140 | Linkedlist | Fast and Slow Pointer | Length of Loop in Linked List | [Link](https://www.geeksforgeeks.org/problems/find-length-of-loop/1) | ★★☆ Medium | ✅ |
+| 141 | Linkedlist | Fast and Slow Pointer | Linked List Cycle II (Find Starting Point) | [Link](https://leetcode.com/problems/linked-list-cycle-ii/) | ★★☆ Medium | ✅ |
 | 142 | Linkedlist | Fast and Slow Pointer | Remove Loop in Linked List | [Link](https://www.geeksforgeeks.org/problems/remove-loop-in-linked-list/1) | ★★☆ Medium | ❌ |
 | 144 | Linkedlist | Reversals and Rotations | Reverse a Linked List (Iterative & Recursive) | [Link](https://leetcode.com/problems/reverse-linked-list/) | ★☆☆ Easy | ❌ |
 | 146 | Linkedlist | Reversals and Rotations | Swap Nodes in Pairs | [Link](https://leetcode.com/problems/swap-nodes-in-pairs/) | ★★☆ Medium | ❌ |

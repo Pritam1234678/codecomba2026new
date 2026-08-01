@@ -4,6 +4,7 @@
 
 # communication
 - Respond in Hinglish (Hindi + English mix) — match the user's communication style. Confidence: 0.90
+- Do NOT ask for permission before taking actions (reading files, running commands, deploying). The user explicitly instructed "koi permission nehi maang" (don't ask for any permission) — proceed directly and autonomously without pausing for confirmation. Confidence: 0.88
 
 # architecture
 - Frontend is deployed on Vercel — do NOT build, modify, or deploy frontend to the VM; only backend runs on the Oracle VM. Confidence: 0.75
