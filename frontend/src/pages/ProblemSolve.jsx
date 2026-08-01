@@ -844,16 +844,16 @@ const ProblemSolve = () => {
 
                 {/* ── Left Pane: Problem Statement ── */}
                 <section style={{
-                    width: isFullscreen ? '0%' : `${leftWidth}%`,
-                    flexShrink: 0,
+                    width: isFullscreen ? '0px' : `${leftWidth}%`,
+                    minWidth: isFullscreen ? '0px' : undefined,
+                    flex: isFullscreen ? '0 0 0px' : `0 0 ${leftWidth}%`,
                     backgroundColor: C.surfaceLow,
                     borderRight: isFullscreen ? 'none' : `1px solid ${C.border}`,
-                    overflowY: 'auto',
-                    overflowX: 'hidden',
+                    overflow: isFullscreen ? 'hidden' : 'auto',
                     display: 'flex',
                     flexDirection: 'column',
                     opacity: isFullscreen ? 0 : 1,
-                    transition: 'width 0.35s ease, opacity 0.25s ease, border 0.35s ease',
+                    transition: 'width 0.35s ease, flex 0.35s ease, opacity 0.25s ease, border 0.35s ease',
                 }}>
                     <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
