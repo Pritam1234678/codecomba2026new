@@ -487,6 +487,28 @@ export default function EditProblem() {
                             ))}
                         </div>
                         <div style={{ display: 'flex', gap: '12px' }}>
+                            <button type="button" title="Format code"
+                                onClick={async () => {
+                                    try {
+                                        const res = await fetch('/api/code/format', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ code: snippets[activeTab].solutionTemplate, language: activeTab }),
+                                        });
+                                        if (res.ok) {
+                                            const data = await res.json();
+                                            if (data.code) {
+                                                setSnippets(p => ({ ...p, [activeTab]: { solutionTemplate: data.code } }));
+                                                setDirty(true);
+                                            }
+                                        }
+                                    } catch {}
+                                }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.outline, transition: 'color 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.color = C.onBg} onMouseLeave={e => e.currentTarget.style.color = C.outline}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>auto_fix_high</span>
+                            </button>
                             {['settings', 'subject'].map(icon => (
                                 <button key={icon} type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.outline, transition: 'color 0.2s' }}
                                     onMouseEnter={e => e.currentTarget.style.color = C.onBg} onMouseLeave={e => e.currentTarget.style.color = C.outline}

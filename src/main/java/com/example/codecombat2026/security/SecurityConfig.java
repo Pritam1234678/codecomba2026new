@@ -117,6 +117,7 @@ public class SecurityConfig {
                         .requestMatchers("/", "/api", "/api/health", "/api/auth/**", "/api/test/**", "/api/support/**", "/api/queue-status")
                         .permitAll()
                         .requestMatchers("/api/compiler/**").permitAll()
+                        .requestMatchers("/api/code/format").permitAll()
                         // Proctoring candidate WebSocket: handshake auth uses a
                         // single-use Valkey-bound ticket consumed atomically by
                         // ProctoringHandshakeInterceptor — the JWT bearer header

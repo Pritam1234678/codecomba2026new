@@ -50,7 +50,8 @@ public class AuthTokenFilter extends OncePerRequestFilter {
      */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getRequestURI().contains("/submissions/stream");
+        String uri = request.getRequestURI();
+        return uri.contains("/submissions/stream") || uri.contains("/api/code/format");
     }
 
     @Override

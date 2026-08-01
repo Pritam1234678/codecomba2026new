@@ -327,6 +327,29 @@ const CoderCompiler = () => {
                         </select>
                     </div>
 
+                    <button
+                        onClick={async () => {
+                            try {
+                                const res = await fetch('/api/code/format', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ code, language }),
+                                });
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    if (data.code) setCode(data.code);
+                                }
+                            } catch {}
+                        }}
+                        title="Format code"
+                        style={{ padding: '6px', color: C.outline, background: 'none', border: `1px solid ${C.border}`, cursor: 'pointer', transition: 'color 0.2s' }}
+                        onMouseEnter={e => e.currentTarget.style.color = C.muted}
+                        onMouseLeave={e => e.currentTarget.style.color = C.outline}
+                        disabled={running}
+                    >
+                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>auto_fix_high</span>
+                    </button>
+
                     {running ? (
                         <button
                             onClick={handleStop}

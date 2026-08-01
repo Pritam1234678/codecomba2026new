@@ -841,6 +841,27 @@ const PracticeSolve = () => {
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <button
+                                onClick={async () => {
+                                    try {
+                                        const res = await fetch('/api/code/format', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ code, language }),
+                                        });
+                                        if (res.ok) {
+                                            const data = await res.json();
+                                            if (data.code) setCode(data.code);
+                                        }
+                                    } catch {}
+                                }}
+                                title="Format code"
+                                style={{ padding: '4px', color: C.outline, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.color = C.muted}
+                                onMouseLeave={e => e.currentTarget.style.color = C.outline}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>auto_fix_high</span>
+                            </button>
+                            <button
                                 onClick={() => { if (snippets[language]) setCode(snippets[language]); }}
                                 title="Reset to starter code"
                                 style={{ padding: '4px', color: C.outline, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
