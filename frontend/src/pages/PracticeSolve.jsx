@@ -8,6 +8,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import api from '../services/api';
 import AuthService from '../services/auth.service';
 import SolutionPanel from '../components/SolutionPanel';
+import ComplaintModal from '../components/ComplaintModal';
 
 const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID || 'Ov23liRo8Ce6whLuGjIr';
 
@@ -241,6 +242,7 @@ const PracticeSolve = () => {
     const [consoleHeight, setConsoleHeight] = useState(220);
     const [isDraggingH, setIsDraggingH]   = useState(false);
     const [consoleVisible, setConsoleVisible] = useState(true);
+    const [complaintOpen, setComplaintOpen] = useState(false);
     const dragStartX = useRef(0);
     const dragStartW = useRef(0);
     const dragStartY = useRef(0);
@@ -928,6 +930,15 @@ const PracticeSolve = () => {
                             >
                                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>terminal</span>
                             </button>
+                            <button
+                                onClick={() => setComplaintOpen(true)}
+                                title="Report a problem"
+                                style={{ padding: '4px', color: C.outline, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.color = C.muted}
+                                onMouseLeave={e => e.currentTarget.style.color = C.outline}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>bug_report</span>
+                            </button>
                         </div>
                     </div>
 
@@ -1207,6 +1218,7 @@ const PracticeSolve = () => {
             `}</style>
         
             {solutionsModal && <PracticeSolutions problemId={parseInt(id)} currentUserId={currentUserId} onClose={() => setSolutionsModal(false)} />}
+            {complaintOpen && <ComplaintModal problemId={parseInt(id)} onClose={() => setComplaintOpen(false)} />}
             </div>
     );
 };

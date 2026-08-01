@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import api from '../services/api';
+import ComplaintModal from '../components/ComplaintModal';
 import ProblemService from '../services/problem.service';
 import SubmissionService from '../services/submission.service';
 import AuthService from '../services/auth.service';
@@ -204,6 +205,7 @@ const ProblemSolve = () => {
     const [isDraggingH, setIsDraggingH] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [consoleVisible, setConsoleVisible] = useState(true);
+    const [complaintOpen, setComplaintOpen] = useState(false);
 
     // ── Persist code + language to localStorage (debounced) ─────────────────
     const saveTimer = useRef(null);
@@ -1054,6 +1056,15 @@ const ProblemSolve = () => {
                             >
                                 <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>terminal</span>
                             </button>
+                            <button
+                                onClick={() => setComplaintOpen(true)}
+                                title="Report a problem"
+                                style={{ padding: '4px', color: C.outline, background: 'none', border: 'none', cursor: 'pointer', transition: 'color 0.2s' }}
+                                onMouseEnter={e => e.currentTarget.style.color = C.muted}
+                                onMouseLeave={e => e.currentTarget.style.color = C.outline}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>bug_report</span>
+                            </button>
                         </div>
                     </div>
 
@@ -1200,6 +1211,7 @@ const ProblemSolve = () => {
                 ::-webkit-scrollbar-thumb { background: #50453b; border-radius: 2px; }
                 ::-webkit-scrollbar-thumb:hover { background: #9d8e83; }
             `}</style>
+            {complaintOpen && <ComplaintModal problemId={parseInt(id)} contestId={problem?.contestId} onClose={() => setComplaintOpen(false)} />}
         </div>
     );
 };
