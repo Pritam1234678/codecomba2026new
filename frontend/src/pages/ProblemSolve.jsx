@@ -843,8 +843,18 @@ const ProblemSolve = () => {
             <main id="ps-workspace" style={{ flex: 1, display: 'flex', overflow: 'hidden', cursor: isDragging ? 'col-resize' : 'auto' }}>
 
                 {/* ── Left Pane: Problem Statement ── */}
-                {!isFullscreen && (
-                <section style={{ width: `${leftWidth}%`, flexShrink: 0, backgroundColor: C.surfaceLow, borderRight: `1px solid ${C.border}`, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                <section style={{
+                    width: isFullscreen ? '0%' : `${leftWidth}%`,
+                    flexShrink: 0,
+                    backgroundColor: C.surfaceLow,
+                    borderRight: isFullscreen ? 'none' : `1px solid ${C.border}`,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    opacity: isFullscreen ? 0 : 1,
+                    transition: 'width 0.35s ease, opacity 0.25s ease, border 0.35s ease',
+                }}>
                     <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
                         {/* Difficulty + tags */}
@@ -939,17 +949,20 @@ const ProblemSolve = () => {
                         )}
                     </div>
                 </section>
-                )}
 
                 {/* ── Drag Divider ── */}
-                {!isFullscreen && (
                 <div
                     onMouseDown={onDividerMouseDown}
-                    style={{ width: '4px', flexShrink: 0, backgroundColor: isDragging ? C.secondary : C.border, cursor: 'col-resize', transition: 'background-color 0.2s' }}
-                    onMouseEnter={e => { if (!isDragging) e.currentTarget.style.backgroundColor = C.secondary; }}
+                    style={{
+                        width: isFullscreen ? '0px' : '4px',
+                        flexShrink: 0,
+                        backgroundColor: isDragging ? C.secondary : C.border,
+                        cursor: isFullscreen ? 'default' : 'col-resize',
+                        transition: 'width 0.35s ease, background-color 0.2s',
+                    }}
+                    onMouseEnter={e => { if (!isDragging && !isFullscreen) e.currentTarget.style.backgroundColor = C.secondary; }}
                     onMouseLeave={e => { if (!isDragging) e.currentTarget.style.backgroundColor = C.border; }}
                 />
-                )}
 
                 {/* ── Right Pane: Editor + Console ── */}
                 <section style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: C.bg, minWidth: 0, cursor: isDraggingH ? 'row-resize' : 'auto' }}>
