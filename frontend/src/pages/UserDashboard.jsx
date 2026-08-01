@@ -110,13 +110,13 @@ export default function UserDashboard() {
                     </div>
                     <div style={{ display: 'flex', gap: '12px' }}>
                         <button
-                            onClick={() => navigate('/profile/edit')}
+                            onClick={() => navigate('/my-complaints')}
                             style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', border: `1px solid ${C.border}`, color: C.onBg, backgroundColor: 'transparent', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s' }}
                             onMouseEnter={e => { e.currentTarget.style.borderColor = C.secondary; e.currentTarget.style.color = C.secondary; }}
                             onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.onBg; }}
                         >
-                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>settings</span>
-                            Manage Profile
+                            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>bug_report</span>
+                            My Complaints
                         </button>
                         <button
                             onClick={() => navigate('/contests')}
