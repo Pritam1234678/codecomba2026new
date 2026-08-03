@@ -138,6 +138,11 @@ public class SecurityConfig {
                         // SSE stream: permit at filter level, auth handled by @PreAuthorize + JWT filter
                         // Without this, Spring Security re-checks on async dispatch and fails (no JWT on async thread)
                         .requestMatchers("/api/submissions/stream").permitAll()
+                        // SQL judge SSE stream: same single-use-ticket pattern as
+                        // /api/submissions/stream — auth is the ticket consume in
+                        // SqlJudgeController.streamVerdicts; the ticket-mint endpoint
+                        // stays JWT-gated.
+                        .requestMatchers("/api/sql/stream").permitAll()
                         // Duel SSE stream: same pattern as /api/submissions/stream — auth is handled
                         // by a single-use SSE ticket (SseTicketService) consumed by the controller.
                         .requestMatchers("/api/duels/*/stream").permitAll()

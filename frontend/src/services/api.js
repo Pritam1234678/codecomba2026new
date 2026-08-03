@@ -17,16 +17,12 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor to detect disabled accounts
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle 401 Unauthorized - token invalid/expired
     if (error.response?.status === 401) {
       localStorage.removeItem('user');
       if (window.location.pathname !== '/login') {
@@ -35,7 +31,6 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     
-    // Check if account is disabled (403)
     const isDisabled = error.response?.status === 403 && (
         error.response?.data?.message?.includes('ACCOUNT_DISABLED') ||
         error.response?.data?.message?.includes('disabled') ||
@@ -44,11 +39,7 @@ api.interceptors.response.use(
     );
     
     if (isDisabled) {
-      
-      // Logout user
       localStorage.removeItem('user');
-      
-      // Create and show blocking modal
       const existingModal = document.getElementById('account-blocked-modal');
       if (!existingModal) {
         const modalDiv = document.createElement('div');
@@ -73,16 +64,31 @@ api.interceptors.response.use(
           </div>
         `;
         document.body.appendChild(modalDiv);
-        
-        // Redirect to login after 5 seconds
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 5000);
+        setTimeout(() => window.location.href = '/login', 5000);
       }
     }
-    
     return Promise.reject(error);
   }
 );
+
+// SQL Judge API
+export const sqlJudgeApi = {
+  // User-facing
+  listProblems: () => api.get('/sql/problems').then(r => r.data),
+  getProblem: (id) => api.get(`/sql/problems/${id}`).then(r => r.data),
+  run: (id, sql) => api.post(`/sql/problems/${id}/run`, { sql }).then(r => r.data),
+  submit: (id, sql) => api.post(`/sql/problems/${id}/submit`, { sql }).then(r => r.data),
+  submissionStatus: (submissionId) => api.get(`/sql/submissions/${submissionId}`).then(r => r.data),
+  mySubmissions: (limit = 10) => api.get(`/sql/submissions?limit=${limit}`).then(r => r.data),
+  issueSseTicket: () => api.post('/sql/sse-ticket').then(r => r.data),
+  
+  // Admin
+  adminListProblems: (page = 0, size = 100) => api.get(`/admin/sql/problems?page=${page}&size=${size}`).then(r => r.data),
+  adminGetProblem: (id) => api.get(`/admin/sql/problems/${id}`).then(r => r.data),
+  adminCreateProblem: (data) => api.post('/admin/sql/problems', data).then(r => r.data),
+  adminProvision: (id) => api.post(`/admin/sql/problems/${id}/provision`).then(r => r.data),
+  adminSetEnabled: (id, enabled) => api.patch(`/admin/sql/problems/${id}/enabled`, { enabled }).then(r => r.data),
+  adminStatus: () => api.get('/admin/sql/status').then(r => r.data),
+};
 
 export default api;

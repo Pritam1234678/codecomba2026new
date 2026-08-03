@@ -33,6 +33,8 @@ const Practice = lazy(() => import('./pages/Practice'));
 const PracticeSolve = lazy(() => import('./pages/PracticeSolve'));
 const Sheets = lazy(() => import('./pages/Sheets'));
 const Playlist = lazy(() => import('./pages/Playlist'));
+const SqlJudge = lazy(() => import('./pages/SqlJudge'));
+const AdminSqlJudge = lazy(() => import('./pages/AdminSqlJudge'));
 const AdminSheets = lazy(() => import('./pages/AdminSheets'));
 const AdminComplaints = lazy(() => import('./pages/AdminComplaints'));
 const MyComplaints = lazy(() => import('./pages/MyComplaints'));
@@ -236,6 +238,7 @@ function App() {
       <Route path="/admin/leaderboard/:contestId" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><ContestLeaderboard /></AdminRoute>)}</div>} />
       <Route path="/admin/platform-details" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><PlatformDetails /></AdminRoute>)}</div>} />
       <Route path="/admin/sheets" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><AdminSheets /></AdminRoute>)}</div>} />
+      <Route path="/admin/sql-judge" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><AdminSqlJudge /></AdminRoute>)}</div>} />
       <Route path="/admin/complaints" element={<div className="p-8 flex-1">{lazyWrap(<AdminRoute><AdminComplaints /></AdminRoute>)}</div>} />
 
       {/* User Routes */}
@@ -254,6 +257,8 @@ function App() {
       <Route path="/web-contest" element={lazyWrap(<UserRoute><WebContestList /></UserRoute>)} />
       <Route path="/web-contest/:problemId" element={lazyWrap(<UserRoute><WebContest /></UserRoute>)} />
       <Route path="/web-contest/:problemId/ide" element={lazyWrap(<UserRoute><WebIde /></UserRoute>)} />
+      <Route path="/sql-judge" element={lazyWrap(<UserRoute><SqlJudge /></UserRoute>)} />
+      <Route path="/sql-judge/:id" element={lazyWrap(<UserRoute><SqlJudge /></UserRoute>)} />
       <Route path="/duel" element={lazyWrap(<UserRoute><Duel /></UserRoute>)} />
       <Route path="/duel/:matchId" element={lazyWrap(<UserRoute><DuelArena /></UserRoute>)} />
 
