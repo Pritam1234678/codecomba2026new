@@ -30,6 +30,7 @@ const SqlJudge = () => {
   
   // Detail/Solve view state
   const [problem, setProblem] = useState(null);
+  const [loadingProblem, setLoadingProblem] = useState(false);
   const [sql, setSql] = useState('');
   const [mode, setMode] = useState('run'); // 'run' | 'submit'
   const [running, setRunning] = useState(false);
@@ -58,6 +59,8 @@ const SqlJudge = () => {
   // Load single problem
   useEffect(() => {
     if (id) {
+      setLoadingProblem(true);
+      setProblem(null);
       sqlJudgeApi.getProblem(id)
         .then(p => {
           setProblem(p);
@@ -66,7 +69,8 @@ const SqlJudge = () => {
         .catch(() => {
           setError('Problem not found');
           navigate('/sql-judge');
-        });
+        })
+        .finally(() => setLoadingProblem(false));
     }
   }, [id, navigate]);
 
@@ -262,6 +266,15 @@ const SqlJudge = () => {
             ))}
           </div>
         )}
+      </div>
+    );
+  }
+
+  // Solve view — guard until the problem is loaded
+  if (loadingProblem || !problem) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+        <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: `2px solid ${C.border}`, borderTopColor: C.primary, animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
