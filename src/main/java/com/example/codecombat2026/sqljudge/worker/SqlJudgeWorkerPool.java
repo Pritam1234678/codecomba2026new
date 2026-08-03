@@ -284,12 +284,14 @@ public class SqlJudgeWorkerPool {
                 }
             }
 
-            finalize(submissionId, status, execution.getExecutionTimeMs(), error,
-                execution.getSelectedNode());
-
+            // Persist the RUN preview BEFORE finalizing so the SSE verdict
+            // (pushed from the re-loaded submission) carries the preview too.
             if (job.isTestRun() && preview != null) {
                 savePreview(submissionId, preview);
             }
+
+            finalize(submissionId, status, execution.getExecutionTimeMs(), error,
+                execution.getSelectedNode());
 
             finalized = true;
 
