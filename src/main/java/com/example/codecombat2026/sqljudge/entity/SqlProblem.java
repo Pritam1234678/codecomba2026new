@@ -43,8 +43,8 @@ public class SqlProblem {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    /** e.g. {@code q_17} — schema name on every Neon node. */
-    @Column(name = "schema_name", nullable = false)
+    /** e.g. {@code q_17} — schema name on every Neon node. Assigned at provision time. */
+    @Column(name = "schema_name")
     private String schemaName;
 
     @Column(name = "setup_sql", columnDefinition = "TEXT")
