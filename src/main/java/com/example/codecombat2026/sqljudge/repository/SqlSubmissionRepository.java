@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -22,12 +23,14 @@ public interface SqlSubmissionRepository extends JpaRepository<SqlSubmission, Lo
     long countByUserId(Long userId);
 
     @Modifying
+    @Transactional
     @Query("UPDATE SqlSubmission s SET s.status = :status WHERE s.id = :id AND s.status IN :inflight")
     int updateStatus(@Param("id") Long id,
                      @Param("inflight") List<Status> inflight,
                      @Param("status") Status status);
 
     @Modifying
+    @Transactional
     @Query("UPDATE SqlSubmission s SET s.status = :status, s.executionTimeMs = :timeMs, " +
            "s.selectedNode = :node, s.errorMessage = :err, " +
            "s.completedAt = CURRENT_TIMESTAMP WHERE s.id = :id AND s.status IN :inflight")
@@ -39,6 +42,7 @@ public interface SqlSubmissionRepository extends JpaRepository<SqlSubmission, Lo
                         @Param("err") String err);
 
     @Modifying
+    @Transactional
     @Query("UPDATE SqlSubmission s SET s.resultPreview = :preview WHERE s.id = :id")
     int updateFinalizedPreview(@Param("id") Long id, @Param("preview") String preview);
 }
