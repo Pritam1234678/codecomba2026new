@@ -4,21 +4,35 @@ import Editor from '@monaco-editor/react';
 import { sqlJudgeApi } from '../services/api';
 
 const C = {
-  bg: '#0e0e0e',
-  panel: '#161616',
-  border: '#2a2a2a',
+  bg: '#0a0a0b',
+  panel: '#111114',
+  panelHi: '#18181c',
+  border: '#242429',
+  borderHi: '#33333a',
   primary: '#f1bc8b',
+  primaryDim: '#8a6d52',
   secondary: '#e9c176',
-  muted: '#9d8e83',
-  onBg: '#e5e2e1',
-  onMuted: '#b8aca0',
-  accent: '#8ec07c',
-  error: '#ffb4ab',
+  gold: '#e2b96f',
+  muted: '#78787e',
+  onBg: '#e1e1e3',
+  onBgDim: '#9d9da3',
+  accent: '#7ec49a',
+  accentDim: '#3d6b51',
+  error: '#f48771',
+  errorDim: '#632d24',
   runBtn: '#4a9eff',
   submitBtn: '#f1bc8b',
-  surfaceLow: '#1c1b1b',
-  surfaceHi: '#2a2a2a',
-  outline: '#5c5753',
+  surfaceLow: '#0d0d10',
+  surfaceHi: '#1a1a1f',
+  outline: '#3a3a40',
+  schemaBg: '#0f1118',
+  schemaBorder: '#1e2233',
+  schemaHeader: 'linear-gradient(135deg, #1a1d2e 0%, #181b24 100%)',
+  outputBg: '#0d1117',
+  outputBorder: '#1a2332',
+  hintBg: '#1a1a15',
+  hintBorder: '#3a3520',
+  cardShadow: '0 1px 3px rgba(0,0,0,0.4)',
 };
 
 const SqlJudge = () => {
@@ -233,12 +247,15 @@ const SqlJudge = () => {
   const formatResult = (result) => {
     if (!result) return null;
     return (
-      <div style={{ overflow: 'auto', maxHeight: '400px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', fontFamily: "'JetBrains Mono', monospace" }}>
+      <div style={{ overflow: 'auto', borderRadius: '6px', border: `1px solid ${C.outputBorder}` }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
           <thead>
-            <tr style={{ background: C.surfaceHi }}>
+            <tr style={{ background: C.outputBg }}>
               {result.columns.map((col, i) => (
-                <th key={i} style={{ padding: '8px 12px', textAlign: 'left', borderBottom: `1px solid ${C.border}`, color: C.primary }}>
+                <th key={i} style={{
+                  padding: '7px 14px', textAlign: 'left', borderBottom: `1px solid ${C.outputBorder}`,
+                  color: '#6e9ecf', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em',
+                }}>
                   {col}
                 </th>
               ))}
@@ -246,9 +263,13 @@ const SqlJudge = () => {
           </thead>
           <tbody>
             {result.rows.map((row, ri) => (
-              <tr key={ri} style={{ borderBottom: `1px solid ${C.border}` }}>
+              <tr key={ri} style={{ background: ri % 2 === 0 ? 'transparent' : `${C.outputBg}` }}>
                 {row.map((cell, ci) => (
-                  <td key={ci} style={{ padding: '8px 12px', color: cell === '\u0000NULL' ? C.error : C.onBg }}>
+                  <td key={ci} style={{
+                    padding: '6px 14px', borderBottom: `1px solid ${C.border}20`,
+                    color: cell === '\u0000NULL' ? C.error : C.onBg, fontWeight: cell === '\u0000NULL' ? 600 : 400,
+                    fontSize: '11.5px',
+                  }}>
                     {cell === '\u0000NULL' ? 'NULL' : cell}
                   </td>
                 ))}
@@ -256,31 +277,33 @@ const SqlJudge = () => {
             ))}
           </tbody>
         </table>
-        {result.truncated && <p style={{ color: C.muted, marginTop: '8px', fontSize: '12px' }}>Result truncated</p>}
+        {result.truncated && <p style={{ color: C.muted, marginTop: '6px', padding: '0 14px 8px', fontSize: '10px' }}>Result truncated — showing first rows only</p>}
       </div>
     );
   };
 
   const getStatusBadge = () => {
     if (!status) return null;
-    const colors = {
-      ACCEPTED: C.accent,
-      WRONG_ANSWER: C.error,
-      TIME_LIMIT_EXCEEDED: '#ffcc00',
-      RUNTIME_ERROR: C.error,
-      SECURITY_VIOLATION: '#ff6b6b',
-      INTERNAL_ERROR: '#ff6b6b',
+    const config = {
+      ACCEPTED: { bg: C.accentDim, color: C.accent, icon: '✓' },
+      WRONG_ANSWER: { bg: C.errorDim, color: C.error, icon: '✗' },
+      TIME_LIMIT_EXCEEDED: { bg: '#3d3520', color: '#e2b96f', icon: '⏱' },
+      RUNTIME_ERROR: { bg: C.errorDim, color: C.error, icon: '⚠' },
+      SECURITY_VIOLATION: { bg: '#3d2020', color: '#ff6b6b', icon: '🔒' },
+      INTERNAL_ERROR: { bg: '#3d2020', color: '#ff6b6b', icon: '⚡' },
+      ERROR: { bg: C.errorDim, color: C.error, icon: '⚠' },
     };
+    const c = config[status] || { bg: '#2a2a2a', color: C.muted, icon: '' };
     return (
       <span style={{
-        display: 'inline-flex', alignItems: 'center', gap: '6px',
-        padding: '4px 12px', borderRadius: '4px',
-        background: `${colors[status] || C.muted}22`,
-        color: colors[status] || C.muted,
-        fontSize: '11px', fontFamily: "'JetBrains Mono', monospace",
-        textTransform: 'uppercase', letterSpacing: '0.08em',
+        display: 'inline-flex', alignItems: 'center', gap: '5px',
+        padding: '3px 10px', borderRadius: '4px',
+        background: c.bg, border: `1px solid ${c.color}30`,
+        color: c.color, fontSize: '10.5px', fontFamily: "'JetBrains Mono', monospace",
+        fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em',
       }}>
-        {status.replace('_', ' ')}
+        <span style={{ fontSize: '11px' }}>{c.icon}</span>
+        {status.replace(/_/g, ' ')}
       </span>
     );
   };
@@ -348,6 +371,8 @@ const SqlJudge = () => {
     );
   }
 
+  const [collapsedSections, setCollapsedSections] = useState({});
+
   const formatDescription = (text) => {
     if (!text) return null;
     const sections = text.split('\n\n').filter(s => s.trim());
@@ -355,62 +380,114 @@ const SqlJudge = () => {
       const lines = section.split('\n');
       const firstLine = lines[0].trim();
 
+      // ## Section headers — elegant with icon indicator
       if (firstLine.startsWith('## ')) {
+        const label = firstLine.slice(3).trim();
+        const collapsed = collapsedSections[i];
+        const isSchema = label.toLowerCase().includes('table') || label.toLowerCase().includes('schema');
+        const isOutput = label.toLowerCase().includes('expected') || label.toLowerCase().includes('output');
+        const accentCol = isSchema ? '#6e9ecf' : isOutput ? C.accent : C.gold;
         return (
-          <h3 key={i} style={{
-            margin: i > 0 ? '1.5rem 0 0.5rem' : '0 0 0.5rem',
-            color: C.secondary, fontSize: '14px', fontFamily: "'Playfair Display', serif",
-            fontWeight: 400, borderBottom: `1px solid ${C.border}`, paddingBottom: '0.35rem',
-          }}>
-            {firstLine.slice(3)}
-          </h3>
+          <div key={i} style={{ margin: '1.25rem 0 0.35rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+               onClick={() => setCollapsedSections(prev => ({...prev, [i]: !collapsed}))}>
+            <span style={{
+              width: '18px', height: '18px', borderRadius: '3px',
+              background: `${accentCol}18`, border: `1px solid ${accentCol}40`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '10px', color: accentCol, flexShrink: 0, transition: 'transform 0.2s',
+              transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+            }}>▼</span>
+            <h3 style={{ margin: 0, color: accentCol, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {label}
+            </h3>
+          </div>
         );
       }
 
+      if (collapsedSections[i]) return null;
+
+      // ### Hint / Example — beautiful card with left accent bar
       if (firstLine.startsWith('### ')) {
         return (
           <div key={i} style={{
-            margin: '1rem 0', padding: '0.75rem 1rem',
-            background: `${C.primary}0d`, border: `1px solid ${C.primary}33`,
-            borderRadius: '6px',
+            margin: '0.75rem 0', padding: '0.85rem 1rem 0.85rem 0.85rem',
+            background: C.hintBg, border: `1px solid ${C.hintBorder}`,
+            borderRadius: '6px', borderLeft: `3px solid ${C.gold}`,
+            display: 'flex', gap: '0.75rem',
           }}>
-            <div style={{ color: C.primary, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              {firstLine.slice(4).replace(':', '')}
-            </div>
-            <div style={{ color: C.onBg, fontSize: '13px', lineHeight: 1.6, fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
-              {lines.slice(1).join('\n')}
+            <span style={{ color: C.gold, fontSize: '14px', flexShrink: 0, marginTop: 1 }}>💡</span>
+            <div>
+              <div style={{ color: C.gold, fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                {firstLine.slice(4).replace(':', '')}
+              </div>
+              <div style={{ color: C.onBgDim, fontSize: '12.5px', lineHeight: 1.65, fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
+                {lines.slice(1).join('\n')}
+              </div>
             </div>
           </div>
         );
       }
 
+      // Table Schema — gorgeous card with gradient header
       if (section.includes('+---') && section.includes('|')) {
+        const headerLine = lines.length > 3 && lines[2].includes('|') ? lines[0].trim() : 'Table Schema';
+        const rows = [];
+        let colWidths = [];
+        for (const line of lines) {
+          if (line.includes('+---')) continue;
+          if (line.trim().startsWith('|')) {
+            const cells = line.split('|').filter(c => c.trim()).map(c => c.trim());
+            if (cells.length > 0) rows.push(cells);
+          }
+        }
         return (
           <div key={i} style={{
-            margin: '1rem 0', background: C.bg, border: `1px solid ${C.border}`,
-            borderRadius: '6px', overflow: 'hidden',
+            margin: '0.5rem 0 1rem', background: C.schemaBg,
+            border: `1px solid ${C.schemaBorder}`, borderRadius: '8px',
+            overflow: 'hidden', boxShadow: C.cardShadow,
           }}>
             <div style={{
-              padding: '0.4rem 0.75rem', background: C.surfaceHi, borderBottom: `1px solid ${C.border}`,
-              color: C.muted, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em',
+              padding: '0.5rem 0.85rem',
+              background: 'linear-gradient(135deg, #1a1d2e 0%, #151827 100%)',
+              borderBottom: `1px solid ${C.schemaBorder}`,
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
             }}>
-              {lines.length > 3 && lines[2].includes('|') ? lines[0].trim() : 'Table Schema'}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6e9ecf" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+              <span style={{ color: '#6e9ecf', fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                {headerLine}
+              </span>
             </div>
-            <div style={{
-              padding: '0.75rem 1rem', overflow: 'auto',
-              color: C.onBg, fontSize: '12px', lineHeight: 1.5,
-              fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre',
-            }}>
-              {section}
+            <div style={{ padding: '0.5rem 0', overflow: 'auto' }}>
+              {rows.length > 0 && (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }}>
+                  <tbody>
+                    {rows.map((row, ri) => (
+                      <tr key={ri} style={{ background: ri % 2 === 0 ? 'transparent' : `${C.surfaceHi}40` }}>
+                        {row.map((cell, ci) => (
+                          <td key={ci} style={{
+                            padding: '3px 10px',
+                            color: ri === 0 ? '#6e9ecf' : C.onBgDim,
+                            fontWeight: ri === 0 ? 600 : 400,
+                            borderBottom: ri < rows.length - 1 ? `1px solid ${C.border}20` : 'none',
+                          }}>
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         );
       }
 
+      // Plain text paragraph
       return (
         <p key={i} style={{
-          margin: i > 0 ? '0.75rem 0 0' : '0 0 0.75rem',
-          color: C.onBg, fontSize: '13px', lineHeight: 1.7,
+          margin: '0.35rem 0 0.65rem',
+          color: C.onBgDim, fontSize: '13px', lineHeight: 1.72,
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}>
           {section.split('\n').map((l, j) => (
@@ -429,34 +506,38 @@ const SqlJudge = () => {
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       {/* Top bar */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1.5rem',
+        display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 1.2rem',
         background: C.panel, borderBottom: `1px solid ${C.border}`,
-        minHeight: '48px',
+        minHeight: '42px',
       }}>
         <button onClick={() => navigate('/sql-judge')} style={{
-          background: 'none', border: `1px solid ${C.border}`, color: C.muted,
-          padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px',
+          background: C.surfaceHi, border: `1px solid ${C.border}`, color: C.muted,
+          padding: '3px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px',
           fontFamily: "'JetBrains Mono', monospace",
         }}>
-          ← Back
+          ← Problems
         </button>
-        <span style={{ color: C.muted, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>#{problem.id}</span>
-        <h2 style={{ margin: 0, color: C.primary, fontFamily: "'Playfair Display', serif", fontSize: '1.15rem', fontWeight: 400 }}>
-          {problem.title}
-        </h2>
         <div style={{ flex: 1 }} />
         {status && getStatusBadge()}
-        {sseConnected && <span style={{ color: C.accent, fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }}>● Live</span>}
-        {polling && <span style={{ color: C.secondary, fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }}>⟳ Polling...</span>}
+        {sseConnected && <span style={{ color: C.accent, fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>● Live</span>}
+        {polling && <span style={{ color: C.gold, fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }}>⟳ Polling</span>}
       </div>
 
       {/* Main split area */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* LEFT: Description */}
         <div style={{
-          width: '38%', minWidth: '320px', borderRight: `1px solid ${C.border}`,
-          overflow: 'auto', padding: '1.25rem 1.5rem',
+          width: '40%', minWidth: '340px', borderRight: `1px solid ${C.border}`,
+          background: C.surfaceLow, overflow: 'auto', padding: '1.4rem 1.6rem',
         }}>
+          <div style={{ marginBottom: '0.25rem' }}>
+            <span style={{ color: C.muted, fontSize: '9px', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Problem #{problem.id}
+            </span>
+          </div>
+          <h2 style={{ margin: '0 0 1rem', color: C.onBg, fontFamily: "'Playfair Display', serif", fontSize: '1.2rem', fontWeight: 400, lineHeight: 1.3 }}>
+            {problem.title}
+          </h2>
           {formatDescription(problem.description)}
         </div>
 
