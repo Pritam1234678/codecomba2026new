@@ -257,8 +257,8 @@ function App() {
       <Route path="/web-contest" element={lazyWrap(<UserRoute><WebContestList /></UserRoute>)} />
       <Route path="/web-contest/:problemId" element={lazyWrap(<UserRoute><WebContest /></UserRoute>)} />
       <Route path="/web-contest/:problemId/ide" element={lazyWrap(<UserRoute><WebIde /></UserRoute>)} />
-      <Route path="/sql-judge" element={lazyWrap(<UserRoute><SqlJudge /></UserRoute>)} />
-      <Route path="/sql-judge/:id" element={lazyWrap(<UserRoute><SqlJudge /></UserRoute>)} />
+      <Route path="/sql-judge" element={<div style={{ display: 'flex', flex: 1, minHeight: 0, height: '100%' }}>{lazyWrap(<UserRoute><SqlJudge /></UserRoute>)}</div>} />
+      <Route path="/sql-judge/:id" element={<div style={{ display: 'flex', flex: 1, minHeight: 0, height: '100%' }}>{lazyWrap(<UserRoute><SqlJudge /></UserRoute>)}</div>} />
       <Route path="/duel" element={lazyWrap(<UserRoute><Duel /></UserRoute>)} />
       <Route path="/duel/:matchId" element={lazyWrap(<UserRoute><DuelArena /></UserRoute>)} />
 
@@ -292,12 +292,13 @@ function App() {
 
   // ── Sidebar layout (logged-in users) ──────────────────────────────────────
   if (showSidebar) {
+    const isSqlJudgePage = location.pathname.startsWith('/sql-judge');
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#131313' }}>
+      <div style={{ display: 'flex', height: isSqlJudgePage ? '100vh' : 'auto', minHeight: '100vh', backgroundColor: '#131313' }}>
         <AppSidebar />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, height: isSqlJudgePage ? '100vh' : 'auto' }}>
           {routes}
-          <Footer />
+          {!isSqlJudgePage && <Footer />}
         </div>
       </div>
     );

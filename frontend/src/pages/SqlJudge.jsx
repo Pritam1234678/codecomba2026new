@@ -67,7 +67,6 @@ const SqlJudge = () => {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({});
-  const [descTab, setDescTab] = useState(0);
 
   // Load problem list
   useEffect(() => {
@@ -668,29 +667,9 @@ const SqlJudge = () => {
     });
   };
 
-  const parseSections = (text) => {
-    if (!text) return [];
-    const secs = [];
-    const parts = text.split('\n\n').filter(s => s.trim());
-    let current = { title: 'Problem', content: [] };
-    for (const part of parts) {
-      const fl = part.trim().split('\n')[0];
-      if (fl.startsWith('## ')) {
-        if (current.content.length > 0) secs.push(current);
-        current = { title: fl.slice(3).trim(), content: [] };
-      } else {
-        current.content.push(part);
-      }
-    }
-    if (current.content.length > 0) secs.push(current);
-    return secs;
-  };
-
-  const descriptionSections = parseSections(problem?.description || '');
-
   // Solve view
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <div className="sql-judge-workspace" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
       {/* Top bar */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.45rem 1rem',
@@ -712,41 +691,21 @@ const SqlJudge = () => {
       </div>
 
       {/* Main split — fixed height, independent scroll */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div className="sql-judge-split" style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* LEFT: Description panel */}
-        <div style={{
+        <div className="sql-judge-description" style={{
           width: '42%', minWidth: '360px', maxWidth: '520px',
           borderRight: '1px solid #1f1c14', background: C.surfaceLow,
           display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
-          {/* Tabs */}
-          <div style={{
-            display: 'flex', borderBottom: '1px solid #1f1c14',
-            background: '#0a0a0a', flexShrink: 0,
-          }}>
-            {descriptionSections.map((s, i) => (
-              <button key={i} onClick={() => setDescTab(i)} style={{
-                background: descTab === i ? C.surfaceLow : 'transparent',
-                color: descTab === i ? '#c9a96e' : C.muted,
-                border: 'none', borderBottom: descTab === i ? '2px solid #c9a96e' : '2px solid transparent',
-                padding: '0.55rem 1rem', cursor: 'pointer',
-                fontSize: '11px', fontFamily: "'JetBrains Mono', monospace",
-                fontWeight: descTab === i ? 600 : 400,
-                textTransform: 'uppercase', letterSpacing: '0.05em',
-                transition: 'all 0.15s',
-              }}>
-                {s.title.replace(/:$/, '')}
-              </button>
-            ))}
-          </div>
-          {/* Tab content — scrollable */}
+          {/* Single continuous description — independently scrollable */}
           <div style={{ flex: 1, overflow: 'auto', padding: '1.25rem 1.4rem' }}>
-            {descriptionSections[descTab] ? formatDescription(descriptionSections[descTab].content.join('\n\n')) : null}
+            {formatDescription(problem.description)}
           </div>
         </div>
 
         {/* RIGHT: Editor + Results */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        <div className="sql-judge-workbench" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
           {/* Editor */}
           <div style={{ flex: '0 0 45%', display: 'flex', flexDirection: 'column', minHeight: '180px', borderBottom: '1px solid #1f1c14' }}>
             <div style={{
@@ -879,6 +838,41 @@ const SqlJudge = () => {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        .sql-judge-workspace {
+          background: #0a0a0b;
+        }
+        .sql-judge-description,
+        .sql-judge-workbench {
+          min-height: 0;
+        }
+        @media (max-width: 900px) {
+          .sql-judge-split {
+            overflow: auto !important;
+            flex-direction: column !important;
+          }
+          .sql-judge-description {
+            width: 100% !important;
+            max-width: none !important;
+            min-width: 0 !important;
+            flex: 0 0 42% !important;
+            border-right: 0 !important;
+            border-bottom: 1px solid #1f1c14;
+          }
+          .sql-judge-workbench {
+            flex: 1 0 58% !important;
+            min-height: 520px !important;
+          }
+        }
+        @media (max-width: 560px) {
+          .sql-judge-description {
+            flex-basis: 48% !important;
+          }
+          .sql-judge-workbench {
+            flex-basis: 52% !important;
+            min-height: 500px !important;
+          }
+        }
       `}</style>
     </div>
   );
