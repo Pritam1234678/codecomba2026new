@@ -488,6 +488,59 @@ const SqlJudge = () => {
         );
       }
 
+      // Pipe-separated table without borders — render as output/preview
+      if (lines.every(l => l.trim().startsWith('|') || l.trim().startsWith('-') || l.trim() === '')) {
+        const pipeRows = [];
+        for (const line of lines) {
+          if (line.includes('---')) continue;
+          if (line.trim().startsWith('|')) {
+            const cells = line.split('|').filter(c => c.trim()).map(c => c.trim());
+            if (cells.length > 0) pipeRows.push(cells);
+          }
+        }
+        if (pipeRows.length < 2) return null;
+        return (
+          <div key={i} style={{
+            margin: '0.35rem 0 0.75rem', background: '#0d0f0c',
+            border: '1px solid #1a2a1a', borderRadius: '6px',
+            overflow: 'hidden', boxShadow: C.cardShadow,
+          }}>
+            <div style={{
+              padding: '0.35rem 0.75rem',
+              background: 'linear-gradient(135deg, #121c14 0%, #0e160f 100%)',
+              borderBottom: '1px solid #1a2a1a',
+              display: 'flex', alignItems: 'center', gap: '0.4rem',
+            }}>
+              <span style={{ color: C.accent, fontSize: '11px' }}>▹</span>
+              <span style={{ color: C.accent, fontSize: '9.5px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Expected Output
+              </span>
+            </div>
+            <div style={{ padding: '0.4rem 0', overflow: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }}>
+                <tbody>
+                  {pipeRows.map((row, ri) => (
+                    <tr key={ri} style={{ background: ri % 2 === 0 ? 'transparent' : '#0a0f0a30' }}>
+                      {row.map((cell, ci) => (
+                        <td key={ci} style={{
+                          padding: '3px 9px',
+                          color: ri === 0 ? C.accent : C.onBgDim,
+                          fontWeight: ri === 0 ? 600 : 400,
+                          borderBottom: ri < pipeRows.length - 1 ? '1px solid #1a2a1a20' : 'none',
+                          fontSize: '10.5px',
+                        }}>
+                          {cell === '...' ? <span style={{ color: C.muted, fontStyle: 'italic' }}>...</span> : cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      }
+
       // Plain text paragraph
       return (
         <p key={i} style={{
