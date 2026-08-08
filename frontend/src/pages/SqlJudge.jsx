@@ -695,7 +695,7 @@ const SqlJudge = () => {
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* LEFT: Description */}
         <div style={{
-          width: '44%', maxWidth: '540px', minWidth: '320px',
+          width: '48%', maxWidth: '620px', minWidth: '340px',
           borderRight: '1px solid #1f1c14', background: C.surfaceLow,
           overflowY: 'auto', overflowX: 'hidden', padding: '1.5rem',
         }}>
