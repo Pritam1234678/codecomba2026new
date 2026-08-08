@@ -46,6 +46,7 @@ const SqlJudge = () => {
   const sseCancelledRef = useRef(false);
   const safetyRef = useRef(null);
   const verdictReceivedRef = useRef(false);
+  const executingRef = useRef(false);
   
   // History
   const [history, setHistory] = useState([]);
@@ -102,6 +103,7 @@ const SqlJudge = () => {
           setSseConnected(false);
           es.close();
           eventSourceRef.current = null;
+          if (!verdictReceivedRef.current) startPolling();
         };
 
         es.addEventListener('sql_verdict', (e) => {
@@ -155,6 +157,7 @@ const SqlJudge = () => {
   const handleVerdict = (verdict) => {
     if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
     verdictReceivedRef.current = true;
+    executingRef.current = false;
     setStatus(verdict.status);
     setRunning(false);
     setPolling(false);
@@ -163,7 +166,8 @@ const SqlJudge = () => {
   };
 
   const execute = async (isSubmit) => {
-    if (!sql.trim()) return;
+    if (!sql.trim() || executingRef.current) return;
+    executingRef.current = true;
     setRunning(true);
     setStatus('queued');
     setResult(null);
@@ -174,11 +178,12 @@ const SqlJudge = () => {
     safetyRef.current = setTimeout(() => {
       if (!verdictReceivedRef.current) {
         setRunning(false);
+        executingRef.current = false;
         setPolling(false);
         setError('Request timed out — the judge may be busy. Try again.');
       }
       safetyRef.current = null;
-    }, 25000);
+    }, 15000);
 
     try {
       const res = isSubmit 
@@ -188,6 +193,7 @@ const SqlJudge = () => {
     } catch (e) {
       if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
       setRunning(false);
+      executingRef.current = false;
       setError(e.response?.data?.message || 'Execution failed');
     }
   };
