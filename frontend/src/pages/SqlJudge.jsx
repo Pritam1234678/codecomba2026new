@@ -670,21 +670,20 @@ const SqlJudge = () => {
   };
 
   // Solve view
+  const historyHeight = (showHistory && history.length > 0) ? '140px' : '0px';
   return (
-    <div className="sql-judge-workspace" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
       {/* Top bar */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.45rem 1rem',
+        display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0 1rem',
         background: '#0d0d0c', borderBottom: '1px solid #1f1c14',
-        minHeight: '40px', flexShrink: 0,
+        height: '40px', flexShrink: 0,
       }}>
         <button onClick={() => navigate('/sql-judge')} style={{
           background: C.surfaceHi, border: `1px solid ${C.border}`, color: C.muted,
           padding: '3px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px',
           fontFamily: "'JetBrains Mono', monospace",
-        }}>
-          ← Problems
-        </button>
+        }}>← Problems</button>
         <span style={{ color: C.onBgDim, fontSize: '12px', fontFamily: "'Playfair Display', serif" }}>{problem.title}</span>
         <div style={{ flex: 1 }} />
         {status && getStatusBadge()}
@@ -692,26 +691,23 @@ const SqlJudge = () => {
         {polling && <span style={{ color: C.gold, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace" }}>⟳ Polling</span>}
       </div>
 
-      {/* Main split — fixed height, independent scroll */}
-      <div className="sql-judge-split" style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {/* LEFT: Description panel */}
-        <div className="sql-judge-description" style={{
-          width: '42%', minWidth: '360px', maxWidth: '520px',
+      {/* Main area — fills remaining space */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {/* LEFT: Description */}
+        <div style={{
+          width: '44%', maxWidth: '540px', minWidth: '320px',
           borderRight: '1px solid #1f1c14', background: C.surfaceLow,
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          overflowY: 'auto', overflowX: 'hidden', padding: '1.5rem',
         }}>
-          {/* Single continuous description — independently scrollable */}
-          <div style={{ flex: 1, overflow: 'auto', padding: '1.25rem 1.4rem' }}>
-            {formatDescription(problem.description)}
-          </div>
+          {formatDescription(problem.description)}
         </div>
 
         {/* RIGHT: Editor + Results */}
-        <div className="sql-judge-workbench" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, position: 'relative' }}>
-          {/* Editor — fills everything except button bar at bottom */}
-          <div style={{ position: 'absolute', inset: 0, bottom: result ? '45%' : '44px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          {/* Editor */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '200px' }}>
             <div style={{
-              padding: '0.4rem 1rem', background: '#0d0d0b',
+              padding: '0.45rem 1rem', background: '#0d0d0b',
               borderBottom: '1px solid #1f1c14', flexShrink: 0,
             }}>
               <span style={{ color: '#c9a96e', fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
@@ -743,63 +739,58 @@ const SqlJudge = () => {
                   lineNumbersMinChars: 3,
                   readOnly: running,
                 }}
-                loading={<div style={{ color: C.muted, padding: '1rem', fontSize: '12px' }}>Loading editor...</div>}
+                loading={<div style={{ color: C.muted, padding: '2rem', fontSize: '13px', textAlign: 'center' }}>Loading editor...</div>}
               />
             </div>
           </div>
 
-          {/* Buttons + Results — pinned at bottom */}
+          {/* Buttons bar */}
           <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            height: result ? '45%' : '44px', minHeight: '44px',
-            borderTop: '1px solid #1f1c14', background: '#0a0a09',
-            display: 'flex', flexDirection: 'column',
+            padding: '0.6rem 1rem', display: 'flex', gap: '0.75rem', alignItems: 'center',
+            borderTop: '1px solid #1f1c14', background: '#0a0a09', flexShrink: 0,
           }}>
-            {/* Buttons bar */}
-            <div style={{
-              padding: '0.6rem 1rem', display: 'flex', gap: '0.75rem', alignItems: 'center',
-              flexShrink: 0, borderBottom: '1px solid #1f1c14',
+            <button onClick={() => execute(false)} disabled={running || !sql.trim()} style={{
+              background: 'linear-gradient(135deg, #2a2215 0%, #1f1a10 100%)', color: '#c9a96e',
+              border: '1px solid #3a2e1a', padding: '7px 14px', borderRadius: '4px',
+              cursor: running ? 'not-allowed' : 'pointer', fontWeight: 500,
+              fontFamily: "'JetBrains Mono', monospace", fontSize: '11px',
+              opacity: running || !sql.trim() ? 0.5 : 1,
             }}>
-              <button onClick={() => execute(false)} disabled={running || !sql.trim()} style={{
-                background: 'linear-gradient(135deg, #2a2215 0%, #1f1a10 100%)', color: '#c9a96e',
-                border: '1px solid #3a2e1a', padding: '7px 14px', borderRadius: '4px',
-                cursor: running ? 'not-allowed' : 'pointer', fontWeight: 500,
-                fontFamily: "'JetBrains Mono', monospace", fontSize: '10.5px',
-                opacity: running || !sql.trim() ? 0.5 : 1,
-              }}>
-                {running ? 'Running...' : '▶ Run'}
-              </button>
-              <button onClick={() => execute(true)} disabled={running || !sql.trim()} style={{
-                background: C.submitBtn, color: '#0e0e0e', border: 'none',
-                padding: '7px 14px', borderRadius: '4px', cursor: running ? 'not-allowed' : 'pointer',
-                fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '10.5px',
-                opacity: running || !sql.trim() ? 0.5 : 1,
-              }}>
-                {running ? 'Submitting...' : 'Submit'}
-              </button>
-              <button onClick={() => { setShowHistory(!showHistory); if (!history.length) loadHistory(); }} style={{
-                background: 'none', border: '1px solid #1f1c14', color: C.muted,
-                padding: '5px 10px', borderRadius: '4px', cursor: 'pointer',
-                fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
-              }}>
-                History
-              </button>
-              <div style={{ flex: 1 }} />
-              {error && <span style={{ color: C.error, fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }}>{error}</span>}
-            </div>
+              {running ? 'Running...' : '▶ Run'}
+            </button>
+            <button onClick={() => execute(true)} disabled={running || !sql.trim()} style={{
+              background: C.submitBtn, color: '#0e0e0e', border: 'none',
+              padding: '7px 14px', borderRadius: '4px', cursor: running ? 'not-allowed' : 'pointer',
+              fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px',
+              opacity: running || !sql.trim() ? 0.5 : 1,
+            }}>
+              {running ? 'Submitting...' : 'Submit'}
+            </button>
+            <button onClick={() => { setShowHistory(!showHistory); if (!history.length) loadHistory(); }} style={{
+              background: 'none', border: '1px solid #1f1c14', color: C.muted,
+              padding: '5px 10px', borderRadius: '4px', cursor: 'pointer',
+              fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
+            }}>
+              History
+            </button>
+            <div style={{ flex: 1 }} />
+            {error && <span style={{ color: C.error, fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }}>{error}</span>}
+          </div>
 
-            {/* Result area */}
-            {result ? (
-              <div style={{ flex: 1, overflow: 'auto', padding: '0.75rem 1rem', minHeight: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span style={{ color: '#c9a96e', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                    {isTestRun ? 'Preview' : 'Output'} · {result.columns.length} cols × {result.rows.length} rows
-                  </span>
-                </div>
+          {/* Result */}
+          {result && (
+            <div style={{
+              flex: 1, overflow: 'auto', background: '#0a0a09',
+              borderTop: '1px solid #1f1c14', minHeight: 0, padding: '0.75rem 1rem',
+            }}>
+              <span style={{ color: '#c9a96e', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                {isTestRun ? 'Preview' : 'Output'} · {result.columns.length} cols × {result.rows.length} rows
+              </span>
+              <div style={{ marginTop: '0.5rem' }}>
                 {formatResult(result)}
               </div>
-            ) : null}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -807,7 +798,7 @@ const SqlJudge = () => {
       {showHistory && history.length > 0 && (
         <div style={{
           background: '#0d0d0d', borderTop: '1px solid #1f1c14', padding: '0.75rem 1rem',
-          maxHeight: '160px', overflow: 'auto', flexShrink: 0,
+          maxHeight: '140px', overflow: 'auto', flexShrink: 0,
         }}>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {history.slice(0, 12).map(s => (
@@ -816,7 +807,7 @@ const SqlJudge = () => {
                 padding: '0.3rem 0.6rem', background: C.bg, border: '1px solid #1f1c14', borderRadius: '3px',
               }}>
                 <span style={{
-                  minWidth: '70px', padding: '1px 5px', borderRadius: '2px',
+                  minWidth: '60px', padding: '1px 5px', borderRadius: '2px',
                   background: s.testRun ? '#1c1912' : (s.status === 'ACCEPTED' ? '#121c14' : '#2a1a1a'),
                   color: s.testRun ? '#9d8e83' : (s.status === 'ACCEPTED' ? C.accent : C.error),
                   fontSize: '9px', fontFamily: "'JetBrains Mono', monospace", textAlign: 'center',
@@ -824,12 +815,8 @@ const SqlJudge = () => {
                 }}>
                   {s.testRun ? 'Test' : s.status.replace('_', ' ')}
                 </span>
-                <span style={{ color: C.muted, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace" }}>
-                  {s.executionTimeMs}ms
-                </span>
-                <span style={{ color: C.outline, fontSize: '9px' }}>
-                  {new Date(s.submittedAt).toLocaleTimeString()}
-                </span>
+                <span style={{ color: C.muted, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace" }}>{s.executionTimeMs}ms</span>
+                <span style={{ color: C.outline, fontSize: '9px' }}>{new Date(s.submittedAt).toLocaleTimeString()}</span>
               </div>
             ))}
           </div>
@@ -838,40 +825,8 @@ const SqlJudge = () => {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        .sql-judge-workspace {
-          background: #0a0a0b;
-        }
-        .sql-judge-description,
-        .sql-judge-workbench {
-          min-height: 0;
-        }
-        @media (max-width: 900px) {
-          .sql-judge-split {
-            overflow: auto !important;
-            flex-direction: column !important;
-          }
-          .sql-judge-description {
-            width: 100% !important;
-            max-width: none !important;
-            min-width: 0 !important;
-            flex: 0 0 42% !important;
-            border-right: 0 !important;
-            border-bottom: 1px solid #1f1c14;
-          }
-          .sql-judge-workbench {
-            flex: 1 0 58% !important;
-            min-height: 520px !important;
-          }
-        }
-        @media (max-width: 560px) {
-          .sql-judge-description {
-            flex-basis: 48% !important;
-          }
-          .sql-judge-workbench {
-            flex-basis: 52% !important;
-            min-height: 500px !important;
-          }
+        @media (max-width: 960px) {
+          .sql-judge-split-hack > div:first-child { width: 100% !important; max-width: none !important; min-width: 0 !important; }
         }
       `}</style>
     </div>
