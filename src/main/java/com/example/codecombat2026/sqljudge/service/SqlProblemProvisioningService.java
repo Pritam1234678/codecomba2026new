@@ -180,6 +180,7 @@ public class SqlProblemProvisioningService {
             try (Connection conn = node.getRunDataSource().getConnection()) {
                 conn.setAutoCommit(true);
                 try (Statement st = conn.createStatement()) {
+                    st.execute("SET ROLE NONE");
                     st.execute("SET search_path TO " + quoteIdent(schemaName));
                     st.setMaxRows(10_000);
                     try (ResultSet rs = st.executeQuery(problem.getOfficialSolutionSql())) {

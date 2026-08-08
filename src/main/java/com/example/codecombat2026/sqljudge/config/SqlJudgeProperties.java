@@ -82,6 +82,8 @@ public class SqlJudgeProperties {
 
         private String username;
 
+        @com.fasterxml.jackson.annotation.JsonIgnore
+        @lombok.ToString.Exclude
         private String password;
 
         /** Per-node execution slot cap — never exceeds this many concurrent queries. */

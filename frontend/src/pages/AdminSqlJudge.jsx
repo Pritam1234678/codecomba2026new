@@ -20,7 +20,6 @@ const C = {
 const EMPTY_FORM = {
   title: '',
   description: '',
-  schemaName: '',
   setupSql: '',
   officialSolutionSql: '',
   comparisonMode: 'UNORDERED',

@@ -63,7 +63,7 @@ public class SqlJudgeController {
     @GetMapping("/problems")
     @PreAuthorize("isAuthenticated()")
     public List<SqlProblemView> listProblems() {
-        return SqlProblemView.fromAll(problemRepository.findByEnabledTrue());
+        return SqlProblemView.fromAll(problemRepository.findByEnabledTrueOrderByCreatedAtDesc());
     }
 
     @GetMapping("/problems/{id}")

@@ -41,6 +41,7 @@ const SqlJudge = () => {
   const [polling, setPolling] = useState(false);
   const [sseConnected, setSseConnected] = useState(false);
   const eventSourceRef = useRef(null);
+  const sseCancelledRef = useRef(false);
   
   // History
   const [history, setHistory] = useState([]);
@@ -76,30 +77,45 @@ const SqlJudge = () => {
 
   // SSE connection for live verdicts
   const connectSSE = () => {
+    const capturedSubmissionId = submissionId;
+
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
+    sseCancelledRef.current = false;
+
+    let cancelled = false;
+
     sqlJudgeApi.issueSseTicket()
       .then(({ ticket }) => {
+        if (cancelled || sseCancelledRef.current) return;
         const es = new EventSource(`/api/sql/stream?ticket=${ticket}`);
         eventSourceRef.current = es;
-        
-        es.onopen = () => setSseConnected(true);
-        es.onerror = () => { setSseConnected(false); es.close(); };
-        
+
+        es.onopen = () => { if (!sseCancelledRef.current) setSseConnected(true); };
+        es.onerror = () => {
+          setSseConnected(false);
+          es.close();
+          eventSourceRef.current = null;
+        };
+
         es.addEventListener('sql_verdict', (e) => {
           const verdict = JSON.parse(e.data);
-          if (verdict.submissionId === submissionId) {
+          if (verdict.submissionId === capturedSubmissionId) {
             handleVerdict(verdict);
             es.close();
+            eventSourceRef.current = null;
             setSseConnected(false);
           }
         });
       })
       .catch(() => {
-        // Fallback to polling if SSE fails
+        if (cancelled || sseCancelledRef.current) return;
         startPolling();
       });
+
+    return () => { cancelled = true; };
   };
 
   const startPolling = () => {
@@ -120,10 +136,16 @@ const SqlJudge = () => {
   };
 
   useEffect(() => {
-    if (submissionId) {
-      const cleanup = connectSSE();
-      return cleanup;
-    }
+    if (!submissionId) return;
+    const cleanup = connectSSE();
+    return () => {
+      sseCancelledRef.current = true;
+      cleanup?.();
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
   }, [submissionId]);
 
   const handleVerdict = (verdict) => {

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -20,6 +21,7 @@ public interface SqlProblemRepository extends JpaRepository<SqlProblem, Long> {
     Page<SqlProblem> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     @Modifying
+    @Transactional
     @Query("UPDATE SqlProblem p SET p.enabled = :enabled WHERE p.id = :id")
     void updateEnabled(@Param("id") Long id, @Param("enabled") boolean enabled);
 }

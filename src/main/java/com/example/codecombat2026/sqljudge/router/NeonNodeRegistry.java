@@ -50,7 +50,7 @@ public class NeonNodeRegistry {
                 HikariDataSource runDs = buildDataSource(cfg.getUrl(), cfg.getUsername(), cfg.getPassword(),
                     cfg.getId() + "-run", cfg.getMaxConcurrency());
                 NeonNode node = new NeonNode(cfg.getId(), adminDs, runDs,
-                    cfg.getMaxConcurrency(), 3);
+                    cfg.getMaxConcurrency(), properties.getFailureThreshold());
                 nodes.put(node.getId(), node);
                 log.info("✅ SQL judge node '{}' registered (maxConcurrency={})", node.getId(), cfg.getMaxConcurrency());
             } catch (Exception e) {

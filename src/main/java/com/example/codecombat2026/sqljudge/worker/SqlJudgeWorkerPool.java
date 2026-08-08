@@ -361,7 +361,7 @@ public class SqlJudgeWorkerPool {
             }
             return result;
         } finally {
-            if (first != null && !Thread.currentThread().isInterrupted()) {
+            if (first != null) {
                 first.release(0);
             }
         }
@@ -379,7 +379,9 @@ public class SqlJudgeWorkerPool {
         try {
             submissionRepository.updateStatus(submissionId,
                 List.of(SqlSubmission.Status.QUEUED), SqlSubmission.Status.RUNNING);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("SQL judge: markRunning failed for submission {}: {}", submissionId, e.getMessage());
+        }
     }
 
     private void finalize(Long submissionId, SqlSubmission.Status status, Long timeMs,
