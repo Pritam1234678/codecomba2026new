@@ -65,6 +65,7 @@ const SqlJudge = () => {
   // History
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState({});
 
   // Load problem list
   useEffect(() => {
@@ -370,8 +371,6 @@ const SqlJudge = () => {
       </div>
     );
   }
-
-  const [collapsedSections, setCollapsedSections] = useState({});
 
   const formatDescription = (text) => {
     if (!text) return null;
