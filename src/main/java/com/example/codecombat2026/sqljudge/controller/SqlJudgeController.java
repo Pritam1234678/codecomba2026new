@@ -153,11 +153,20 @@ public class SqlJudgeController {
     @PreAuthorize("isAuthenticated()")
     public List<SqlSubmissionStatusResponse> mySubmissions(
             @AuthenticationPrincipal UserDetailsImpl user,
-            @RequestParam(defaultValue = "10") int limit) {
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(required = false) Long problemId) {
         int capped = Math.max(1, Math.min(limit, 50));
-        return submissionRepository
-            .findByUserIdOrderBySubmittedAtDesc(user.getId(), PageRequest.of(0, capped))
-            .getContent().stream()
+        List<SqlSubmission> list;
+        if (problemId != null) {
+            list = submissionRepository
+                .findTop20ByUserIdAndProblemIdOrderBySubmittedAtDesc(user.getId(), problemId)
+                .stream().limit(capped).toList();
+        } else {
+            list = submissionRepository
+                .findByUserIdOrderBySubmittedAtDesc(user.getId(), PageRequest.of(0, capped))
+                .getContent();
+        }
+        return list.stream()
             .map(s -> SqlSubmissionStatusResponse.from(s, null))
             .toList();
     }

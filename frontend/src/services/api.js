@@ -79,7 +79,11 @@ export const sqlJudgeApi = {
   run: (id, sql) => api.post(`/sql/problems/${id}/run`, { sql }).then(r => r.data),
   submit: (id, sql) => api.post(`/sql/problems/${id}/submit`, { sql }).then(r => r.data),
   submissionStatus: (submissionId) => api.get(`/sql/submissions/${submissionId}`).then(r => r.data),
-  mySubmissions: (limit = 10) => api.get(`/sql/submissions?limit=${limit}`).then(r => r.data),
+  mySubmissions: (limit = 10, problemId) => {
+    const params = { limit };
+    if (problemId) params.problemId = problemId;
+    return api.get('/sql/submissions', { params }).then(r => r.data);
+  },
   issueSseTicket: () => api.post('/sql/sse-ticket').then(r => r.data),
   
   // Admin

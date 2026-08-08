@@ -20,6 +20,8 @@ public interface SqlSubmissionRepository extends JpaRepository<SqlSubmission, Lo
 
     List<SqlSubmission> findTop10ByUserIdOrderBySubmittedAtDesc(Long userId);
 
+    List<SqlSubmission> findTop20ByUserIdAndProblemIdOrderBySubmittedAtDesc(Long userId, Long problemId);
+
     long countByUserId(Long userId);
 
     @Modifying

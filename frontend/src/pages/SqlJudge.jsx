@@ -240,7 +240,7 @@ const SqlJudge = () => {
 
   const loadHistory = async () => {
     try {
-      const h = await sqlJudgeApi.mySubmissions(20);
+      const h = await sqlJudgeApi.mySubmissions(20, id);
       setHistory(h);
     } catch (e) {
       console.error('Failed to load history', e);
@@ -299,7 +299,7 @@ const SqlJudge = () => {
     const c = config[status] || { bg: '#2a2a2a', color: C.muted, icon: '' };
     const displayStatus = isTestRun && status === 'ACCEPTED' ? 'RUN_OK' : status;
     const displayConfig = isTestRun && status === 'ACCEPTED' 
-      ? { bg: '#1a222a', color: '#6e9ecf', icon: '▶' }
+      ? { bg: '#1c1912', color: '#9d8e83', icon: '▶' }
       : c;
     return (
       <span style={{
@@ -789,7 +789,7 @@ const SqlJudge = () => {
                   fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
                 }}
               >
-                History ({history.length})
+                History
               </button>
               <div style={{ flex: 1 }} />
               {error && <span style={{ color: C.error, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>{error}</span>}
@@ -824,13 +824,12 @@ const SqlJudge = () => {
               }}>
                 <span style={{
                   minWidth: '80px', padding: '1px 6px', borderRadius: '2px',
-                  background: s.testRun ? '#1a2a1a20' : (s.status === 'ACCEPTED' ? `${C.accent}22` : `${C.error}22`),
-                  color: s.testRun ? '#6e9ecf' : (s.status === 'ACCEPTED' ? C.accent : C.error),
-                  border: s.testRun ? '1px solid #1a2a1a40' : 'none',
+                  background: s.testRun ? '#1c1912' : (s.status === 'ACCEPTED' ? '#121c14' : '#2a1a1a'),
+                  color: s.testRun ? '#9d8e83' : (s.status === 'ACCEPTED' ? C.accent : C.error),
                   fontSize: '9px', fontFamily: "'JetBrains Mono', monospace", textAlign: 'center',
                   textTransform: 'uppercase',
                 }}>
-                  {s.testRun ? '▶ Run' : s.status.replace('_', ' ')}
+                  {s.testRun ? 'Test' : s.status.replace('_', ' ')}
                 </span>
                 <span style={{ color: C.muted, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace" }}>
                   {s.executionTimeMs}ms
