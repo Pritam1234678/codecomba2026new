@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
+import Editor from '@monaco-editor/react';
 import { sqlJudgeApi } from '../services/api';
 
 const C = {
@@ -338,23 +339,38 @@ const SqlJudge = () => {
           {problem.description}
         </div>
 
-        <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: '8px', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <label style={{ color: C.muted, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             Your SQL Query
           </label>
-          <textarea
-            value={sql}
-            onChange={e => setSql(e.target.value)}
-            disabled={running}
-            style={{
-              background: C.bg, border: `1px solid ${C.border}`, borderRadius: '4px',
-              color: C.onBg, fontFamily: "'JetBrains Mono', monospace", fontSize: '13px',
-              padding: '1rem', minHeight: '200px', resize: 'vertical',
-              outline: 'none', width: '100%', boxSizing: 'border-box',
-            }}
-            placeholder="SELECT * FROM employees WHERE ..."
-            spellCheck={false}
-          />
+          <div style={{ border: `1px solid ${C.border}`, borderRadius: '4px', overflow: 'hidden', minHeight: '260px' }}>
+            <Editor
+              height="260px"
+              defaultLanguage="sql"
+              value={sql}
+              onChange={(val) => setSql(val || '')}
+              theme="vs-dark"
+              options={{
+                fontSize: 13,
+                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                minimap: { enabled: false },
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                padding: { top: 12 },
+                renderLineHighlight: 'none',
+                overviewRulerLanes: 0,
+                hideCursorInOverviewRuler: true,
+                overviewRulerBorder: false,
+                glyphMargin: false,
+                folding: false,
+                lineDecorationsWidth: 8,
+                lineNumbersMinChars: 3,
+                readOnly: running,
+              }}
+              loading={<div style={{ color: C.muted, padding: '1rem', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>Loading editor...</div>}
+            />
+          </div>
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button
               onClick={() => execute(false)}
@@ -448,9 +464,6 @@ const SqlJudge = () => {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        textarea::-webkit-scrollbar { width: 8px; }
-        textarea::-webkit-scrollbar-track { background: ${C.bg}; }
-        textarea::-webkit-scrollbar-thumb { background: ${C.border}; border-radius: 4px; }
       `}</style>
     </div>
   );
