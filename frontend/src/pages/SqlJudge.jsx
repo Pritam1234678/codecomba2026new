@@ -376,20 +376,23 @@ const SqlJudge = () => {
   const formatDescription = (text) => {
     if (!text) return null;
     const sections = text.split('\n\n').filter(s => s.trim());
+    
+    let collapseUntilNextHeader = false;
+    
     return sections.map((section, i) => {
       const lines = section.split('\n');
       const firstLine = lines[0].trim();
 
-      // ## Section headers — elegant with icon indicator
       if (firstLine.startsWith('## ')) {
         const label = firstLine.slice(3).trim();
         const collapsed = collapsedSections[i];
         const isSchema = label.toLowerCase().includes('table') || label.toLowerCase().includes('schema');
         const isOutput = label.toLowerCase().includes('expected') || label.toLowerCase().includes('output');
         const accentCol = isSchema ? '#6e9ecf' : isOutput ? C.accent : C.gold;
+        collapseUntilNextHeader = !!collapsed;
         return (
           <div key={i} style={{ margin: '1.25rem 0 0.35rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
-               onClick={() => setCollapsedSections(prev => ({...prev, [i]: !collapsed}))}>
+               onClick={() => setCollapsedSections(prev => ({...prev, [i]: !prev[i]}))}>
             <span style={{
               width: '18px', height: '18px', borderRadius: '3px',
               background: `${accentCol}18`, border: `1px solid ${accentCol}40`,
@@ -404,7 +407,7 @@ const SqlJudge = () => {
         );
       }
 
-      if (collapsedSections[i]) return null;
+      if (collapseUntilNextHeader) return null;
 
       // ### Hint / Example — beautiful card with left accent bar
       if (firstLine.startsWith('### ')) {
