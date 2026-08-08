@@ -708,8 +708,8 @@ const SqlJudge = () => {
 
         {/* RIGHT: Editor + Results */}
         <div className="sql-judge-workbench" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, position: 'relative' }}>
-          {/* Editor — fills available height minus button bar */}
-          <div style={{ height: result ? '55%' : 'calc(100% - 44px)', display: 'flex', flexDirection: 'column', minHeight: '180px' }}>
+          {/* Editor — fills everything except button bar at bottom */}
+          <div style={{ position: 'absolute', inset: 0, bottom: result ? '45%' : '44px', display: 'flex', flexDirection: 'column' }}>
             <div style={{
               padding: '0.4rem 1rem', background: '#0d0d0b',
               borderBottom: '1px solid #1f1c14', flexShrink: 0,
@@ -748,8 +748,9 @@ const SqlJudge = () => {
             </div>
           </div>
 
-          {/* Buttons + Results — fixed at bottom */}
+          {/* Buttons + Results — pinned at bottom */}
           <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
             height: result ? '45%' : '44px', minHeight: '44px',
             borderTop: '1px solid #1f1c14', background: '#0a0a09',
             display: 'flex', flexDirection: 'column',
