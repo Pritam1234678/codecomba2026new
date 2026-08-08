@@ -668,6 +668,24 @@ const SqlJudge = () => {
     });
   };
 
+  const parseSections = (text) => {
+    if (!text) return [];
+    const secs = [];
+    const parts = text.split('\n\n').filter(s => s.trim());
+    let current = { title: 'Problem', content: [] };
+    for (const part of parts) {
+      const fl = part.trim().split('\n')[0];
+      if (fl.startsWith('## ')) {
+        if (current.content.length > 0) secs.push(current);
+        current = { title: fl.slice(3).trim(), content: [] };
+      } else {
+        current.content.push(part);
+      }
+    }
+    if (current.content.length > 0) secs.push(current);
+    return secs;
+  };
+
   const descriptionSections = parseSections(problem?.description || '');
 
   // Solve view
