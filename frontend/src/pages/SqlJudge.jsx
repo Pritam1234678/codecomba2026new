@@ -54,6 +54,7 @@ const SqlJudge = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [submissionId, setSubmissionId] = useState(null);
+  const [isTestRun, setIsTestRun] = useState(false);
   const [polling, setPolling] = useState(false);
   const [sseConnected, setSseConnected] = useState(false);
   const eventSourceRef = useRef(null);
@@ -206,6 +207,7 @@ const SqlJudge = () => {
   const execute = async (isSubmit) => {
     if (!sql.trim() || executingRef.current) return;
     executingRef.current = true;
+    setIsTestRun(!isSubmit);
     setRunning(true);
     setStatus('queued');
     setResult(null);
@@ -295,16 +297,20 @@ const SqlJudge = () => {
       ERROR: { bg: C.errorDim, color: C.error, icon: '⚠' },
     };
     const c = config[status] || { bg: '#2a2a2a', color: C.muted, icon: '' };
+    const displayStatus = isTestRun && status === 'ACCEPTED' ? 'RUN_OK' : status;
+    const displayConfig = isTestRun && status === 'ACCEPTED' 
+      ? { bg: '#1a222a', color: '#6e9ecf', icon: '▶' }
+      : c;
     return (
       <span style={{
         display: 'inline-flex', alignItems: 'center', gap: '5px',
         padding: '3px 10px', borderRadius: '4px',
-        background: c.bg, border: `1px solid ${c.color}30`,
-        color: c.color, fontSize: '10.5px', fontFamily: "'JetBrains Mono', monospace",
+        background: displayConfig.bg, border: `1px solid ${displayConfig.color}30`,
+        color: displayConfig.color, fontSize: '10.5px', fontFamily: "'JetBrains Mono', monospace",
         fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em',
       }}>
-        <span style={{ fontSize: '11px' }}>{c.icon}</span>
-        {status.replace(/_/g, ' ')}
+        <span style={{ fontSize: '11px' }}>{displayConfig.icon}</span>
+        {isTestRun && status === 'ACCEPTED' ? 'Run OK' : status.replace(/_/g, ' ')}
       </span>
     );
   };
@@ -794,7 +800,7 @@ const SqlJudge = () => {
               <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span style={{ color: '#c9a96e', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                    Output ({result.columns.length} cols, {result.rows.length} rows)
+                    {isTestRun ? 'Preview' : 'Output'} ({result.columns.length} cols, {result.rows.length} rows)
                   </span>
                 </div>
                 {formatResult(result)}
@@ -818,12 +824,13 @@ const SqlJudge = () => {
               }}>
                 <span style={{
                   minWidth: '80px', padding: '1px 6px', borderRadius: '2px',
-                  background: s.status === 'ACCEPTED' ? `${C.accent}22` : `${C.error}22`,
-                  color: s.status === 'ACCEPTED' ? C.accent : C.error,
+                  background: s.testRun ? '#1a2a1a20' : (s.status === 'ACCEPTED' ? `${C.accent}22` : `${C.error}22`),
+                  color: s.testRun ? '#6e9ecf' : (s.status === 'ACCEPTED' ? C.accent : C.error),
+                  border: s.testRun ? '1px solid #1a2a1a40' : 'none',
                   fontSize: '9px', fontFamily: "'JetBrains Mono', monospace", textAlign: 'center',
                   textTransform: 'uppercase',
                 }}>
-                  {s.status.replace('_', ' ')}
+                  {s.testRun ? '▶ Run' : s.status.replace('_', ' ')}
                 </span>
                 <span style={{ color: C.muted, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace" }}>
                   {s.executionTimeMs}ms
