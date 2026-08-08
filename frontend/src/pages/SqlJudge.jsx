@@ -707,9 +707,9 @@ const SqlJudge = () => {
         </div>
 
         {/* RIGHT: Editor + Results */}
-        <div className="sql-judge-workbench" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-          {/* Editor */}
-          <div style={{ flex: result ? '0 0 55%' : '1 1 auto', display: 'flex', flexDirection: 'column', minHeight: '180px', borderBottom: '1px solid #1f1c14' }}>
+        <div className="sql-judge-workbench" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0, position: 'relative' }}>
+          {/* Editor — fills available height minus button bar */}
+          <div style={{ height: result ? '55%' : 'calc(100% - 44px)', display: 'flex', flexDirection: 'column', minHeight: '180px' }}>
             <div style={{
               padding: '0.4rem 1rem', background: '#0d0d0b',
               borderBottom: '1px solid #1f1c14', flexShrink: 0,
@@ -748,10 +748,11 @@ const SqlJudge = () => {
             </div>
           </div>
 
-          {/* Results panel — scrollable */}
+          {/* Buttons + Results — fixed at bottom */}
           <div style={{
-            flex: result ? '1 1 45%' : '0 0 auto', display: 'flex', flexDirection: 'column', overflow: 'auto',
-            background: '#0a0a09', minHeight: 0,
+            height: result ? '45%' : '44px', minHeight: '44px',
+            borderTop: '1px solid #1f1c14', background: '#0a0a09',
+            display: 'flex', flexDirection: 'column',
           }}>
             {/* Buttons bar */}
             <div style={{
