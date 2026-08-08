@@ -67,6 +67,7 @@ const SqlJudge = () => {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({});
+  const [descTab, setDescTab] = useState(0);
 
   // Load problem list
   useEffect(() => {
@@ -667,14 +668,16 @@ const SqlJudge = () => {
     });
   };
 
+  const descriptionSections = parseSections(problem?.description || '');
+
   // Solve view
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Top bar */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 1.2rem',
+        display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.45rem 1rem',
         background: '#0d0d0c', borderBottom: '1px solid #1f1c14',
-        minHeight: '42px',
+        minHeight: '40px', flexShrink: 0,
       }}>
         <button onClick={() => navigate('/sql-judge')} style={{
           background: C.surfaceHi, border: `1px solid ${C.border}`, color: C.muted,
@@ -683,44 +686,60 @@ const SqlJudge = () => {
         }}>
           ← Problems
         </button>
+        <span style={{ color: C.onBgDim, fontSize: '12px', fontFamily: "'Playfair Display', serif" }}>{problem.title}</span>
         <div style={{ flex: 1 }} />
         {status && getStatusBadge()}
-        {sseConnected && <span style={{ color: C.accent, fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>● Live</span>}
-        {polling && <span style={{ color: C.gold, fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }}>⟳ Polling</span>}
+        {sseConnected && <span style={{ color: C.accent, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace" }}>● Live</span>}
+        {polling && <span style={{ color: C.gold, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace" }}>⟳ Polling</span>}
       </div>
 
-      {/* Main split area */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* LEFT: Description */}
+      {/* Main split — fixed height, independent scroll */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {/* LEFT: Description panel */}
         <div style={{
-          width: '40%', minWidth: '340px', borderRight: `1px solid ${C.border}`,
-          background: C.surfaceLow, overflow: 'auto', padding: '1.4rem 1.6rem',
+          width: '42%', minWidth: '360px', maxWidth: '520px',
+          borderRight: '1px solid #1f1c14', background: C.surfaceLow,
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
-          <div style={{ marginBottom: '0.25rem' }}>
-            <span style={{ color: C.muted, fontSize: '9px', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              Problem #{problem.id}
-            </span>
+          {/* Tabs */}
+          <div style={{
+            display: 'flex', borderBottom: '1px solid #1f1c14',
+            background: '#0a0a0a', flexShrink: 0,
+          }}>
+            {descriptionSections.map((s, i) => (
+              <button key={i} onClick={() => setDescTab(i)} style={{
+                background: descTab === i ? C.surfaceLow : 'transparent',
+                color: descTab === i ? '#c9a96e' : C.muted,
+                border: 'none', borderBottom: descTab === i ? '2px solid #c9a96e' : '2px solid transparent',
+                padding: '0.55rem 1rem', cursor: 'pointer',
+                fontSize: '11px', fontFamily: "'JetBrains Mono', monospace",
+                fontWeight: descTab === i ? 600 : 400,
+                textTransform: 'uppercase', letterSpacing: '0.05em',
+                transition: 'all 0.15s',
+              }}>
+                {s.title.replace(/:$/, '')}
+              </button>
+            ))}
           </div>
-          <h2 style={{ margin: '0 0 1rem', color: C.onBg, fontFamily: "'Playfair Display', serif", fontSize: '1.2rem', fontWeight: 400, lineHeight: 1.3 }}>
-            {problem.title}
-          </h2>
-          {formatDescription(problem.description)}
+          {/* Tab content — scrollable */}
+          <div style={{ flex: 1, overflow: 'auto', padding: '1.25rem 1.4rem' }}>
+            {descriptionSections[descTab] ? formatDescription(descriptionSections[descTab].content.join('\n\n')) : null}
+          </div>
         </div>
 
         {/* RIGHT: Editor + Results */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-          {/* Editor area */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {/* Editor */}
+          <div style={{ flex: '0 0 45%', display: 'flex', flexDirection: 'column', minHeight: '180px', borderBottom: '1px solid #1f1c14' }}>
             <div style={{
-              padding: '0.5rem 1rem', background: '#0d0d0b',
-              borderBottom: '1px solid #1f1c14',
-              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              padding: '0.4rem 1rem', background: '#0d0d0b',
+              borderBottom: '1px solid #1f1c14', flexShrink: 0,
             }}>
-              <span style={{ color: '#c9a96e', fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+              <span style={{ color: '#c9a96e', fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
                 SQL Editor
               </span>
             </div>
-            <div style={{ flex: 1, minHeight: '200px' }}>
+            <div style={{ flex: 1, minHeight: 0 }}>
               <Editor
                 height="100%"
                 defaultLanguage="sql"
@@ -750,60 +769,57 @@ const SqlJudge = () => {
             </div>
           </div>
 
-          {/* Buttons + Status + Results panel */}
+          {/* Results panel — scrollable */}
           <div style={{
-            borderTop: '1px solid #1f1c14', background: '#0a0a09',
-            padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem',
-            maxHeight: result ? '45%' : 'auto', overflow: 'auto',
+            flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto',
+            background: '#0a0a09', minHeight: 0,
           }}>
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => execute(false)}
-                disabled={running || !sql.trim()}
-                style={{
-                  background: 'linear-gradient(135deg, #2a2215 0%, #1f1a10 100%)', color: '#c9a96e', border: '1px solid #3a2e1a',
-                  padding: '8px 16px', borderRadius: '4px', cursor: running ? 'not-allowed' : 'pointer',
-                  fontWeight: 500, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px',
-                  opacity: running || !sql.trim() ? 0.5 : 1,
-                }}
-              >
-                {running ? '▶ Running...' : '▶ Run'}
+            {/* Buttons bar */}
+            <div style={{
+              padding: '0.6rem 1rem', display: 'flex', gap: '0.75rem', alignItems: 'center',
+              flexShrink: 0, borderBottom: '1px solid #1f1c14',
+            }}>
+              <button onClick={() => execute(false)} disabled={running || !sql.trim()} style={{
+                background: 'linear-gradient(135deg, #2a2215 0%, #1f1a10 100%)', color: '#c9a96e',
+                border: '1px solid #3a2e1a', padding: '7px 14px', borderRadius: '4px',
+                cursor: running ? 'not-allowed' : 'pointer', fontWeight: 500,
+                fontFamily: "'JetBrains Mono', monospace", fontSize: '10.5px',
+                opacity: running || !sql.trim() ? 0.5 : 1,
+              }}>
+                {running ? 'Running...' : '▶ Run'}
               </button>
-              <button
-                onClick={() => execute(true)}
-                disabled={running || !sql.trim()}
-                style={{
-                  background: C.submitBtn, color: '#0e0e0e', border: 'none',
-                  padding: '8px 16px', borderRadius: '4px', cursor: running ? 'not-allowed' : 'pointer',
-                  fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px',
-                  opacity: running || !sql.trim() ? 0.5 : 1,
-                }}
-              >
+              <button onClick={() => execute(true)} disabled={running || !sql.trim()} style={{
+                background: C.submitBtn, color: '#0e0e0e', border: 'none',
+                padding: '7px 14px', borderRadius: '4px', cursor: running ? 'not-allowed' : 'pointer',
+                fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", fontSize: '10.5px',
+                opacity: running || !sql.trim() ? 0.5 : 1,
+              }}>
                 {running ? 'Submitting...' : 'Submit'}
               </button>
-              <button
-                onClick={() => { setShowHistory(!showHistory); if (!history.length) loadHistory(); }}
-                style={{
-                  background: 'none', border: `1px solid ${C.border}`, color: C.muted,
-                  padding: '6px 12px', borderRadius: '4px', cursor: 'pointer',
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
-                }}
-              >
+              <button onClick={() => { setShowHistory(!showHistory); if (!history.length) loadHistory(); }} style={{
+                background: 'none', border: '1px solid #1f1c14', color: C.muted,
+                padding: '5px 10px', borderRadius: '4px', cursor: 'pointer',
+                fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
+              }}>
                 History
               </button>
               <div style={{ flex: 1 }} />
-              {error && <span style={{ color: C.error, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>{error}</span>}
+              {error && <span style={{ color: C.error, fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }}>{error}</span>}
             </div>
 
-            {/* Result table */}
-            {result && (
-              <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+            {/* Result area */}
+            {result ? (
+              <div style={{ flex: 1, overflow: 'auto', padding: '0.75rem 1rem', minHeight: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span style={{ color: '#c9a96e', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                    {isTestRun ? 'Preview' : 'Output'} ({result.columns.length} cols, {result.rows.length} rows)
+                    {isTestRun ? 'Preview' : 'Output'} · {result.columns.length} cols × {result.rows.length} rows
                   </span>
                 </div>
                 {formatResult(result)}
+              </div>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.border, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
+                Run or submit your query to see results
               </div>
             )}
           </div>
@@ -813,17 +829,17 @@ const SqlJudge = () => {
       {/* History drawer */}
       {showHistory && history.length > 0 && (
         <div style={{
-          background: C.panel, borderTop: `1px solid ${C.border}`, padding: '1rem',
-          maxHeight: '200px', overflow: 'auto',
+          background: '#0d0d0d', borderTop: '1px solid #1f1c14', padding: '0.75rem 1rem',
+          maxHeight: '160px', overflow: 'auto', flexShrink: 0,
         }}>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {history.slice(0, 10).map(s => (
+            {history.slice(0, 12).map(s => (
               <div key={s.id} style={{
                 display: 'flex', alignItems: 'center', gap: '0.5rem',
-                padding: '0.35rem 0.75rem', background: C.bg, border: `1px solid ${C.border}`, borderRadius: '3px',
+                padding: '0.3rem 0.6rem', background: C.bg, border: '1px solid #1f1c14', borderRadius: '3px',
               }}>
                 <span style={{
-                  minWidth: '80px', padding: '1px 6px', borderRadius: '2px',
+                  minWidth: '70px', padding: '1px 5px', borderRadius: '2px',
                   background: s.testRun ? '#1c1912' : (s.status === 'ACCEPTED' ? '#121c14' : '#2a1a1a'),
                   color: s.testRun ? '#9d8e83' : (s.status === 'ACCEPTED' ? C.accent : C.error),
                   fontSize: '9px', fontFamily: "'JetBrains Mono', monospace", textAlign: 'center',
