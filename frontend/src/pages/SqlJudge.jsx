@@ -319,6 +319,82 @@ const SqlJudge = () => {
     );
   }
 
+  const formatDescription = (text) => {
+    if (!text) return null;
+    const sections = text.split('\n\n').filter(s => s.trim());
+    return sections.map((section, i) => {
+      const lines = section.split('\n');
+      const firstLine = lines[0].trim();
+
+      if (firstLine.startsWith('## ')) {
+        return (
+          <h3 key={i} style={{
+            margin: i > 0 ? '1.5rem 0 0.5rem' : '0 0 0.5rem',
+            color: C.secondary, fontSize: '14px', fontFamily: "'Playfair Display', serif",
+            fontWeight: 400, borderBottom: `1px solid ${C.border}`, paddingBottom: '0.35rem',
+          }}>
+            {firstLine.slice(3)}
+          </h3>
+        );
+      }
+
+      if (firstLine.startsWith('### ')) {
+        return (
+          <div key={i} style={{
+            margin: '1rem 0', padding: '0.75rem 1rem',
+            background: `${C.primary}0d`, border: `1px solid ${C.primary}33`,
+            borderRadius: '6px',
+          }}>
+            <div style={{ color: C.primary, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {firstLine.slice(4).replace(':', '')}
+            </div>
+            <div style={{ color: C.onBg, fontSize: '13px', lineHeight: 1.6, fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
+              {lines.slice(1).join('\n')}
+            </div>
+          </div>
+        );
+      }
+
+      if (section.includes('+---') && section.includes('|')) {
+        return (
+          <div key={i} style={{
+            margin: '1rem 0', background: C.bg, border: `1px solid ${C.border}`,
+            borderRadius: '6px', overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '0.4rem 0.75rem', background: C.surfaceHi, borderBottom: `1px solid ${C.border}`,
+              color: C.muted, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em',
+            }}>
+              {lines.length > 3 && lines[2].includes('|') ? lines[0].trim() : 'Table Schema'}
+            </div>
+            <div style={{
+              padding: '0.75rem 1rem', overflow: 'auto',
+              color: C.onBg, fontSize: '12px', lineHeight: 1.5,
+              fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre',
+            }}>
+              {section}
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <p key={i} style={{
+          margin: i > 0 ? '0.75rem 0 0' : '0 0 0.75rem',
+          color: C.onBg, fontSize: '13px', lineHeight: 1.7,
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+        }}>
+          {section.split('\n').map((l, j) => (
+            <span key={j}>
+              {l}
+              {j < section.split('\n').length - 1 && <br />}
+            </span>
+          ))}
+        </p>
+      );
+    });
+  };
+
   // Solve view
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
@@ -350,14 +426,9 @@ const SqlJudge = () => {
         {/* LEFT: Description */}
         <div style={{
           width: '38%', minWidth: '320px', borderRight: `1px solid ${C.border}`,
-          overflow: 'auto', padding: '1.25rem',
+          overflow: 'auto', padding: '1.25rem 1.5rem',
         }}>
-          <div style={{
-            color: C.onBg, fontSize: '13px', lineHeight: 1.7,
-            whiteSpace: 'pre-wrap', fontFamily: "'JetBrains Mono', monospace",
-          }}>
-            {problem.description}
-          </div>
+          {formatDescription(problem.description)}
         </div>
 
         {/* RIGHT: Editor + Results */}
