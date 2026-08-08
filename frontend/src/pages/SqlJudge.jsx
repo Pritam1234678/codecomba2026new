@@ -510,7 +510,7 @@ const SqlJudge = () => {
               fontSize: '10px', color: accent, flexShrink: 0, transition: 'transform 0.2s',
               transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
             }}>▼</span>
-            <h3 style={{ margin: 0, color: accent, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <h3 style={{ margin: 0, color: accent, fontSize: '13px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               {label}
             </h3>
           </div>
@@ -532,10 +532,10 @@ const SqlJudge = () => {
           }}>
             <span style={{ color: C.gold, fontSize: '14px', flexShrink: 0, marginTop: 1 }}>💡</span>
             <div>
-              <div style={{ color: C.gold, fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+              <div style={{ color: C.gold, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
                 {firstLine.slice(4).replace(':', '')}
               </div>
-              <div style={{ color: C.onBgDim, fontSize: '12.5px', lineHeight: 1.65, fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
+              <div style={{ color: C.onBgDim, fontSize: '13.5px', lineHeight: 1.65, fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'pre-wrap' }}>
                 {lines.slice(1).join('\n')}
               </div>
             </div>
@@ -574,13 +574,13 @@ const SqlJudge = () => {
             </div>
             <div style={{ padding: '0.5rem 0', overflow: 'auto' }}>
               {rows.length > 0 && (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
                   <tbody>
                     {rows.map((row, ri) => (
                       <tr key={ri} style={{ background: ri % 2 === 0 ? 'transparent' : `${C.surfaceHi}30` }}>
                         {row.map((cell, ci) => (
                           <td key={ci} style={{
-                            padding: '3px 10px',
+                            padding: '4px 12px',
                             color: ri === 0 ? '#c9a96e' : C.onBgDim,
                             fontWeight: ri === 0 ? 600 : 400,
                             borderBottom: ri < rows.length - 1 ? '1px solid #2a251820' : 'none',
@@ -627,17 +627,17 @@ const SqlJudge = () => {
               </span>
             </div>
             <div style={{ padding: '0.4rem 0', overflow: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
                 <tbody>
                   {pipeRows.map((row, ri) => (
                     <tr key={ri} style={{ background: ri % 2 === 0 ? 'transparent' : '#0a0f0a30' }}>
                       {row.map((cell, ci) => (
                         <td key={ci} style={{
-                          padding: '3px 9px',
+                          padding: '4px 10px',
                           color: ri === 0 ? C.accent : C.onBgDim,
                           fontWeight: ri === 0 ? 600 : 400,
                           borderBottom: ri < pipeRows.length - 1 ? '1px solid #1a2a1a20' : 'none',
-                          fontSize: '10.5px',
+                          fontSize: '11.5px',
                         }}>
                           {cell === '...' ? <span style={{ color: C.muted, fontStyle: 'italic' }}>...</span> : cell}
                         </td>
@@ -655,7 +655,7 @@ const SqlJudge = () => {
       return (
         <p key={i} style={{
           margin: '0.35rem 0 0.65rem',
-          color: C.onBgDim, fontSize: '13px', lineHeight: 1.72,
+          color: C.onBgDim, fontSize: '14px', lineHeight: 1.72,
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}>
           {section.split('\n').map((l, j) => (
