@@ -42,6 +42,8 @@ const SqlJudge = () => {
   const [sseConnected, setSseConnected] = useState(false);
   const eventSourceRef = useRef(null);
   const sseCancelledRef = useRef(false);
+  const safetyRef = useRef(null);
+  const verdictReceivedRef = useRef(false);
   
   // History
   const [history, setHistory] = useState([]);
@@ -149,6 +151,8 @@ const SqlJudge = () => {
   }, [submissionId]);
 
   const handleVerdict = (verdict) => {
+    if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
+    verdictReceivedRef.current = true;
     setStatus(verdict.status);
     setRunning(false);
     setPolling(false);
@@ -162,13 +166,25 @@ const SqlJudge = () => {
     setStatus('queued');
     setResult(null);
     setError(null);
+    verdictReceivedRef.current = false;
     
+    if (safetyRef.current) clearTimeout(safetyRef.current);
+    safetyRef.current = setTimeout(() => {
+      if (!verdictReceivedRef.current) {
+        setRunning(false);
+        setPolling(false);
+        setError('Request timed out — the judge may be busy. Try again.');
+      }
+      safetyRef.current = null;
+    }, 25000);
+
     try {
       const res = isSubmit 
         ? await sqlJudgeApi.submit(id, sql)
         : await sqlJudgeApi.run(id, sql);
       setSubmissionId(res.submissionId);
     } catch (e) {
+      if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
       setRunning(false);
       setError(e.response?.data?.message || 'Execution failed');
     }
