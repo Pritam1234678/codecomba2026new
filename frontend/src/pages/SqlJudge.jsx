@@ -248,14 +248,14 @@ const SqlJudge = () => {
   const formatResult = (result) => {
     if (!result) return null;
     return (
-      <div style={{ overflow: 'auto', borderRadius: '6px', border: `1px solid ${C.outputBorder}` }}>
+      <div style={{ overflow: 'auto', borderRadius: '6px', border: '1px solid #2a2518', background: '#0d0d0a' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
           <thead>
-            <tr style={{ background: C.outputBg }}>
+            <tr style={{ background: '#14120b' }}>
               {result.columns.map((col, i) => (
                 <th key={i} style={{
-                  padding: '7px 14px', textAlign: 'left', borderBottom: `1px solid ${C.outputBorder}`,
-                  color: '#6e9ecf', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em',
+                  padding: '7px 14px', textAlign: 'left', borderBottom: '1px solid #2a2518',
+                  color: '#c9a96e', fontWeight: 600, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.06em',
                 }}>
                   {col}
                 </th>
@@ -264,10 +264,10 @@ const SqlJudge = () => {
           </thead>
           <tbody>
             {result.rows.map((row, ri) => (
-              <tr key={ri} style={{ background: ri % 2 === 0 ? 'transparent' : `${C.outputBg}` }}>
+              <tr key={ri} style={{ background: ri % 2 === 0 ? 'transparent' : '#0d0d0a' }}>
                 {row.map((cell, ci) => (
                   <td key={ci} style={{
-                    padding: '6px 14px', borderBottom: `1px solid ${C.border}20`,
+                    padding: '6px 14px', borderBottom: '1px solid #2a251820',
                     color: cell === '\u0000NULL' ? C.error : C.onBg, fontWeight: cell === '\u0000NULL' ? 600 : 400,
                     fontSize: '11.5px',
                   }}>
@@ -385,21 +385,24 @@ const SqlJudge = () => {
       if (firstLine.startsWith('## ')) {
         const label = firstLine.slice(3).trim();
         const collapsed = collapsedSections[i];
-        const isSchema = label.toLowerCase().includes('table') || label.toLowerCase().includes('schema');
+        const isTable = label.toLowerCase().includes('table') || label.toLowerCase().includes('schema');
         const isOutput = label.toLowerCase().includes('expected') || label.toLowerCase().includes('output');
-        const accentCol = isSchema ? '#6e9ecf' : isOutput ? C.accent : C.gold;
+        const accent = isTable ? '#c9a96e' : isOutput ? C.accent : C.gold;
+        const bg = isTable ? '#1f1b12' : isOutput ? '#121c14' : '#1c1912';
         collapseUntilNextHeader = !!collapsed;
         return (
-          <div key={i} style={{ margin: '1.25rem 0 0.35rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
-               onClick={() => setCollapsedSections(prev => ({...prev, [i]: !prev[i]}))}>
+          <div key={i} style={{
+            margin: '1.25rem 0 0.35rem', display: 'flex', alignItems: 'center', gap: '0.5rem',
+            cursor: 'pointer', userSelect: 'none',
+          }} onClick={() => setCollapsedSections(prev => ({...prev, [i]: !prev[i]}))}>
             <span style={{
               width: '18px', height: '18px', borderRadius: '3px',
-              background: `${accentCol}18`, border: `1px solid ${accentCol}40`,
+              background: bg, border: `1px solid ${accent}40`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '10px', color: accentCol, flexShrink: 0, transition: 'transform 0.2s',
+              fontSize: '10px', color: accent, flexShrink: 0, transition: 'transform 0.2s',
               transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
             }}>▼</span>
-            <h3 style={{ margin: 0, color: accentCol, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            <h3 style={{ margin: 0, color: accent, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               {label}
             </h3>
           </div>
@@ -444,18 +447,18 @@ const SqlJudge = () => {
         }
         return (
           <div key={i} style={{
-            margin: '0.5rem 0 1rem', background: C.schemaBg,
-            border: `1px solid ${C.schemaBorder}`, borderRadius: '8px',
+            margin: '0.5rem 0 1rem', background: '#0f100d',
+            border: '1px solid #2a2518', borderRadius: '8px',
             overflow: 'hidden', boxShadow: C.cardShadow,
           }}>
             <div style={{
               padding: '0.5rem 0.85rem',
-              background: 'linear-gradient(135deg, #1a1d2e 0%, #151827 100%)',
-              borderBottom: `1px solid ${C.schemaBorder}`,
+              background: 'linear-gradient(135deg, #1f1b10 0%, #181510 100%)',
+              borderBottom: '1px solid #2a2518',
               display: 'flex', alignItems: 'center', gap: '0.5rem',
             }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6e9ecf" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
-              <span style={{ color: '#6e9ecf', fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c9a96e" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+              <span style={{ color: '#c9a96e', fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 {headerLine}
               </span>
             </div>
@@ -464,13 +467,13 @@ const SqlJudge = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }}>
                   <tbody>
                     {rows.map((row, ri) => (
-                      <tr key={ri} style={{ background: ri % 2 === 0 ? 'transparent' : `${C.surfaceHi}40` }}>
+                      <tr key={ri} style={{ background: ri % 2 === 0 ? 'transparent' : `${C.surfaceHi}30` }}>
                         {row.map((cell, ci) => (
                           <td key={ci} style={{
                             padding: '3px 10px',
-                            color: ri === 0 ? '#6e9ecf' : C.onBgDim,
+                            color: ri === 0 ? '#c9a96e' : C.onBgDim,
                             fontWeight: ri === 0 ? 600 : 400,
-                            borderBottom: ri < rows.length - 1 ? `1px solid ${C.border}20` : 'none',
+                            borderBottom: ri < rows.length - 1 ? '1px solid #2a251820' : 'none',
                           }}>
                             {cell}
                           </td>
@@ -509,7 +512,7 @@ const SqlJudge = () => {
       {/* Top bar */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 1.2rem',
-        background: C.panel, borderBottom: `1px solid ${C.border}`,
+        background: '#0d0d0c', borderBottom: '1px solid #1f1c14',
         minHeight: '42px',
       }}>
         <button onClick={() => navigate('/sql-judge')} style={{
@@ -548,12 +551,12 @@ const SqlJudge = () => {
           {/* Editor area */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <div style={{
-              padding: '0.5rem 1rem', background: C.surfaceLow,
-              borderBottom: `1px solid ${C.border}`,
+              padding: '0.5rem 1rem', background: '#0d0d0b',
+              borderBottom: '1px solid #1f1c14',
               display: 'flex', alignItems: 'center', gap: '0.5rem',
             }}>
-              <span style={{ color: C.muted, fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                SQL
+              <span style={{ color: '#c9a96e', fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+                SQL Editor
               </span>
             </div>
             <div style={{ flex: 1, minHeight: '200px' }}>
@@ -588,7 +591,7 @@ const SqlJudge = () => {
 
           {/* Buttons + Status + Results panel */}
           <div style={{
-            borderTop: `1px solid ${C.border}`, background: C.surfaceLow,
+            borderTop: '1px solid #1f1c14', background: '#0a0a09',
             padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem',
             maxHeight: result ? '45%' : 'auto', overflow: 'auto',
           }}>
@@ -597,7 +600,7 @@ const SqlJudge = () => {
                 onClick={() => execute(false)}
                 disabled={running || !sql.trim()}
                 style={{
-                  background: C.runBtn, color: '#fff', border: 'none',
+                  background: 'linear-gradient(135deg, #2a2215 0%, #1f1a10 100%)', color: '#c9a96e', border: '1px solid #3a2e1a',
                   padding: '8px 16px', borderRadius: '4px', cursor: running ? 'not-allowed' : 'pointer',
                   fontWeight: 500, fontFamily: "'JetBrains Mono', monospace", fontSize: '11px',
                   opacity: running || !sql.trim() ? 0.5 : 1,
@@ -635,7 +638,7 @@ const SqlJudge = () => {
             {result && (
               <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span style={{ color: C.primary, fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  <span style={{ color: '#c9a96e', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
                     Output ({result.columns.length} cols, {result.rows.length} rows)
                   </span>
                 </div>
