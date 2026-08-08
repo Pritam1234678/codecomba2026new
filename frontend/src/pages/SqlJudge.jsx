@@ -103,7 +103,6 @@ const SqlJudge = () => {
           setSseConnected(false);
           es.close();
           eventSourceRef.current = null;
-          if (!verdictReceivedRef.current) startPolling();
         };
 
         es.addEventListener('sql_verdict', (e) => {
@@ -117,8 +116,7 @@ const SqlJudge = () => {
         });
       })
       .catch(() => {
-        if (cancelled || sseCancelledRef.current) return;
-        startPolling();
+        // Polling runs in useEffect in parallel — nothing to fall back to
       });
 
     return () => { cancelled = true; };
@@ -141,15 +139,39 @@ const SqlJudge = () => {
     return () => clearInterval(interval);
   };
 
+  const pollingRef = useRef(null);
+
   useEffect(() => {
     if (!submissionId) return;
-    const cleanup = connectSSE();
+    
+    // Start SSE (fast path)
+    const sseCleanup = connectSSE();
+    
+    // Start polling immediately (reliable fallback) in parallel
+    const capturedSid = submissionId;
+    setPolling(true);
+    const interval = setInterval(async () => {
+      try {
+        const res = await sqlJudgeApi.submissionStatus(capturedSid);
+        if (res.status !== 'QUEUED' && res.status !== 'RUNNING') {
+          handleVerdict(res);
+        }
+      } catch (e) {
+        setPolling(false);
+      }
+    }, 1500);
+    pollingRef.current = interval;
+    
     return () => {
       sseCancelledRef.current = true;
-      cleanup?.();
+      sseCleanup?.();
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
+      }
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
       }
     };
   }, [submissionId]);
@@ -158,6 +180,7 @@ const SqlJudge = () => {
     if (safetyRef.current) { clearTimeout(safetyRef.current); safetyRef.current = null; }
     verdictReceivedRef.current = true;
     executingRef.current = false;
+    if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
     setStatus(verdict.status);
     setRunning(false);
     setPolling(false);
