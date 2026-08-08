@@ -257,8 +257,8 @@ function App() {
       <Route path="/web-contest" element={lazyWrap(<UserRoute><WebContestList /></UserRoute>)} />
       <Route path="/web-contest/:problemId" element={lazyWrap(<UserRoute><WebContest /></UserRoute>)} />
       <Route path="/web-contest/:problemId/ide" element={lazyWrap(<UserRoute><WebIde /></UserRoute>)} />
-      <Route path="/sql-judge" element={<div style={{ display: 'flex', flex: 1, minHeight: 0, height: '100%' }}>{lazyWrap(<UserRoute><SqlJudge /></UserRoute>)}</div>} />
-      <Route path="/sql-judge/:id" element={<div style={{ display: 'flex', flex: 1, minHeight: 0, height: '100%' }}>{lazyWrap(<UserRoute><SqlJudge /></UserRoute>)}</div>} />
+      <Route path="/sql-judge" element={lazyWrap(<UserRoute><SqlJudge /></UserRoute>)} />
+      <Route path="/sql-judge/:id" element={lazyWrap(<UserRoute><SqlJudge /></UserRoute>)} />
       <Route path="/duel" element={lazyWrap(<UserRoute><Duel /></UserRoute>)} />
       <Route path="/duel/:matchId" element={lazyWrap(<UserRoute><DuelArena /></UserRoute>)} />
 
