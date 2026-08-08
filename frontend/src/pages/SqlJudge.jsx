@@ -311,56 +311,158 @@ const SqlJudge = () => {
 
   // List view
   if (!id) {
+    if (loadingProblems) {
+      return (
+        <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', background: C.bg }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ width: '44px', height: '44px', borderRadius: '50%', border: '2px solid #2a2518', borderTopColor: '#c9a96e', animation: 'spin 1s linear infinite', margin: '0 auto 1rem' }} />
+            <p style={{ color: C.muted, fontSize: '13px', fontFamily: "'JetBrains Mono', monospace" }}>Loading problems…</p>
+          </div>
+        </div>
+      );
+    }
+
+    const easy = problems.filter(p => (p.description || '').length < 400).length;
+    const medium = problems.filter(p => { const l = (p.description || '').length; return l >= 400 && l < 800; }).length;
+    const hard = problems.filter(p => (p.description || '').length >= 800).length;
+
     return (
-      <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ color: C.primary, fontFamily: "'Playfair Display', serif", fontSize: '2rem', margin: 0 }}>
-            SQL Judge
-          </h1>
-          <span style={{ color: C.muted, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
-            {loadingProblems ? 'Loading...' : `${problems.length} problems`}
-          </span>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'auto', background: C.bg }}>
+        {/* Hero header */}
+        <div style={{
+          background: 'linear-gradient(180deg, #14100a 0%, #0d0c09 60%, #0a0a0b 100%)',
+          borderBottom: '1px solid #1f1c14',
+          padding: '3rem 2rem 2.5rem',
+        }}>
+          <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2rem', marginBottom: '0.5rem' }}>
+              <div>
+                <span style={{ color: '#c9a96e', fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600 }}>
+                  Database
+                </span>
+                <h1 style={{ margin: '0.25rem 0 0', color: C.onBg, fontFamily: "'Playfair Display', serif", fontSize: '2.6rem', fontWeight: 400 }}>
+                  SQL Judge
+                </h1>
+                <p style={{ margin: '0.5rem 0 0', color: C.onBgDim, fontSize: '14px', lineHeight: 1.6, maxWidth: '500px', fontFamily: 'system-ui' }}>
+                  Practice SQL queries on real datasets across six distributed execution nodes. Write, run, and submit your solutions.
+                </p>
+              </div>
+              <div style={{ flex: 1 }} />
+              <div style={{ display: 'flex', gap: '1.5rem', paddingBottom: '0.5rem' }}>
+                {[{ label: 'Total', value: problems.length, color: '#c9a96e' },
+                  { label: 'Easy', value: easy, color: C.accent },
+                  { label: 'Medium', value: medium, color: '#e2b96f' },
+                  { label: 'Hard', value: hard, color: C.error },
+                ].map(s => (
+                  <div key={s.label} style={{ textAlign: 'center' }}>
+                    <div style={{ color: s.color, fontSize: '1.8rem', fontFamily: "'Playfair Display', serif", fontWeight: 600, lineHeight: 1 }}>
+                      {s.value}
+                    </div>
+                    <div style={{ color: C.muted, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '0.2rem' }}>
+                      {s.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
-        {loadingProblems ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: `2px solid ${C.border}`, borderTopColor: C.primary, animation: 'spin 1s linear infinite' }} />
-          </div>
-        ) : problems.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '4rem', color: C.muted }}>
-            <p>No SQL problems available yet.</p>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))' }}>
-            {problems.map(p => (
-              <Link
-                key={p.id}
-                to={`/sql-judge/${p.id}`}
-                style={{
-                  display: 'block',
-                  background: C.panel,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: '8px',
-                  padding: '1.5rem',
-                  textDecoration: 'none',
-                  color: C.onBg,
-                  transition: 'all 0.2s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = C.primary; e.currentTarget.style.background = C.surfaceHi; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.panel; }}
-              >
-                <h3 style={{ margin: '0 0 0.5rem', color: C.primary, fontFamily: "'Playfair Display', serif" }}>
-                  {p.title}
-                </h3>
-                <p style={{ margin: 0, color: C.muted, fontSize: '13px', lineHeight: 1.5 }}>
-                  {p.description?.slice(0, 200) || 'No description'}
-                </p>
-              </Link>
-            ))}
-          </div>
-        )}
+        {/* Problems grid */}
+        <div style={{ flex: 1, padding: '2rem', maxWidth: '1100px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+          {problems.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '5rem 0' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '1rem', opacity: 0.3 }}>🗄️</div>
+              <p style={{ color: C.muted, fontSize: '14px', fontFamily: "'JetBrains Mono', monospace" }}>No SQL problems available yet.</p>
+              <p style={{ color: C.onBgDim, fontSize: '12px', marginTop: '0.5rem' }}>Problems will appear here once created by an admin.</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
+              {problems.map((p, idx) => {
+                const d = p.description || '';
+                const isHard = d.length >= 800;
+                const isMedium = d.length >= 400 && d.length < 800;
+                const diff = isHard ? 'Hard' : isMedium ? 'Medium' : 'Easy';
+                const diffColor = isHard ? C.error : isMedium ? '#e2b96f' : C.accent;
+                const diffBg = isHard ? '#2d1a1a' : isMedium ? '#2a2415' : '#121c14';
+                
+                return (
+                  <Link key={p.id} to={`/sql-judge/${p.id}`} style={{ textDecoration: 'none' }}>
+                    <div style={{
+                      background: '#0d0d0d', border: '1px solid #1f1c14', borderRadius: '10px',
+                      padding: '1.4rem 1.5rem', transition: 'all 0.25s ease',
+                      height: '100%', display: 'flex', flexDirection: 'column',
+                    }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.borderColor = '#c9a96e40';
+                        e.currentTarget.style.background = '#11110e';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,0,0,0.4)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.borderColor = '#1f1c14';
+                        e.currentTarget.style.background = '#0d0d0d';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
+                        <span style={{
+                          background: diffBg, color: diffColor,
+                          padding: '2px 8px', borderRadius: '3px',
+                          fontSize: '9px', fontFamily: "'JetBrains Mono', monospace",
+                          fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em',
+                        }}>
+                          {diff}
+                        </span>
+                        <span style={{ color: C.muted, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace" }}>
+                          #{p.id}
+                        </span>
+                      </div>
+                      
+                      <h3 style={{
+                        margin: '0 0 0.6rem', color: C.onBg, fontFamily: "'Playfair Display', serif",
+                        fontSize: '1.15rem', fontWeight: 400, lineHeight: 1.35,
+                      }}>
+                        {p.title}
+                      </h3>
+                      
+                      <p style={{
+                        margin: 0, color: C.onBgDim, fontSize: '12.5px', lineHeight: 1.55,
+                        flex: 1, overflow: 'hidden', display: '-webkit-box',
+                        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                      }}>
+                        {d.split('\n')[0]?.slice(0, 150) || 'No description'}
+                      </p>
+
+                      <div style={{ marginTop: '1rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        {(d.includes('JOIN') || d.includes('join')) && (
+                          <span style={{ color: '#c9a96e', fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", background: '#1f1b1210', border: '1px solid #2a251820', padding: '2px 6px', borderRadius: '3px' }}>JOIN</span>
+                        )}
+                        {(d.includes('GROUP BY') || d.includes('COUNT') || d.includes('SUM') || d.includes('AVG')) && (
+                          <span style={{ color: C.accent, fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", background: '#121c1410', border: '1px solid #1a2a1a20', padding: '2px 6px', borderRadius: '3px' }}>Aggregation</span>
+                        )}
+                        {(d.includes('HAVING')) && (
+                          <span style={{ color: '#e2b96f', fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", background: '#2a241510', border: '1px solid #3a352020', padding: '2px 6px', borderRadius: '3px' }}>Filtering</span>
+                        )}
+                        {(d.includes('LEFT JOIN')) && (
+                          <span style={{ color: '#c9a96e', fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", background: '#1f1b1210', border: '1px solid #2a251820', padding: '2px 6px', borderRadius: '3px' }}>Advanced</span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+        `}</style>
       </div>
     );
+
   }
 
   // Solve view — guard until the problem is loaded
