@@ -521,6 +521,8 @@ const SqlJudge = () => {
 
       // ### Hint / Example — beautiful card with left accent bar
       if (firstLine.startsWith('### ')) {
+        const following = lines.slice(1).join('\n').trim();
+        if (!following) return null;
         return (
           <div key={i} style={{
             margin: '0.75rem 0', padding: '0.85rem 1rem 0.85rem 0.85rem',
@@ -707,7 +709,7 @@ const SqlJudge = () => {
         {/* RIGHT: Editor + Results */}
         <div className="sql-judge-workbench" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
           {/* Editor */}
-          <div style={{ flex: '0 0 45%', display: 'flex', flexDirection: 'column', minHeight: '180px', borderBottom: '1px solid #1f1c14' }}>
+          <div style={{ flex: result ? '0 0 55%' : '1 1 auto', display: 'flex', flexDirection: 'column', minHeight: '180px', borderBottom: '1px solid #1f1c14' }}>
             <div style={{
               padding: '0.4rem 1rem', background: '#0d0d0b',
               borderBottom: '1px solid #1f1c14', flexShrink: 0,
@@ -748,7 +750,7 @@ const SqlJudge = () => {
 
           {/* Results panel — scrollable */}
           <div style={{
-            flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto',
+            flex: result ? '1 1 45%' : '0 0 auto', display: 'flex', flexDirection: 'column', overflow: 'auto',
             background: '#0a0a09', minHeight: 0,
           }}>
             {/* Buttons bar */}
@@ -794,11 +796,7 @@ const SqlJudge = () => {
                 </div>
                 {formatResult(result)}
               </div>
-            ) : (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.border, fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }}>
-                Run or submit your query to see results
-              </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
